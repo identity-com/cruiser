@@ -195,16 +195,17 @@ impl SingleIndexableAccountArgument<()> for AccountInfo {
 
 #[cfg(test)]
 pub mod account_info_test {
-    use std::array::IntoIter;
     use crate::{
         AccountInfo, All, Any, MultiIndexableAccountArgument, NotAll, NotAny, Pubkey,
         SingleIndexableAccountArgument,
     };
     use rand::{thread_rng, Rng};
     use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
+    use std::array::IntoIter;
     use std::cell::RefCell;
     use std::mem::align_of;
     use std::rc::Rc;
+
     fn add<const N: usize>(data: &mut Vec<u8>, add: [u8; N]) {
         for item in IntoIter::new(add) {
             data.push(item);
