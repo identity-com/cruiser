@@ -2,7 +2,6 @@ use crate::solana_program::pubkey::PubkeyError;
 use crate::{GeneratorError, GeneratorResult, Pubkey};
 use std::fmt::Debug;
 use std::iter::once;
-use std::ops::Deref;
 
 /// A possible seed to a PDA.
 pub trait PDASeed: AsRef<[u8]> {
@@ -35,9 +34,24 @@ pub trait PDASeeder: Debug {
     /// Gets an iterator of seeds for this address.
     fn seeds<'a>(&'a self) -> Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a>;
 }
+impl<'b, T> PDASeeder for &'b T where T: PDASeeder{
+    fn seeds<'a>(&'a self) -> Box<dyn Iterator<Item=&'a dyn PDASeed> + 'a> {
+        T::seeds(self)
+    }
+}
+impl<'b, T> PDASeeder for &'b mut T where T: PDASeeder{
+    fn seeds<'a>(&'a self) -> Box<dyn Iterator<Item=&'a dyn PDASeed> + 'a> {
+        T::seeds(self)
+    }
+}
+impl<T> PDASeeder for Box<T> where T: PDASeeder{
+    fn seeds<'a>(&'a self) -> Box<dyn Iterator<Item=&'a dyn PDASeed> + 'a> {
+        T::seeds(self)
+    }
+}
 impl PDASeeder for &dyn PDASeeder {
     fn seeds<'a>(&'a self) -> Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a> {
-        self.deref().seeds()
+        <dyn PDASeeder as PDASeeder>::seeds(self)
     }
 }
 
