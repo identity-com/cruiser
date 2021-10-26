@@ -2,6 +2,7 @@ use crate::{GeneratorError, GeneratorResult};
 pub use short_vec::ShortVec;
 use std::borrow::Cow;
 use std::cmp::{max, min};
+use std::convert::TryInto;
 use std::ops::{Bound, RangeBounds};
 
 pub mod short_vec;
@@ -69,7 +70,7 @@ impl<'a, T> Take<'a> for &'a [T] {
                 expected: format!("{} bytes", N),
                 found: format!("{} bytes", self.len()),
             }
-                .into());
+            .into());
         }
         let out = self[0..N].try_into().unwrap();
         *self = &self[N..];
