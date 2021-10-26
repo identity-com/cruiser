@@ -49,6 +49,34 @@ pub fn convert_range(
     }
 }
 
+/// Adds the [`take_array`] and [`take_single`] functions. Intended for slice references.
+pub trait Take<'a> {
+    /// The inner type of this
+    type Inner;
+    /// Takes an array of inners by reference.
+    fn take_array<const N: usize>(&mut self) -> GeneratorResult<&'a [Self::Inner; N]>;
+    /// Takes a single instance by reference.
+    fn take_single(&mut self) -> GeneratorResult<&'a Self::Inner> {
+        Ok(&self.take_array::<1>()?[0])
+    }
+}
+impl<'a, T> Take<'a> for &'a [T] {
+    type Inner = T;
+
+    fn take_array<const N: usize>(&mut self) -> GeneratorResult<&'a [Self::Inner; N]> {
+        if self.len() < N {
+            return Err(GeneratorError::NotEnoughData {
+                expected: format!("{} bytes", N),
+                found: format!("{} bytes", self.len()),
+            }
+                .into());
+        }
+        let out = self[0..N].try_into().unwrap();
+        *self = &self[N..];
+        Ok(out)
+    }
+}
+
 /// Helper function to combine multiple size hints with a branch strategy, where the minimum lower bound and maximum upper bound are returned
 pub fn combine_hints_branch(
     mut hints: impl Iterator<Item = (usize, Option<usize>)>,
