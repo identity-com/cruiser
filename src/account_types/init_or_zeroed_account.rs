@@ -2,8 +2,8 @@ use crate::solana_program::program_error::ProgramError;
 use crate::{
     combine_hints_branch, system_program_id, Account, AccountArgument, AccountInfo,
     AccountInfoIterator, AllAny, FromAccounts, GeneratorError, GeneratorResult, InitAccount,
-    InitSize, MultiIndexableAccountArgument, Pubkey, SingleIndexableAccountArgument, SystemProgram,
-    ZeroedAccount,
+    InitSize, MultiIndexableAccountArgument, PDASeeder, Pubkey, SingleIndexableAccountArgument,
+    SystemProgram, ZeroedAccount,
 };
 use std::array::IntoIter;
 use std::iter::once;
@@ -36,6 +36,20 @@ where
     pub fn set_funder(&mut self, funder: AccountInfo) {
         if let Self::Init(init) = self {
             init.funder = Some(funder);
+        }
+    }
+
+    /// Sets the account seeds if init, no-op if zeroed
+    pub fn set_account_seeds(&mut self, account_seeds: Box<dyn PDASeeder>) {
+        if let Self::Init(init) = self {
+            init.account_seeds = Some(account_seeds);
+        }
+    }
+
+    /// Sets the funder seeds if init, no-op if zeroed
+    pub fn set_funder_seeds(&mut self, funder_seeds: Box<dyn PDASeeder>) {
+        if let Self::Init(init) = self {
+            init.funder_seeds = Some(funder_seeds);
         }
     }
 

@@ -1,8 +1,10 @@
 use crate::{GeneratorError, GeneratorResult};
+pub use short_vec::ShortVec;
 use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::convert::TryInto;
 use std::ops::{Bound, RangeBounds};
+
+pub mod short_vec;
 
 /// (start, end), inclusive
 pub fn convert_range(
@@ -44,34 +46,6 @@ pub fn convert_range(
         .into())
     } else {
         Ok((start, end))
-    }
-}
-
-/// Adds the [`take_array`] and [`take_single`] functions. Intended for slice references.
-pub trait Take<'a> {
-    /// The inner type of this
-    type Inner;
-    /// Takes an array of inners by reference.
-    fn take_array<const N: usize>(&mut self) -> GeneratorResult<&'a [Self::Inner; N]>;
-    /// Takes a single instance by reference.
-    fn take_single(&mut self) -> GeneratorResult<&'a Self::Inner> {
-        Ok(&self.take_array::<1>()?[0])
-    }
-}
-impl<'a, T> Take<'a> for &'a [T] {
-    type Inner = T;
-
-    fn take_array<const N: usize>(&mut self) -> GeneratorResult<&'a [Self::Inner; N]> {
-        if self.len() < N {
-            return Err(GeneratorError::NotEnoughData {
-                expected: format!("{} bytes", N),
-                found: format!("{} bytes", self.len()),
-            }
-            .into());
-        }
-        let out = self[0..N].try_into().unwrap();
-        *self = &self[N..];
-        Ok(out)
     }
 }
 

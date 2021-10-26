@@ -8,8 +8,9 @@ use solana_program::system_instruction::create_account;
 
 use crate::traits::AccountArgument;
 use crate::{
-    invoke, Account, AccountInfo, AccountInfoIterator, AllAny, FromAccounts, GeneratorError,
-    GeneratorResult, MultiIndexableAccountArgument, SingleIndexableAccountArgument, SystemProgram,
+    invoke, invoke_signed, Account, AccountInfo, AccountInfoIterator, AllAny, FromAccounts,
+    GeneratorError, GeneratorResult, MultiIndexableAccountArgument, PDAGenerator, PDASeeder,
+    ShortVec, SingleIndexableAccountArgument, SystemProgram,
 };
 
 use super::SYSTEM_PROGRAM_ID;
@@ -48,6 +49,10 @@ where
     pub init_size: InitSize,
     /// The account that will pay the rent for the new account
     pub funder: Option<AccountInfo>,
+    /// The optional seeds for the account if pda
+    pub account_seeds: Option<Box<dyn PDASeeder>>,
+    /// The option seeds for the funder if pda
+    pub funder_seeds: Option<Box<dyn PDASeeder>>,
 }
 impl<T> AccountArgument for InitAccount<T>
 where
@@ -88,30 +93,67 @@ where
         };
 
         let self_key = self.info.key;
-        let payer = self
+        let funder = self
             .funder
             .ok_or(GeneratorError::NoPayerForInit { account: self_key })?;
-        match (payer.is_signer, payer.is_writable) {
+        match (
+            self.funder_seeds.is_some() || funder.is_signer,
+            funder.is_writable,
+        ) {
             (false, _) => {
-                return Err(GeneratorError::AccountIsNotSigner { account: payer.key }.into())
+                return Err(GeneratorError::AccountIsNotSigner {
+                    account: funder.key,
+                }
+                .into())
             }
-            (_, false) => return Err(GeneratorError::CannotWrite { account: payer.key }.into()),
+            (_, false) => {
+                return Err(GeneratorError::CannotWrite {
+                    account: funder.key,
+                }
+                .into())
+            }
             (true, true) => {}
         }
         let rent = Rent::get()?.minimum_balance(size as usize);
-        if **payer.lamports.borrow() < rent {
+        if **funder.lamports.borrow() < rent {
             return Err(GeneratorError::NotEnoughLamports {
-                account: payer.key,
-                lamports: **payer.lamports.borrow(),
+                account: funder.key,
+                lamports: **funder.lamports.borrow(),
                 needed_lamports: rent,
             }
             .into());
         }
+        match (self.account_seeds, self.funder_seeds) {
+            (None, None) => invoke(
+                &create_account(&funder.key, &self.info.key, rent, size, &program_id),
+                &[&self.info, &funder, &system_program.info],
+            )?,
+            (account_seeds, funder_seeds) => {
+                let (account_generator, account_seeds_vec);
+                let (funder_generator, funder_seeds_vec);
+                let mut seeds = ShortVec::<_, 2>::new();
 
-        invoke(
-            &create_account(&payer.key, &self.info.key, rent, size, &program_id),
-            &[&self.info, &payer, &system_program.info],
-        )?;
+                if let Some(account_seeds) = &account_seeds {
+                    account_generator = PDAGenerator::new(program_id, account_seeds.deref());
+                    account_generator.verify_address(self.info.key)?;
+                    account_seeds_vec = account_generator.seeds_to_bytes().collect::<Vec<_>>();
+                    seeds.push(account_seeds_vec.as_slice()).unwrap();
+                }
+
+                if let Some(funder_seeds) = &funder_seeds {
+                    funder_generator = PDAGenerator::new(program_id, funder_seeds.deref());
+                    funder_generator.verify_address(funder.key)?;
+                    funder_seeds_vec = funder_generator.seeds_to_bytes().collect::<Vec<_>>();
+                    seeds.push(funder_seeds_vec.as_slice()).unwrap();
+                }
+
+                invoke_signed(
+                    &create_account(&funder.key, &self.info.key, rent, size, &program_id),
+                    &[&self.info, &funder, &system_program.info],
+                    seeds.as_slice(),
+                )?
+            }
+        }
 
         let mut account_data_ref = self.info.data.borrow_mut();
         let mut account_data = &mut **account_data_ref.deref_mut();
@@ -158,6 +200,8 @@ where
             data: T::default(),
             init_size: InitSize::default(),
             funder: None,
+            account_seeds: None,
+            funder_seeds: None,
         })
     }
 
