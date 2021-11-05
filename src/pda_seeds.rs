@@ -40,13 +40,9 @@ impl<'a> PDASeedSet<'a> {
         instruction: &SolanaInstruction,
         accounts: &[&AccountInfo; N],
     ) -> ProgramResult {
-        let seeds = self
-            .seeds()
-            .map(|seed| seed.as_ref().iter().cloned())
-            .flatten()
-            .collect::<Vec<_>>();
+        let seeds = self.seeds().map(|seed| seed.as_ref()).collect::<Vec<_>>();
 
-        invoke_signed(instruction, accounts, &[&[&seeds]])
+        invoke_signed(instruction, accounts, &[&seeds])
     }
 
     /// Invokes an instruction of variable account size with these seeds
@@ -55,13 +51,9 @@ impl<'a> PDASeedSet<'a> {
         instruction: &SolanaInstruction,
         accounts: &[&AccountInfo],
     ) -> ProgramResult {
-        let seeds = self
-            .seeds()
-            .map(|seed| seed.as_ref().iter().cloned())
-            .flatten()
-            .collect::<Vec<_>>();
+        let seeds = self.seeds().map(|seed| seed.as_ref()).collect::<Vec<_>>();
 
-        invoke_signed_variable_size(instruction, accounts, &[&[&seeds]])
+        invoke_signed_variable_size(instruction, accounts, &[&seeds])
     }
 
     /// Invokes an instruction with given seed sets
@@ -73,21 +65,15 @@ impl<'a> PDASeedSet<'a> {
         let seeds_array = seed_sets
             .iter()
             .map(|seed_set| {
-                let mut seeds = Vec::new();
-                for seed in seed_set.seeds() {
-                    seeds.extend_from_slice(seed.as_ref());
-                }
-                seeds
+                seed_set
+                    .seeds()
+                    .map(|seed| seed.as_ref())
+                    .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        let sub_seeds = seeds_array
+        let seeds = seeds_array
             .iter()
-            .map(AsRef::<[u8]>::as_ref)
-            .map(|seed| [seed])
-            .collect::<Vec<_>>();
-        let seeds = sub_seeds
-            .iter()
-            .map(|seed| seed as &[&[u8]])
+            .map(|seed| seed.as_slice())
             .collect::<Vec<_>>();
 
         invoke_signed(instruction, accounts, seeds.as_slice())
@@ -102,21 +88,15 @@ impl<'a> PDASeedSet<'a> {
         let seeds_array = seed_sets
             .iter()
             .map(|seed_set| {
-                let mut seeds = Vec::new();
-                for seed in seed_set.seeds() {
-                    seeds.extend_from_slice(seed.as_ref());
-                }
-                seeds
+                seed_set
+                    .seeds()
+                    .map(|seed| seed.as_ref())
+                    .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        let sub_seeds = seeds_array
+        let seeds = seeds_array
             .iter()
-            .map(AsRef::<[u8]>::as_ref)
-            .map(|seed| [seed])
-            .collect::<Vec<_>>();
-        let seeds = sub_seeds
-            .iter()
-            .map(|seed| seed as &[&[u8]])
+            .map(|seed| seed.as_slice())
             .collect::<Vec<_>>();
 
         invoke_signed_variable_size(instruction, accounts, seeds.as_slice())
