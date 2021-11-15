@@ -133,13 +133,11 @@ where
 
                 if let Some(account_seeds) = account_seeds {
                     seeds.push(account_seeds).unwrap();
-                } else {
-                    if !self.info.is_signer {
-                        return Err(GeneratorError::AccountIsNotSigner {
-                            account: self.info.key,
-                        }
-                        .into());
+                } else if !self.info.is_signer {
+                    return Err(GeneratorError::AccountIsNotSigner {
+                        account: self.info.key,
                     }
+                    .into());
                 }
                 if let Some(funder_seeds) = funder_seeds {
                     seeds.push(funder_seeds).unwrap();

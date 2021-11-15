@@ -144,7 +144,7 @@ pub trait PDASeeder: Debug {
     /// Gets an iterator of seeds for this address.
     fn seeds<'a>(&'a self) -> Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a>;
 }
-impl<'b, T> PDASeeder for &'b T
+impl<'b, T: ?Sized> PDASeeder for &'b T
 where
     T: PDASeeder,
 {
@@ -152,7 +152,7 @@ where
         T::seeds(self)
     }
 }
-impl<'b, T> PDASeeder for &'b mut T
+impl<'b, T: ?Sized> PDASeeder for &'b mut T
 where
     T: PDASeeder,
 {
@@ -160,17 +160,12 @@ where
         T::seeds(self)
     }
 }
-impl<T> PDASeeder for Box<T>
+impl<T: ?Sized> PDASeeder for Box<T>
 where
     T: PDASeeder,
 {
     fn seeds<'a>(&'a self) -> Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a> {
         T::seeds(self)
-    }
-}
-impl PDASeeder for &dyn PDASeeder {
-    fn seeds<'a>(&'a self) -> Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a> {
-        <dyn PDASeeder as PDASeeder>::seeds(self)
     }
 }
 
@@ -215,7 +210,7 @@ where
     fn verify_address(&self, program_id: Pubkey, address: Pubkey) -> GeneratorResult<()>;
 }
 #[allow(clippy::type_complexity)]
-impl<'a, 'b, 'c, T> PDAGenerator<'a, 'b, 'c> for T
+impl<'a, 'b, 'c, T: ?Sized> PDAGenerator<'a, 'b, 'c> for T
 where
     T: PDASeeder,
     'a: 'c,
