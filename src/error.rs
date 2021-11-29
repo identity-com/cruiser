@@ -196,4 +196,14 @@ pub enum GeneratorError<'a> {
         /// What could not be deserialized
         what: String,
     },
+    /// Size was invalid
+    #[error_msg("Size mismatch for range [`{}`, `{}`]. Got: {}", min, max, value)]
+    SizeInvalid {
+        /// Min valid (inclusive)
+        min: usize,
+        /// Max valid (inclusive)
+        max: usize,
+        /// The value that is invalid
+        value: usize,
+    },
 }
