@@ -11,7 +11,7 @@ use std::ops::{Deref, Index, IndexMut};
 
 macro_rules! small_vec {
     ($ident:ident, $ty:ty, $write:ident, $read:ident, $docs:expr) => {
-        #[derive(Debug, Clone, PartialEq, Eq, Default)]
+        #[derive(Debug, Clone, PartialEq, Eq)]
         #[doc=$docs]
         pub struct $ident<T>(Vec<T>);
         impl<T> TryFrom<Vec<T>> for $ident<T> {
@@ -144,6 +144,11 @@ macro_rules! small_vec {
 
             fn into_iter(self) -> Self::IntoIter {
                 (&mut self.0).into_iter()
+            }
+        }
+        impl<T> Default for $ident<T> {
+            fn default() -> Self {
+                Self(vec![])
             }
         }
     };
