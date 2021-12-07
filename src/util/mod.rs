@@ -3,7 +3,6 @@ pub use short_vec::ShortVec;
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::convert::TryInto;
-use std::mem::size_of;
 use std::ops::{Bound, RangeBounds};
 
 pub(crate) mod bytes_ext;
@@ -126,13 +125,3 @@ pub fn mul_size_hint(hint: (usize, Option<usize>), mul: usize) -> (usize, Option
         },
     )
 }
-
-pub(crate) const USIZE_DECLARATION: Option<&str> = match size_of::<usize>() {
-    1 => Some(stringify!(u8)),
-    2 => Some(stringify!(u16)),
-    4 => Some(stringify!(u32)),
-    8 => Some(stringify!(u64)),
-    16 => Some(stringify!(u128)),
-    // TODO: Replace with panic when https://github.com/rust-lang/rust/issues/51999 stabilized (Coming 1.57, Solana currently on 1.52)
-    _ => None,
-};

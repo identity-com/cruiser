@@ -1,20 +1,17 @@
 //! Small size vectors for additional space savings than the
 
-use crate::{
-    AccountArgument, GeneratorError, GeneratorResult, Pubkey, SystemProgram, USIZE_DECLARATION,
-};
-use borsh::schema::{Declaration, Definition, Fields};
+use crate::{AccountArgument, GeneratorError, GeneratorResult, Pubkey, SystemProgram};
+use borsh::schema::{Declaration, Definition};
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 use solana_generator::bytes_ext::{ReadExt, WriteExt};
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::io::{ErrorKind, Read, Write};
-use std::mem::size_of;
+use std::io::Write;
 use std::ops::Deref;
 
 macro_rules! small_vec {
     ($ident:ident, $ty:ty, $write:ident, $read:ident, $docs:expr) => {
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq, Eq)]
         #[doc=$docs]
         pub struct $ident<T>(Vec<T>);
         impl<T> TryFrom<Vec<T>> for $ident<T> {
@@ -130,3 +127,48 @@ small_vec!(
     read_u16_le,
     "A vector with max size in a u16"
 );
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rand::{thread_rng, Rng};
+    use std::convert::TryInto;
+
+    #[test]
+    fn vec8_test() {
+        let mut rand = thread_rng();
+        for len in u8::MIN..u8::MAX {
+            let mut vec = vec![0u8; len as usize];
+            for val in vec.iter_mut() {
+                *val = rand.gen();
+            }
+            let small_vec: Vec8<_> = vec
+                .try_into()
+                .unwrap_or_else(|_| panic!("Could not convert vec of length `{}`", len));
+            let bytes = BorshSerialize::try_to_vec(&small_vec).expect("Could not serialize");
+            assert_eq!(bytes.len(), len as usize + 1);
+            let deserialized =
+                BorshDeserialize::try_from_slice(&bytes).expect("Could not deserialize");
+            assert_eq!(small_vec, deserialized);
+        }
+    }
+
+    #[test]
+    fn vec16_test() {
+        let mut rand = thread_rng();
+        for len in (u16::MIN..u16::MAX).step_by(u16::MAX as usize / 157) {
+            let mut vec = vec![0u8; len as usize];
+            for val in vec.iter_mut() {
+                *val = rand.gen();
+            }
+            let small_vec: Vec16<_> = vec
+                .try_into()
+                .unwrap_or_else(|_| panic!("Could not convert vec of length `{}`", len));
+            let bytes = BorshSerialize::try_to_vec(&small_vec).expect("Could not serialize");
+            assert_eq!(bytes.len(), len as usize + 2);
+            let deserialized =
+                BorshDeserialize::try_from_slice(&bytes).expect("Could not deserialize");
+            assert_eq!(small_vec, deserialized);
+        }
+    }
+}
