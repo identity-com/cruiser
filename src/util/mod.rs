@@ -5,6 +5,7 @@ use std::cmp::{max, min};
 use std::convert::TryInto;
 use std::ops::{Bound, RangeBounds};
 
+pub(crate) mod bytes_ext;
 pub mod short_vec;
 
 /// (start, end), inclusive

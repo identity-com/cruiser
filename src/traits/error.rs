@@ -1,8 +1,9 @@
 use crate::msg;
 use crate::solana_program::pubkey::PubkeyError;
+use solana_generator::GeneratorError;
 pub use solana_generator_derive::Error;
 use solana_program::program_error::ProgramError;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 
 /// A version of [`Result`] returned by many [`solana_generator`] functions.
 pub type GeneratorResult<T = ()> = Result<T, Box<dyn Error>>;
@@ -14,6 +15,13 @@ pub trait Error: Debug {
     /// Turns this into a returnable error
     fn to_program_error(&self) -> ProgramError;
 }
+
+impl<'a> Display for GeneratorError<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message())
+    }
+}
+impl<'a> std::error::Error for GeneratorError<'a> {}
 
 impl Error for ProgramError {
     fn message(&self) -> String {

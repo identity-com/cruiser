@@ -44,6 +44,7 @@ mod error;
 mod impls;
 mod pda_seeds;
 mod traits;
+pub mod types;
 mod util;
 
 /// Invokes another solana program.
