@@ -122,6 +122,30 @@ macro_rules! small_vec {
                 Ok(())
             }
         }
+        impl<T> IntoIterator for $ident<T> {
+            type Item = <Vec<T> as IntoIterator>::Item;
+            type IntoIter = <Vec<T> as IntoIterator>::IntoIter;
+
+            fn into_iter(self) -> Self::IntoIter {
+                self.0.into_iter()
+            }
+        }
+        impl<'a, T> IntoIterator for &'a $ident<T> {
+            type Item = <&'a Vec<T> as IntoIterator>::Item;
+            type IntoIter = <&'a Vec<T> as IntoIterator>::IntoIter;
+
+            fn into_iter(self) -> Self::IntoIter {
+                (&self.0).into_iter()
+            }
+        }
+        impl<'a, T> IntoIterator for &'a mut $ident<T> {
+            type Item = <&'a mut Vec<T> as IntoIterator>::Item;
+            type IntoIter = <&'a mut Vec<T> as IntoIterator>::IntoIter;
+
+            fn into_iter(self) -> Self::IntoIter {
+                (&mut self.0).into_iter()
+            }
+        }
     };
 }
 
