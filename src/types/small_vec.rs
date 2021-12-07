@@ -7,11 +7,11 @@ use solana_generator::bytes_ext::{ReadExt, WriteExt};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::io::Write;
-use std::ops::Deref;
+use std::ops::{Deref, Index, IndexMut};
 
 macro_rules! small_vec {
     ($ident:ident, $ty:ty, $write:ident, $read:ident, $docs:expr) => {
-        #[derive(Debug, Clone, PartialEq, Eq)]
+        #[derive(Debug, Clone, PartialEq, Eq, Default)]
         #[doc=$docs]
         pub struct $ident<T>(Vec<T>);
         impl<T> TryFrom<Vec<T>> for $ident<T> {
@@ -39,6 +39,18 @@ macro_rules! small_vec {
 
             fn deref(&self) -> &Self::Target {
                 &self.0
+            }
+        }
+        impl<T> Index<usize> for $ident<T> {
+            type Output = <Vec<T> as Index<usize>>::Output;
+
+            fn index(&self, index: usize) -> &Self::Output {
+                self.0.index(index)
+            }
+        }
+        impl<T> IndexMut<usize> for $ident<T> {
+            fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+                self.0.index_mut(index)
             }
         }
         impl<T> BorshSerialize for $ident<T>
