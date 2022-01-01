@@ -1,0 +1,16 @@
+[package]
+name = "easy_proc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+easy_proc_common = { path = "common" }
+easy_proc_derive = { path = "derive" }
+proc-macro-error = "1.0.4"
+proc-macro2 = "1.0.27"
+syn = "1.0.73"
+quote = "1.0.9"
+
+[[example]]
+name = "arg_enum"
+crate-type = ["cdylib", "lib"]
