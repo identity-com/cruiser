@@ -39,6 +39,7 @@ mod macros;
 mod account_info;
 mod account_types;
 pub mod discriminant;
+pub mod compressed_numbers;
 pub mod entrypoint;
 mod error;
 mod impls;

@@ -14,16 +14,20 @@ pub trait Instruction: Sized {
 
     /// Turns the [`Self::Data`] into the instruction arg for [`Self::Accounts`].
     fn data_to_instruction_arg(data: &mut Self::Data) -> GeneratorResult<Self::FromAccountsData>;
-    /// Processes the instruction, writing back after this instruction.
-    fn process(
-        program_id: Pubkey,
-        data: Self::Data,
-        accounts: &mut Self::Accounts,
-    ) -> GeneratorResult<Option<SystemProgram>>;
 
     /// Creates this instruction from a given argument
     fn build_instruction(
-        program_id: Pubkey,
+        program_id: &Pubkey,
         arg: Self::BuildArg,
     ) -> GeneratorResult<(Vec<SolanaAccountMeta>, Self::Data)>;
+}
+
+/// A processor for a given instruction `I`
+pub trait InstructionProcessor<I: Instruction>: Sized{
+    /// Processes the instruction, writing back after this instruction.
+    fn process(
+        program_id: &Pubkey,
+        data: I::Data,
+        accounts: &mut I::Accounts,
+    ) -> GeneratorResult<Option<SystemProgram>>;
 }

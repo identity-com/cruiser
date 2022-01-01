@@ -12,7 +12,8 @@ debug_account = []
 debug_error = []
 debug_account_argument = []
 debug_instruction_list = []
-debug = ["debug_account", "debug_error", "debug_account_argument", "debug_instruction_list"]
+debug_instruction_list_processor = []
+debug = ["debug_account", "debug_error", "debug_account_argument", "debug_instruction_list", "debug_instruction_list_processor"]
 
 [dependencies]
 proc-macro2 = "1.0.27"
@@ -21,6 +22,7 @@ quote = "1.0.9"
 sha2 = "0.9.5"
 proc-macro-error = "1.0.4"
 proc-macro-crate = "1.0.0"
+easy_proc = { path = "../easy_proc" }
 
 [dev-dependencies]
 solana_generator = { path = ".." }

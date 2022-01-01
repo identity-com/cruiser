@@ -6,7 +6,7 @@ use std::convert::{TryFrom, TryInto};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{
-    bracketed, Attribute, Data, DeriveInput, Expr, Fields, Generics, Ident, LitStr, Token, Type,
+    Attribute, Data, DeriveInput, Expr, Fields, Generics, Ident, LitStr, Token, Type,
     Variant, Visibility,
 };
 
@@ -60,7 +60,6 @@ impl InstructionListDerive {
         let ident = self.ident;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
-        let _interfaces = self.attribute.interfaces;
         let enum_ident = self.attribute.build_enum_ident.unwrap_or_else(|| {
             Ident::new(
                 &("Build".to_string() + &ident.to_string()),
@@ -75,7 +74,12 @@ impl InstructionListDerive {
             for variant in self.variants {
                 variant_ident.push(variant.ident);
                 variant_instruction_type.push(variant.attribute.instruction_type);
-                variant_discriminant.push(variant.attribute.discriminant);
+                variant_discriminant.push(variant.discriminant.map(|expr| quote!{ #expr }).unwrap_or_else(||{
+                    let last = variant_discriminant.last().cloned().unwrap_or_else(|| quote! { 0 });
+                    quote! {
+                        #last + 1
+                    }
+                }));
             }
             (
                 variant_ident,
@@ -92,32 +96,6 @@ impl InstructionListDerive {
             #[automatically_derived]
             impl #impl_generics InstructionList for #ident #ty_generics #where_clause{
                 type BuildEnum = #enum_ident;
-
-                fn process_instruction(
-                    program_id: #crate_name::Pubkey,
-                    accounts: &mut impl #crate_name::AccountInfoIterator,
-                    mut data: &[u8],
-                ) -> #crate_name::GeneratorResult<()>{
-                    let data = &mut data;
-                    #[deny(unreachable_patterns)]
-                    match *#crate_name::Take::take_single(data)?{
-                        #(
-                            #variant_discriminant => {
-                                #crate_name::msg!(#instruction_prints);
-                                let mut instruction_data = ::borsh::BorshDeserialize::deserialize(data)?;
-                                let instruction_arg = <#variant_instruction_type as #crate_name::Instruction>::data_to_instruction_arg(&mut instruction_data)?;
-                                let mut accounts = #crate_name::FromAccounts::<_>::from_accounts(program_id, accounts, instruction_arg)?;
-                                let system_program = <#variant_instruction_type as #crate_name::Instruction>::process(program_id, instruction_data, &mut accounts)?;
-                                #crate_name::AccountArgument::write_back(accounts, program_id, system_program.as_ref())
-                            }
-                        )*
-                        255 => ::std::result::Result::Err(#crate_name::GeneratorError::UnsupportedInterface.into()),
-                        #[allow(unreachable_patterns)]
-                        x => ::std::result::Result::Err(#crate_name::GeneratorError::UnknownInstruction {
-                            instruction: x.to_string(),
-                        }.into()),
-                    }
-                }
 
                 fn build_instruction(
                     program_id: #crate_name::Pubkey,
@@ -155,7 +133,6 @@ impl InstructionListDerive {
 }
 
 struct InstructionListAttribute {
-    interfaces: Vec<Type>,
     build_enum_ident: Option<Ident>,
 }
 impl InstructionListAttribute {
@@ -174,18 +151,13 @@ impl TryFrom<Vec<Attribute>> for InstructionListAttribute {
         }
         match attribute {
             None => Ok(Self {
-                interfaces: vec![],
                 build_enum_ident: None,
             }),
             Some(attribute) => {
                 let args: InstructionListArgs = attribute.parse_args()?;
-                let mut interfaces = vec![];
                 let mut build_enum_ident = None;
                 for arg in args.0 {
                     match arg {
-                        InstructionListAttributeArg::Implement { types } => {
-                            interfaces.extend(types.into_iter())
-                        }
                         InstructionListAttributeArg::BuildEnumIdent {
                             ident,
                             build_enum_ident: new_ident,
@@ -203,7 +175,6 @@ impl TryFrom<Vec<Attribute>> for InstructionListAttribute {
                 }
 
                 Ok(Self {
-                    interfaces,
                     build_enum_ident,
                 })
             }
@@ -220,29 +191,18 @@ impl Parse for InstructionListArgs {
 }
 
 enum InstructionListAttributeArg {
-    Implement {
-        types: Punctuated<Type, Token![,]>,
-    },
     BuildEnumIdent {
         ident: Ident,
         build_enum_ident: Ident,
     },
 }
 impl InstructionListAttributeArg {
-    const IMPLEMENT_IDENT: &'static str = "implement";
     const BUILD_ENUM_IDENT_IDENT: &'static str = "build_enum";
 }
 impl Parse for InstructionListAttributeArg {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let ident: Ident = input.parse()?;
-        if ident == Self::IMPLEMENT_IDENT {
-            input.parse::<Token![=]>()?;
-            let content;
-            bracketed!(content in input);
-            let types = content.parse_terminated(Type::parse)?;
-
-            Ok(Self::Implement { types })
-        } else if ident == Self::BUILD_ENUM_IDENT_IDENT {
+        if ident == Self::BUILD_ENUM_IDENT_IDENT {
             input.parse::<Token![=]>()?;
             Ok(Self::BuildEnumIdent {
                 ident,
@@ -261,6 +221,7 @@ impl Parse for InstructionListAttributeArg {
 
 struct InstructionListVariant {
     ident: Ident,
+    discriminant: Option<Expr>,
     attribute: InstructionListVariantAttribute,
 }
 impl TryFrom<Variant> for InstructionListVariant {
@@ -279,6 +240,7 @@ impl TryFrom<Variant> for InstructionListVariant {
 
         Ok(Self {
             ident: value.ident,
+            discriminant: value.discriminant.map(|val| val.1),
             attribute,
         })
     }
@@ -286,7 +248,6 @@ impl TryFrom<Variant> for InstructionListVariant {
 
 struct InstructionListVariantAttribute {
     instruction_type: Type,
-    discriminant: Expr,
 }
 impl InstructionListVariantAttribute {
     pub const IDENT: &'static str = "instruction_list";
@@ -307,7 +268,6 @@ impl TryFrom<(&Ident, Vec<Attribute>)> for InstructionListVariantAttribute {
             Some(attribute) => {
                 let args: InstructionListVariantArgs = attribute.parse_args()?;
                 let mut instruction_type = None;
-                let mut discriminant = None;
                 for arg in args.0 {
                     match arg {
                         InstructionListVariantArg::Instruction { ident, ty } => {
@@ -316,16 +276,6 @@ impl TryFrom<(&Ident, Vec<Attribute>)> for InstructionListVariantAttribute {
                                     ident,
                                     "duplicate `{}` argument for attribute `{}`",
                                     InstructionListVariantArg::INSTRUCTION_IDENT,
-                                    Self::IDENT
-                                );
-                            }
-                        }
-                        InstructionListVariantArg::Discriminant { ident, expr } => {
-                            if discriminant.replace(expr).is_some() {
-                                abort!(
-                                    ident,
-                                    "duplicate `{}` argument for attribute `{}`",
-                                    InstructionListVariantArg::DISCRIMINANT_IDENT,
                                     Self::IDENT
                                 );
                             }
@@ -340,14 +290,6 @@ impl TryFrom<(&Ident, Vec<Attribute>)> for InstructionListVariantAttribute {
                             "Attribute `{}` missing `{}` argument",
                             Self::IDENT,
                             InstructionListVariantArg::INSTRUCTION_IDENT
-                        )
-                    }),
-                    discriminant: discriminant.unwrap_or_else(|| {
-                        abort!(
-                            attribute,
-                            "Attribute `{}` missing `{}` argument",
-                            Self::IDENT,
-                            InstructionListVariantArg::DISCRIMINANT_IDENT
                         )
                     }),
                 })
@@ -367,11 +309,9 @@ impl Parse for InstructionListVariantArgs {
 
 enum InstructionListVariantArg {
     Instruction { ident: Ident, ty: Type },
-    Discriminant { ident: Ident, expr: Expr },
 }
 impl InstructionListVariantArg {
     const INSTRUCTION_IDENT: &'static str = "instruction";
-    const DISCRIMINANT_IDENT: &'static str = "discriminant";
 }
 impl Parse for InstructionListVariantArg {
     fn parse(input: ParseStream) -> syn::Result<Self> {
@@ -381,12 +321,6 @@ impl Parse for InstructionListVariantArg {
             Ok(Self::Instruction {
                 ident,
                 ty: input.parse()?,
-            })
-        } else if ident == Self::DISCRIMINANT_IDENT {
-            input.parse::<Token![=]>()?;
-            Ok(Self::Discriminant {
-                ident,
-                expr: input.parse()?,
             })
         } else {
             abort!(

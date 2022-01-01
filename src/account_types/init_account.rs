@@ -74,13 +74,13 @@ where
         let data = self.data.try_to_vec()?;
         let size = match self.init_size {
             InitSize::DataSize => {
-                (data.len() + T::DISCRIMINANT.discriminant_serialized_length()?) as u64
+                (data.len() + T::DISCRIMINANT.length() as usize) as u64
             }
             InitSize::DataSizePlus(plus) => {
-                (data.len() + T::DISCRIMINANT.discriminant_serialized_length()?) as u64 + plus.get()
+                (data.len() + T::DISCRIMINANT.length() as usize) as u64 + plus.get()
             }
             InitSize::SetSize(size) => {
-                if size < (data.len() + T::DISCRIMINANT.discriminant_serialized_length()?) as u64 {
+                if size < (data.len() + T::DISCRIMINANT.length() as usize) as u64 {
                     return Err(GeneratorError::NotEnoughSpaceInit {
                         account: self.info.key,
                         space_given: size,

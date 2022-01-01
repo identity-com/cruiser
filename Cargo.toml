@@ -6,6 +6,9 @@ edition = "2018"
 [workspace]
 members = [
     "derive",
+    "easy_proc",
+    "easy_proc/common",
+    "easy_proc/derive",
 ]
 
 [features]
@@ -35,4 +38,8 @@ crate-type = ["cdylib", "lib"]
 
 [[example]]
 name = "account_derive"
+crate-type = ["cdylib", "lib"]
+
+[[example]]
+name = "instruction_list"
 crate-type = ["cdylib", "lib"]

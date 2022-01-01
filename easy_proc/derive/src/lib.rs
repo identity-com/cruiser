@@ -15,9 +15,9 @@ use syn::{
 };
 
 #[proc_macro_error]
-#[proc_macro_derive(ArgEnum, attributes(arg_enum))]
-pub fn arg_enum_derive(ts: TokenStream) -> TokenStream {
-    let arg_enum_ident = Ident::new("arg_enum", Span::call_site());
+#[proc_macro_derive(ArgumentList, attributes(argument))]
+pub fn argument_list_derive(ts: TokenStream) -> TokenStream {
+    let arg_enum_ident = Ident::new("argument", Span::call_site());
     let derive = parse_macro_input!(ts as DeriveInput);
 
     let generator_crate = crate_name("easy_proc").expect("Could not find `easy_proc`");
@@ -71,7 +71,7 @@ pub fn arg_enum_derive(ts: TokenStream) -> TokenStream {
         .map(|(variant, variable_name)| variant.to_verify(variable_name, &attr_ident, &crate_name));
 
     (quote! {
-        impl #impl_gen #crate_name::Arguments for #ident #ty_gen #where_clause{
+        impl #impl_gen #crate_name::ArgumentList for #ident #ty_gen #where_clause{
             fn parse_arguments(#attr_ident: &::syn::Attribute) -> Self{
                 #(#inits)*
                 if let ::std::result::Result::Err(__error) = ::syn::Attribute::parse_args_with(#attr_ident, |#input_ident: ::syn::parse::ParseStream|{

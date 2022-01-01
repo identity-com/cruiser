@@ -15,7 +15,7 @@ macro_rules! small_vec {
         #[doc=$docs]
         pub struct $ident<T>(Vec<T>);
         impl<T> TryFrom<Vec<T>> for $ident<T> {
-            type Error = GeneratorError<'static>;
+            type Error = GeneratorError;
 
             fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
                 if value.len() <= <$ty>::MAX as usize {

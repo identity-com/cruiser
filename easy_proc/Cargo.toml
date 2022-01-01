@@ -12,5 +12,5 @@ syn = "1.0.73"
 quote = "1.0.9"
 
 [[example]]
-name = "arg_enum"
+name = "argument_list"
 crate-type = ["cdylib", "lib"]

@@ -7,7 +7,7 @@ use strum::EnumDiscriminants;
 /// General errors issued by the generator.
 #[derive(Clone, Debug, Error, EnumDiscriminants)]
 #[error(start = 0)]
-pub enum GeneratorError<'a> {
+pub enum GeneratorError {
     /// Discriminant mismatch for accounts. Usually caused by passing the wrong account for a slot
     #[error_msg(
         "Mismatched Discriminant for account `{}`. Received: `{:?}`, Expected: `{:?}`",
@@ -19,9 +19,9 @@ pub enum GeneratorError<'a> {
         /// The account that has the discriminant mismatch
         account: Pubkey,
         /// The discriminant of the account
-        received: Discriminant<'a>,
+        received: Discriminant,
         /// The discriminant that was expected
-        expected: Discriminant<'static>,
+        expected: Discriminant,
     },
     /// Accounts are either writable when should not be or not writable when should be depending on the indexer
     #[error_msg(

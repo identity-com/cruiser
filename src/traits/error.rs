@@ -16,12 +16,12 @@ pub trait Error: Debug {
     fn to_program_error(&self) -> ProgramError;
 }
 
-impl<'a> Display for GeneratorError<'a> {
+impl Display for GeneratorError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.message())
     }
 }
-impl<'a> std::error::Error for GeneratorError<'a> {}
+impl std::error::Error for GeneratorError {}
 
 impl Error for ProgramError {
     fn message(&self) -> String {
