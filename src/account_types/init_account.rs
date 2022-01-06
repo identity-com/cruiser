@@ -72,19 +72,17 @@ where
         };
 
         let data = self.data.try_to_vec()?;
+        let required_length =
+            (data.len() + T::DISCRIMINANT.discriminant_serialized_length()?) as u64;
         let size = match self.init_size {
-            InitSize::DataSize => {
-                (data.len() + T::DISCRIMINANT.length() as usize) as u64
-            }
-            InitSize::DataSizePlus(plus) => {
-                (data.len() + T::DISCRIMINANT.length() as usize) as u64 + plus.get()
-            }
+            InitSize::DataSize => required_length,
+            InitSize::DataSizePlus(plus) => required_length + plus.get(),
             InitSize::SetSize(size) => {
-                if size < (data.len() + T::DISCRIMINANT.length() as usize) as u64 {
+                if size < required_length {
                     return Err(GeneratorError::NotEnoughSpaceInit {
                         account: self.info.key,
                         space_given: size,
-                        space_needed: data.len() as u64,
+                        space_needed: required_length,
                     }
                     .into());
                 }
@@ -178,7 +176,7 @@ where
             return Err(GeneratorError::AccountOwnerNotEqual {
                 account: info.key,
                 owner: **info.owner.borrow(),
-                expected_owner: Default::default(),
+                expected_owner: vec![SYSTEM_PROGRAM_ID],
             }
             .into());
         }
