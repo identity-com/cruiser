@@ -7,26 +7,31 @@ use solana_program::pubkey::Pubkey;
 use crate::solana_program::sysvar::Sysvar;
 use crate::traits::AccountArgument;
 use crate::{
-    Account, AccountInfo, AccountInfoIterator, AllAny, FromAccounts, GeneratorError,
-    GeneratorResult, MultiIndexableAccountArgument, SingleIndexableAccountArgument, SystemProgram,
+    Account, AccountInfo, AccountInfoIterator, AccountListItem, AllAny, FromAccounts,
+    GeneratorError, GeneratorResult, MultiIndexableAccountArgument, SingleIndexableAccountArgument,
+    SystemProgram,
 };
 use solana_program::rent::Rent;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 /// An account that will be initialized by this program, all data is checked to be zeroed and owner is this program.
 /// Account must be rent exempt.
 #[derive(Debug)]
-pub struct ZeroedAccount<T>
+pub struct ZeroedAccount<AL, A>
 where
-    T: Account,
+    AL: AccountListItem<A>,
+    A: Account,
 {
     /// The [`AccountInfo`] for this, data field will be overwritten on write back.
     pub info: AccountInfo,
-    data: T,
+    data: A,
+    phantom_list: PhantomData<fn() -> AL>,
 }
-impl<T> AccountArgument for ZeroedAccount<T>
+impl<AL, A> AccountArgument for ZeroedAccount<AL, A>
 where
-    T: Account + Default,
+    AL: AccountListItem<A>,
+    A: Account,
 {
     fn write_back(
         self,
@@ -35,7 +40,7 @@ where
     ) -> GeneratorResult<()> {
         let mut account_data_ref = self.info.data.borrow_mut();
         let mut account_data = &mut **account_data_ref.deref_mut();
-        T::DISCRIMINANT.serialize(&mut account_data)?;
+        AL::compressed_discriminant().serialize(&mut account_data)?;
         self.data.serialize(&mut account_data)?;
         Ok(())
     }
@@ -44,15 +49,16 @@ where
         self.info.add_keys(add)
     }
 }
-impl<A, T> FromAccounts<A> for ZeroedAccount<T>
+impl<AL, A, Arg> FromAccounts<Arg> for ZeroedAccount<AL, A>
 where
-    T: Account + Default,
-    AccountInfo: FromAccounts<A>,
+    AL: AccountListItem<A>,
+    A: Account + Default,
+    AccountInfo: FromAccounts<Arg>,
 {
     fn from_accounts(
         program_id: Pubkey,
         infos: &mut impl AccountInfoIterator,
-        arg: A,
+        arg: Arg,
     ) -> GeneratorResult<Self> {
         let info = AccountInfo::from_accounts(program_id, infos, arg)?;
 
@@ -80,7 +86,8 @@ where
 
         Ok(Self {
             info,
-            data: T::default(),
+            data: A::default(),
+            phantom_list: PhantomData,
         })
     }
 
@@ -88,9 +95,10 @@ where
         AccountInfo::accounts_usage_hint()
     }
 }
-impl<T> MultiIndexableAccountArgument<()> for ZeroedAccount<T>
+impl<AL, A> MultiIndexableAccountArgument<()> for ZeroedAccount<AL, A>
 where
-    T: Account + Default,
+    AL: AccountListItem<A>,
+    A: Account + Default,
 {
     fn is_signer(&self, indexer: ()) -> GeneratorResult<bool> {
         self.info.is_signer(indexer)
@@ -104,9 +112,10 @@ where
         self.info.is_owner(owner, indexer)
     }
 }
-impl<T> MultiIndexableAccountArgument<AllAny> for ZeroedAccount<T>
+impl<AL, A> MultiIndexableAccountArgument<AllAny> for ZeroedAccount<AL, A>
 where
-    T: Account + Default,
+    AL: AccountListItem<A>,
+    A: Account + Default,
 {
     fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
         self.info.is_signer(indexer)
@@ -120,9 +129,10 @@ where
         self.info.is_owner(owner, indexer)
     }
 }
-impl<T> SingleIndexableAccountArgument<()> for ZeroedAccount<T>
+impl<AL, A> SingleIndexableAccountArgument<()> for ZeroedAccount<AL, A>
 where
-    T: Account + Default,
+    AL: AccountListItem<A>,
+    A: Account + Default,
 {
     fn owner(&self, indexer: ()) -> GeneratorResult<Pubkey> {
         self.info.owner(indexer)
@@ -132,19 +142,21 @@ where
         self.info.key(indexer)
     }
 }
-impl<T> Deref for ZeroedAccount<T>
+impl<AL, A> Deref for ZeroedAccount<AL, A>
 where
-    T: Account,
+    AL: AccountListItem<A>,
+    A: Account,
 {
-    type Target = T;
+    type Target = A;
 
     fn deref(&self) -> &Self::Target {
         &self.data
     }
 }
-impl<T> DerefMut for ZeroedAccount<T>
+impl<AL, A> DerefMut for ZeroedAccount<AL, A>
 where
-    T: Account,
+    AL: AccountListItem<A>,
+    A: Account,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data

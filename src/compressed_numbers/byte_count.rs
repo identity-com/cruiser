@@ -17,6 +17,14 @@ impl ByteCount<u64> {
     const fn into_u64(self) -> u64 {
         self.0
     }
+
+    const fn num_bytes(self) -> usize {
+        if self.0 >= Self::COUNT_BIT as u64 {
+            size_of::<u64>() - self.0.leading_zeros() as usize / 8 + 1
+        } else {
+            1
+        }
+    }
 }
 unsafe impl CompressedU64 for ByteCount<u64> {
     #[inline]
@@ -27,6 +35,11 @@ unsafe impl CompressedU64 for ByteCount<u64> {
     #[inline]
     fn into_u64(self) -> u64 {
         self.into_u64()
+    }
+
+    #[inline]
+    fn num_bytes(self) -> usize {
+        self.num_bytes()
     }
 }
 impl BorshSerialize for ByteCount<u64> {

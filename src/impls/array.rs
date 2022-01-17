@@ -1,4 +1,3 @@
-use std::array::IntoIter;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
 
@@ -19,7 +18,7 @@ where
         program_id: Pubkey,
         system_program: Option<&SystemProgram>,
     ) -> GeneratorResult<()> {
-        for item in IntoIter::new(self) {
+        for item in IntoIterator::into_iter(self) {
             item.write_back(program_id, system_program)?;
         }
         Ok(())
@@ -41,7 +40,7 @@ where
         infos: &mut impl AccountInfoIterator,
         arg: [A; N],
     ) -> GeneratorResult<Self> {
-        let mut iter = IntoIter::new(arg);
+        let mut iter = IntoIterator::into_iter(arg);
         try_array_init(|_| T::from_accounts(program_id, infos, iter.next().unwrap()))
     }
 

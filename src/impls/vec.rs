@@ -1,4 +1,3 @@
-use std::array::IntoIter;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
 
@@ -107,7 +106,7 @@ where
         infos: &mut impl AccountInfoIterator,
         arg: [A; N],
     ) -> GeneratorResult<Self> {
-        Ok(IntoIter::new(<[T; N]>::from_accounts(program_id, infos, arg)?).collect())
+        Ok(IntoIterator::into_iter(<[T; N]>::from_accounts(program_id, infos, arg)?).collect())
     }
 }
 impl<T, I> MultiIndexableAccountArgument<(usize, I)> for Vec<T>

@@ -13,7 +13,6 @@ members = [
 
 [features]
 default = []
-no_entrypoint = []
 derive_debug_account = ["solana_generator_derive/debug_account"]
 derive_debug_error = ["solana_generator_derive/debug_error"]
 derive_debug_account_argument = ["solana_generator_derive/debug_account_argument"]
@@ -28,6 +27,7 @@ num-traits = "0.2.14"
 array-init = "2.0.0"
 bincode = "1.3.3"
 strum = { version = "0.21.0", features = ["derive"] }
+static_assertions = "1.1.0"
 
 [dev-dependencies]
 rand = "0.8.4"

@@ -201,13 +201,12 @@ pub mod account_info_test {
     };
     use rand::{thread_rng, Rng};
     use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
-    use std::array::IntoIter;
     use std::cell::RefCell;
     use std::mem::align_of;
     use std::rc::Rc;
 
     fn add<const N: usize>(data: &mut Vec<u8>, add: [u8; N]) {
-        for item in IntoIter::new(add) {
+        for item in IntoIterator::into_iter(add) {
             data.push(item);
         }
     }

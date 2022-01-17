@@ -1,4 +1,3 @@
-use crate::discriminant::Discriminant;
 use crate::traits::Error;
 use solana_program::pubkey::Pubkey;
 use std::fmt::Debug;
@@ -8,6 +7,9 @@ use strum::EnumDiscriminants;
 #[derive(Clone, Debug, Error, EnumDiscriminants)]
 #[error(start = 0)]
 pub enum GeneratorError {
+    /// Custom error message for infrequent one-off errors
+    #[error_msg("{}", error)]
+    Custom { error: String },
     /// Discriminant mismatch for accounts. Usually caused by passing the wrong account for a slot
     #[error_msg(
         "Mismatched Discriminant for account `{}`. Received: `{:?}`, Expected: `{:?}`",
@@ -19,9 +21,9 @@ pub enum GeneratorError {
         /// The account that has the discriminant mismatch
         account: Pubkey,
         /// The discriminant of the account
-        received: Discriminant,
+        received: u64,
         /// The discriminant that was expected
-        expected: Discriminant,
+        expected: u64,
     },
     /// Accounts are either writable when should not be or not writable when should be depending on the indexer
     #[error_msg(
@@ -128,14 +130,6 @@ pub enum GeneratorError {
         /// The possible range for the index
         possible_range: String,
     },
-    /// Not enough data
-    #[error_msg("Not enough data, expected: `{}`, found: `{}`", expected, found)]
-    NotEnoughData {
-        /// What data was expected
-        expected: String,
-        /// What data was found
-        found: String,
-    },
     /// An unknown instruction was given
     #[error_msg("Unknown instruction: `{}`", instruction)]
     UnknownInstruction {
@@ -205,5 +199,17 @@ pub enum GeneratorError {
         max: usize,
         /// The value that is invalid
         value: usize,
+    },
+    /// Not enough data left for deserialization
+    #[error_msg(
+        "Not enough data left for deserialization, needed: {}, remaining: {}",
+        needed,
+        remaining
+    )]
+    NotEnoughData {
+        /// Amount of data needed
+        needed: usize,
+        /// Amount of data remaining
+        remaining: usize,
     },
 }

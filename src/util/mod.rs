@@ -1,9 +1,11 @@
 use crate::{GeneratorError, GeneratorResult};
 pub use short_vec::ShortVec;
+use std::array;
 use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::convert::TryInto;
-use std::ops::{Bound, RangeBounds};
+use std::mem::take;
+use std::ops::{Bound, Deref, RangeBounds};
+use std::ptr::slice_from_raw_parts_mut;
 
 pub(crate) mod bytes_ext;
 pub mod short_vec;
@@ -48,34 +50,6 @@ pub fn convert_range(
         .into())
     } else {
         Ok((start, end))
-    }
-}
-
-/// Adds the [`take_array`] and [`take_single`] functions. Intended for slice references.
-pub trait Take<'a> {
-    /// The inner type of this
-    type Inner;
-    /// Takes an array of inners by reference.
-    fn take_array<const N: usize>(&mut self) -> GeneratorResult<&'a [Self::Inner; N]>;
-    /// Takes a single instance by reference.
-    fn take_single(&mut self) -> GeneratorResult<&'a Self::Inner> {
-        Ok(&self.take_array::<1>()?[0])
-    }
-}
-impl<'a, T> Take<'a> for &'a [T] {
-    type Inner = T;
-
-    fn take_array<const N: usize>(&mut self) -> GeneratorResult<&'a [Self::Inner; N]> {
-        if self.len() < N {
-            return Err(GeneratorError::NotEnoughData {
-                expected: format!("{} bytes", N),
-                found: format!("{} bytes", self.len()),
-            }
-            .into());
-        }
-        let out = self[0..N].try_into().unwrap();
-        *self = &self[N..];
-        Ok(out)
     }
 }
 
@@ -124,4 +98,130 @@ pub fn mul_size_hint(hint: (usize, Option<usize>), mul: usize) -> (usize, Option
             None => None,
         },
     )
+}
+
+pub trait Length {
+    fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+impl<T> Length for [T] {
+    fn len(&self) -> usize {
+        self.len()
+    }
+}
+impl<'a, T> Length for &'a [T] {
+    fn len(&self) -> usize {
+        self.deref().len()
+    }
+}
+impl<'a, T> Length for &'a mut [T] {
+    fn len(&self) -> usize {
+        self.deref().len()
+    }
+}
+impl<T, const N: usize> Length for [T; N] {
+    fn len(&self) -> usize {
+        self.len()
+    }
+}
+impl<'a, T, const N: usize> Length for &'a [T; N] {
+    fn len(&self) -> usize {
+        self.deref().len()
+    }
+}
+impl<'a, T, const N: usize> Length for &'a mut [T; N] {
+    fn len(&self) -> usize {
+        self.deref().len()
+    }
+}
+
+pub trait Advance<'a>: Length {
+    type AdvanceOut;
+
+    /// Advances self forward by `amount`, returning the advanced over portion.
+    /// Panics if not enough data.
+    fn advance(&'a mut self, amount: usize) -> Self::AdvanceOut {
+        assert!(amount <= self.len());
+        // Safety: amount is not greater than the length of self
+        unsafe { self.advance_unchecked(amount) }
+    }
+
+    /// Advances self forward by `amount`, returning the advanced over portion.
+    /// Errors if not enough data.
+    fn try_advance(&'a mut self, amount: usize) -> GeneratorResult<Self::AdvanceOut> {
+        if self.len() < amount {
+            Err(GeneratorError::NotEnoughData {
+                needed: amount,
+                remaining: self.len(),
+            }
+            .into())
+        } else {
+            // Safety: amount is not greater than the length of self
+            Ok(unsafe { self.advance_unchecked(amount) })
+        }
+    }
+
+    /// Advances self forward by `amount`, returning the advanced over portion.
+    /// Does not error if not enough data.
+    ///
+    /// # Safety
+    /// Caller must guarantee that `amount` is not greater than the length of self.
+    unsafe fn advance_unchecked(&'a mut self, amount: usize) -> Self::AdvanceOut;
+}
+pub trait AdvanceArray<'a, const N: usize>: Length {
+    type AdvanceOut;
+
+    /// Advances self forward by `N`, returning the advanced over portion.
+    /// Panics if not enough data.
+    fn advance_array(&'a mut self) -> Self::AdvanceOut {
+        assert!(N <= self.len());
+        // Safety: N is not greater than the length of self
+        unsafe { self.advance_array_unchecked() }
+    }
+
+    /// Advances self forward by `N`, returning the advanced over portion.
+    /// Errors if not enough data.
+    fn try_advance_array(&'a mut self) -> GeneratorResult<Self::AdvanceOut> {
+        if self.len() < N {
+            Err(GeneratorError::NotEnoughData {
+                needed: N,
+                remaining: self.len(),
+            }
+            .into())
+        } else {
+            // Safety: N is not greater than the length of self
+            Ok(unsafe { self.advance_array_unchecked() })
+        }
+    }
+
+    /// Advances self forward by `N`, returning the advanced over portion.
+    /// Does not error if not enough data.
+    ///
+    /// # Safety
+    /// Caller must guarantee that `N` is not greater than the length of self.
+    unsafe fn advance_array_unchecked(&'a mut self) -> Self::AdvanceOut;
+}
+impl<'a, 'b, T> Advance<'a> for &'b mut [T] {
+    type AdvanceOut = &'b mut [T];
+
+    unsafe fn advance_unchecked(&'a mut self, amount: usize) -> Self::AdvanceOut {
+        // Safety neither slice overlaps and points to valid r/w data
+        let len = self.len();
+        let ptr = self.as_mut_ptr();
+        *self = &mut *slice_from_raw_parts_mut(ptr.add(amount), len - amount);
+        &mut *slice_from_raw_parts_mut(ptr, amount)
+    }
+}
+impl<'a, 'b, T, const N: usize> AdvanceArray<'a, N> for &'b mut [T] {
+    type AdvanceOut = &'b mut [T; N];
+
+    unsafe fn advance_array_unchecked(&'a mut self) -> Self::AdvanceOut {
+        // Safe conversion because returned array will always be same size as value passed in (`N`)
+        &mut *(
+            // Safety: Same requirements as this function
+            self.advance_unchecked(N) as *mut [T; N]
+        )
+    }
 }

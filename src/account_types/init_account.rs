@@ -8,15 +8,17 @@ use solana_program::system_instruction::create_account;
 
 use crate::traits::AccountArgument;
 use crate::{
-    invoke, Account, AccountInfo, AccountInfoIterator, AllAny, FromAccounts, GeneratorError,
-    GeneratorResult, MultiIndexableAccountArgument, PDASeedSet, ShortVec,
+    invoke, Account, AccountInfo, AccountInfoIterator, AccountListItem, AllAny, FromAccounts,
+    GeneratorError, GeneratorResult, MultiIndexableAccountArgument, PDASeedSet, ShortVec,
     SingleIndexableAccountArgument, SystemProgram,
 };
 
 use super::SYSTEM_PROGRAM_ID;
+use crate::compressed_numbers::CompressedU64;
 use crate::solana_program::rent::Rent;
 use crate::solana_program::sysvar::Sysvar;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 /// The size the account will be initialized to.
 #[derive(Clone, Debug)]
@@ -38,13 +40,14 @@ impl Default for InitSize {
 /// Will be allocated and transferred to this program.
 /// Requires system program is passed on write back.
 #[derive(Debug)]
-pub struct InitAccount<T>
+pub struct InitAccount<AL, A>
 where
-    T: Account,
+    AL: AccountListItem<A>,
+    A: Account,
 {
     /// The [`AccountInfo`] for this, data field will be overwritten on write back.
     pub info: AccountInfo,
-    data: T,
+    data: A,
     /// The size the account will be given on write back, set it directly
     pub init_size: InitSize,
     /// The account that will pay the rent for the new account
@@ -53,10 +56,12 @@ where
     pub account_seeds: Option<PDASeedSet<'static>>,
     /// The option seeds for the funder if pda
     pub funder_seeds: Option<PDASeedSet<'static>>,
+    phantom_list: PhantomData<fn() -> AL>,
 }
-impl<T> AccountArgument for InitAccount<T>
+impl<AL, A> AccountArgument for InitAccount<AL, A>
 where
-    T: Account,
+    AL: AccountListItem<A>,
+    A: Account,
 {
     fn write_back(
         self,
@@ -72,8 +77,7 @@ where
         };
 
         let data = self.data.try_to_vec()?;
-        let required_length =
-            (data.len() + T::DISCRIMINANT.discriminant_serialized_length()?) as u64;
+        let required_length = (data.len() + AL::compressed_discriminant().num_bytes()) as u64;
         let size = match self.init_size {
             InitSize::DataSize => required_length,
             InitSize::DataSizePlus(plus) => required_length + plus.get(),
@@ -151,7 +155,7 @@ where
 
         let mut account_data_ref = self.info.data.borrow_mut();
         let mut account_data = &mut **account_data_ref.deref_mut();
-        T::DISCRIMINANT.serialize(&mut account_data)?;
+        AL::compressed_discriminant().serialize(&mut account_data)?;
         account_data.write_all(&data)?;
         Ok(())
     }
@@ -160,15 +164,16 @@ where
         self.info.add_keys(add)
     }
 }
-impl<T, A> FromAccounts<A> for InitAccount<T>
+impl<AL, A, Arg> FromAccounts<Arg> for InitAccount<AL, A>
 where
-    T: Account + Default,
-    AccountInfo: FromAccounts<A>,
+    AL: AccountListItem<A>,
+    A: Account + Default,
+    AccountInfo: FromAccounts<Arg>,
 {
     fn from_accounts(
         program_id: Pubkey,
         infos: &mut impl AccountInfoIterator,
-        arg: A,
+        arg: Arg,
     ) -> GeneratorResult<Self> {
         let info = AccountInfo::from_accounts(program_id, infos, arg)?;
 
@@ -187,11 +192,12 @@ where
 
         Ok(Self {
             info,
-            data: T::default(),
+            data: A::default(),
             init_size: InitSize::default(),
             funder: None,
             account_seeds: None,
             funder_seeds: None,
+            phantom_list: PhantomData,
         })
     }
 
@@ -199,9 +205,10 @@ where
         AccountInfo::accounts_usage_hint()
     }
 }
-impl<T> MultiIndexableAccountArgument<()> for InitAccount<T>
+impl<AL, A> MultiIndexableAccountArgument<()> for InitAccount<AL, A>
 where
-    T: Account + Default,
+    AL: AccountListItem<A>,
+    A: Account + Default,
 {
     fn is_signer(&self, indexer: ()) -> GeneratorResult<bool> {
         self.info.is_signer(indexer)
@@ -215,9 +222,10 @@ where
         self.info.is_owner(owner, indexer)
     }
 }
-impl<T> MultiIndexableAccountArgument<AllAny> for InitAccount<T>
+impl<AL, A> MultiIndexableAccountArgument<AllAny> for InitAccount<AL, A>
 where
-    T: Account + Default,
+    AL: AccountListItem<A>,
+    A: Account + Default,
 {
     fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
         self.info.is_signer(indexer)
@@ -231,9 +239,10 @@ where
         self.info.is_owner(owner, indexer)
     }
 }
-impl<T> SingleIndexableAccountArgument<()> for InitAccount<T>
+impl<AL, A> SingleIndexableAccountArgument<()> for InitAccount<AL, A>
 where
-    T: Account + Default,
+    AL: AccountListItem<A>,
+    A: Account + Default,
 {
     fn owner(&self, indexer: ()) -> GeneratorResult<Pubkey> {
         self.info.owner(indexer)
@@ -243,19 +252,21 @@ where
         self.info.key(indexer)
     }
 }
-impl<T> Deref for InitAccount<T>
+impl<AL, A> Deref for InitAccount<AL, A>
 where
-    T: Account,
+    AL: AccountListItem<A>,
+    A: Account,
 {
-    type Target = T;
+    type Target = A;
 
     fn deref(&self) -> &Self::Target {
         &self.data
     }
 }
-impl<T> DerefMut for InitAccount<T>
+impl<AL, A> DerefMut for InitAccount<AL, A>
 where
-    T: Account,
+    AL: AccountListItem<A>,
+    A: Account,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data

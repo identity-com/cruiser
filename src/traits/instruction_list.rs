@@ -1,9 +1,10 @@
+use crate::compressed_numbers::CompressedU64;
 use crate::{AccountInfoIterator, GeneratorResult, Pubkey, SolanaInstruction};
 pub use solana_generator_derive::InstructionList;
-use crate::discriminant::Discriminant;
 
 /// A list of possible instructions for a program.
 pub trait InstructionList: Copy {
+    type DiscriminantCompressed: CompressedU64;
     /// The enum of instruction builders.
     type BuildEnum;
 
@@ -13,12 +14,12 @@ pub trait InstructionList: Copy {
         build_enum: Self::BuildEnum,
     ) -> GeneratorResult<SolanaInstruction>;
     /// Gets the discriminant for the instruction
-    fn discriminant(self) -> Discriminant;
-    fn from_discriminant(discriminant: Discriminant) -> Option<Self>;
+    fn discriminant(self) -> u64;
+    fn from_discriminant(discriminant: u64) -> Option<Self>;
 }
 
 /// A Processor for a given [`InstructionList`]
-pub trait InstructionListProcessor<IL: InstructionList>{
+pub trait InstructionListProcessor<IL: InstructionList> {
     /// Processes a given instruction. Usually delegates to [`crate::InstructionProcessor`].
     fn process_instruction(
         program_id: Pubkey,
@@ -27,9 +28,14 @@ pub trait InstructionListProcessor<IL: InstructionList>{
     ) -> GeneratorResult<()>;
 }
 
-pub trait Interface: InstructionList{
-    const INTERFACE_DISCRIMINANT: Discriminant;
+pub trait Interface: InstructionList {
+    const INTERFACE_DISCRIMINANT: u64;
 }
 
-pub trait InterfaceProcessor<I: Interface>: InstructionListProcessor<I>{}
-impl<T, I> InterfaceProcessor<I> for T where T: InstructionListProcessor<I>, I: Interface{}
+pub trait InterfaceProcessor<I: Interface>: InstructionListProcessor<I> {}
+impl<T, I> InterfaceProcessor<I> for T
+where
+    T: InstructionListProcessor<I>,
+    I: Interface,
+{
+}

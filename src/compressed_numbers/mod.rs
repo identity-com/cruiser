@@ -11,4 +11,5 @@ pub unsafe trait CompressedU64: Copy + BorshSerialize + BorshDeserialize + Eq {
     fn from_u64(number: u64) -> Self;
     /// This function is required to have a const version. Will be added when const functions are in traits.
     fn into_u64(self) -> u64;
+    fn num_bytes(self) -> usize;
 }
