@@ -1,11 +1,11 @@
 use crate::{
     Advance, AdvanceArray, Error, GeneratorError, GeneratorResult, InPlaceBuilder, InPlaceData,
-    InPlaceGet, InPlaceSet, StaticSized, StaticSizedSize,
+    InPlaceGet, InPlaceSet, StaticSized,
 };
 use array_init::try_array_init;
 use num_traits::Zero;
 use std::collections::Bound;
-use std::convert::{Infallible, TryFrom, TryInto};
+use std::convert::Infallible;
 use std::marker::PhantomData;
 use std::ops::RangeBounds;
 
@@ -223,6 +223,7 @@ where
     D::CreateArg: Zero + From<usize>,
     for<'a, 'b> D::InPlaceData<'a>: InPlaceGet<'b, usize>,
     [(); N * T::DATA_SIZE]:,
+    [(); D::DATA_SIZE + N * T::DATA_SIZE]:,
 {
     type InPlaceData<'a> = StaticInPlaceVec<'a, T, D, N>;
     type SizeError = Infallible;
@@ -240,59 +241,44 @@ where
         mut data: &mut [u8],
         _create_arg: Self::CreateArg,
     ) -> GeneratorResult<Self::InPlaceData<'_>> {
-        Self::create_static(data.try_advance_array()?)
+        let length = D::create(data.try_advance(D::DATA_SIZE)?, D::CreateArg::zero())?;
+        let data = data.try_advance_array()?;
+        Ok(StaticInPlaceVec { length, data })
     }
 
     fn read(mut data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>> {
-        let length = D::read(data.advance(D::DATA_SIZE))?;
-        if data.len() < N * T::DATA_SIZE {
-            Err(GeneratorError::NotEnoughData {
-                needed: N * T::DATA_SIZE,
-                remaining: data.len(),
-            }
-            .into())
-        } else {
-            Ok(StaticInPlaceVec {
-                length,
-                data: (&mut data[..N * T::DATA_SIZE]).try_into().unwrap(),
-            })
-        }
+        Ok(StaticInPlaceVec {
+            length: D::read(data.try_advance(D::DATA_SIZE)?)?,
+            data: data.try_advance_array()?,
+        })
     }
 }
-impl<T, D, const N: usize> StaticSizedSize for StaticInPlaceVec<'static, T, D, N>
+impl<T, D, const N: usize> StaticSized for StaticInPlaceVec<'static, T, D, N>
 where
     T: StaticSized,
     D: StaticSized,
     D::CreateArg: Zero + From<usize>,
     for<'a, 'b> D::InPlaceData<'a>: InPlaceGet<'b, usize>,
     [(); N * T::DATA_SIZE]:,
+    [(); D::DATA_SIZE + N * T::DATA_SIZE]:,
 {
-}
-// impl<T, D, const N: usize> StaticSized for StaticInPlaceVec<'static, T, D, N>
-// where
-//     T: StaticSized,
-//     D: StaticSized,
-//     D::CreateArg: Zero + From<usize>,
-//     for<'a, 'b> D::InPlaceData<'a>: InPlaceGet<'b, usize>,
-//     [(); N * T::DATA_SIZE]:,
-// {
+    const DATA_SIZE: usize = Self::data_size();
 
-// const DATA_SIZE: usize = Self::data_size();
-//     fn create_static(
-//         data: &mut [u8; Self::data_size()],
-//         _create_arg: Self::CreateArg,
-//     ) -> GeneratorResult<Self::InPlaceData<'_>> {
-//         let [length @ 0..D::DATA_SIZE, data @ ..] = data;
-//         Ok(StaticInPlaceVec {
-//             length: D::create_static(length, D::CreateArg::zero()),
-//             data,
-//         })
-//     }
-//
-//     fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
-//         todo!()
-//     }
-// }
+    // fn create_static(
+    //     data: &mut [u8; Self::DATA_SIZE],
+    //     _create_arg: Self::CreateArg,
+    // ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    //     let [length @ 0..D::DATA_SIZE, data @ ..] = data;
+    //     Ok(StaticInPlaceVec {
+    //         length: D::create_static(length, D::CreateArg::zero()),
+    //         data,
+    //     })
+    // }
+    //
+    // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    //     todo!()
+    // }
+}
 impl<'a, T, D, const N: usize> InPlaceData for StaticInPlaceVec<'a, T, D, N>
 where
     T: StaticSized,

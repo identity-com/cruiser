@@ -221,7 +221,7 @@ impl<'a, 'b, T, const N: usize> AdvanceArray<'a, N> for &'b mut [T] {
         // Safe conversion because returned array will always be same size as value passed in (`N`)
         &mut *(
             // Safety: Same requirements as this function
-            self.advance_unchecked(N) as *mut [T; N]
+            self.advance_unchecked(N) as *mut [T] as *mut [T; N]
         )
     }
 }

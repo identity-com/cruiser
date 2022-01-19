@@ -1,9 +1,11 @@
 pub mod builders;
+mod option;
 mod vec;
 
+pub use option::*;
 pub use vec::*;
 
-use crate::{Advance, AdvanceArray, Error, GeneratorError, GeneratorResult};
+use crate::{AdvanceArray, Error, GeneratorError, GeneratorResult};
 use std::convert::{Infallible, TryInto};
 use std::mem::{size_of, ManuallyDrop, MaybeUninit};
 
@@ -24,20 +26,19 @@ pub trait InPlaceBuilder {
     /// Incoming length has no guarantees.
     fn read(data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>>;
 }
-//TODO: Put back in [`StaticSized`] when doesn't cause cycle
-pub trait StaticSizedSize {}
-pub trait StaticSized: StaticSizedSize + InPlaceBuilder<SizeError = Infallible> {
+pub trait StaticSized: InPlaceBuilder<SizeError = Infallible> {
     const DATA_SIZE: usize;
 
-    /// An optimized version of [`InPlaceBuilder::create`] by avoiding a size check.
-    /// [`InPlaceBuilder::create`] should usually call this function by converting with [`TryInto`].
-    fn create_static(
-        data: &mut [u8; Self::DATA_SIZE],
-        create_arg: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>>;
-    /// An optimized version of [`InPlaceBuilder::read`] by avoiding a size check.
-    /// [`InPlaceBuilder::read`] should usually call this function by converting with [`TryInto`].
-    fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>>;
+    // // TODO: Add back in when https://github.com/rust-lang/rust/issues/92961 resolved
+    // /// An optimized version of [`InPlaceBuilder::create`] by avoiding a size check.
+    // /// [`InPlaceBuilder::create`] should usually call this function by converting with [`TryInto`].
+    // fn create_static(
+    //     data: &mut [u8; Self::DATA_SIZE],
+    //     create_arg: Self::CreateArg,
+    // ) -> GeneratorResult<Self::InPlaceData<'_>>;
+    // /// An optimized version of [`InPlaceBuilder::read`] by avoiding a size check.
+    // /// [`InPlaceBuilder::read`] should usually call this function by converting with [`TryInto`].
+    // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>>;
 }
 pub trait InPlaceData {
     fn self_data_size(&self) -> usize;
@@ -79,21 +80,19 @@ impl InPlaceBuilder for () {
         Ok(())
     }
 }
-impl StaticSizedSize for () {
-    // const DATA_SIZE: usize = 0;
-}
 impl StaticSized for () {
     const DATA_SIZE: usize = 0;
-    fn create_static(
-        data: &mut [u8; Self::DATA_SIZE],
-        create_arg: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>> {
-        Ok(())
-    }
 
-    fn read_static(_data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
-        Ok(())
-    }
+    // fn create_static(
+    //     _data: &mut [u8; Self::DATA_SIZE],
+    //     _create_arg: Self::CreateArg,
+    // ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    //     Ok(())
+    // }
+    //
+    // fn read_static(_data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    //     Ok(())
+    // }
 }
 impl InPlaceData for () {
     fn self_data_size(&self) -> usize {
@@ -215,21 +214,20 @@ macro_rules! impl_in_place_for_prim_num {
                 size_of::<$ty>()
             }
         }
-        impl<'a> StaticSizedSize for InPlaceNumber<'a, $ty> {
-            const DATA_SIZE: usize = size_of::<$ty>();
-        }
         impl<'a> StaticSized for InPlaceNumber<'a, $ty> {
-            fn create_static(
-                data: &mut [u8; Self::DATA_SIZE],
-                create_arg: Self::CreateArg,
-            ) -> GeneratorResult<Self::InPlaceData<'_>> {
-                *data = create_arg.to_le_bytes();
-                Ok(InPlaceNumber((&mut data[..size_of::<$ty>()]).try_into().unwrap()))
-            }
+            const DATA_SIZE: usize = size_of::<$ty>();
 
-            fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
-                Ok(InPlaceNumber(data))
-            }
+            // fn create_static(
+            //     data: &mut [u8; Self::DATA_SIZE],
+            //     create_arg: Self::CreateArg,
+            // ) -> GeneratorResult<Self::InPlaceData<'_>> {
+            //     *data = create_arg.to_le_bytes();
+            //     Ok(InPlaceNumber(data))
+            // }
+            //
+            // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
+            //     Ok(InPlaceNumber(data))
+            // }
         }
         impl<'a> InPlaceNumber<'a, $ty>{
             pub fn set(&mut self, value: $ty){
@@ -275,98 +273,3 @@ impl_in_place_for_prim_num!(
     (i64, InPlaceI64),
     (i128, InPlaceI128),
 );
-
-pub struct InPlaceOption<'a, T>
-where
-    T: StaticSized,
-    [(); T::DATA_SIZE]:,
-{
-    discriminant: &'a mut u8,
-    value: &'a mut [u8; T::DATA_SIZE],
-}
-impl<'a, T> InPlaceOption<'a, T>
-where
-    T: StaticSized,
-    [(); T::DATA_SIZE]:,
-{
-    const fn data_size() -> usize {
-        T::DATA_SIZE + 1
-    }
-
-    fn get(&mut self) -> GeneratorResult<Option<T::InPlaceData<'_>>> {
-        match *self.discriminant {
-            0 => Ok(None),
-            1 => Ok(T::read_static(self.value)?),
-            _ => unreachable!(),
-        }
-    }
-}
-impl<'a, T> InPlaceBuilder for InPlaceOption<'a, T>
-where
-    T: StaticSized,
-    [(); T::DATA_SIZE]:,
-{
-    type InPlaceData<'b> = InPlaceOption<'b, T>;
-    type SizeError = Infallible;
-    type CreateArg = ();
-
-    fn data_size(_data: &[u8]) -> Result<usize, Self::SizeError> {
-        Ok(Self::data_size())
-    }
-
-    fn create_size(_create_arg: &Self::CreateArg) -> usize {
-        Self::data_size()
-    }
-
-    fn create(
-        mut data: &mut [u8],
-        _create_arg: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>> {
-        Self::create_static(data.advance_array()?)
-    }
-
-    fn read(data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>> {
-        Self::read_static(data.try_advance_array()?)
-    }
-}
-impl<'a, T> StaticSizedSize for InPlaceOption<'a, T>
-where
-    T: StaticSized,
-    [(); T::DATA_SIZE]:,
-{
-}
-impl<'a, T> StaticSized for InPlaceOption<'a, T>
-where
-    T: StaticSized,
-    [(); T::DATA_SIZE]:,
-{
-    const DATA_SIZE: usize = T::DATA_SIZE + 1;
-
-    fn create_static(
-        data: &mut [u8; Self::DATA_SIZE],
-        _create_arg: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>> {
-        let [discriminant, value @ ..] = data;
-        Ok(InPlaceOption {
-            discriminant,
-            value,
-        })
-    }
-
-    fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
-        let [discriminant, value @ ..] = data;
-        Ok(InPlaceOption {
-            discriminant,
-            value,
-        })
-    }
-}
-impl<'a, T> InPlaceData for InPlaceOption<'a, T>
-where
-    T: StaticSized,
-    [(); T::DATA_SIZE]:,
-{
-    fn self_data_size(&self) -> usize {
-        Self::data_size()
-    }
-}
