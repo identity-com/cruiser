@@ -13,13 +13,16 @@ where
 {
     fn write_back(
         self,
-        program_id: Pubkey,
+        program_id: &'static Pubkey,
         system_program: Option<&SystemProgram>,
     ) -> GeneratorResult<()> {
         self.0.write_back(program_id, system_program)
     }
 
-    fn add_keys(&self, add: impl FnMut(Pubkey) -> GeneratorResult<()>) -> GeneratorResult<()> {
+    fn add_keys(
+        &self,
+        add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
+    ) -> GeneratorResult<()> {
         self.0.add_keys(add)
     }
 }
@@ -29,7 +32,7 @@ where
     A: Clone,
 {
     fn from_accounts(
-        program_id: Pubkey,
+        program_id: &'static Pubkey,
         mut infos: &mut impl AccountInfoIterator,
         arg: A,
     ) -> GeneratorResult<Self> {

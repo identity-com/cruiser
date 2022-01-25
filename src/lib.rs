@@ -34,12 +34,6 @@ pub use solana_program::{
     pubkey::Pubkey,
 };
 
-/// The system program's pubkey
-#[inline]
-pub fn system_program_id() -> Pubkey {
-    solana_program::system_program::id()
-}
-
 #[macro_use]
 mod macros;
 

@@ -19,7 +19,7 @@ pub enum GeneratorError {
     )]
     MismatchedDiscriminant {
         /// The account that has the discriminant mismatch
-        account: Pubkey,
+        account: &'static Pubkey,
         /// The discriminant of the account
         received: u64,
         /// The discriminant that was expected
@@ -33,7 +33,7 @@ pub enum GeneratorError {
     )]
     AccountsWritableError {
         /// The accounts that are indexed
-        accounts: Vec<Pubkey>,
+        accounts: Vec<&'static Pubkey>,
         /// The index of the accounts
         indexer: String,
     },
@@ -41,7 +41,7 @@ pub enum GeneratorError {
     #[error_msg("Cannot write to account `{}` when should be able to", account)]
     CannotWrite {
         /// The account that is not writable
-        account: Pubkey,
+        account: &'static Pubkey,
     },
     /// Accounts are either singing when should not be or not signing when should be depending on the indexer
     #[error_msg(
@@ -51,7 +51,7 @@ pub enum GeneratorError {
     )]
     AccountsSignerError {
         /// The accounts that are indexed
-        accounts: Vec<Pubkey>,
+        accounts: Vec<&'static Pubkey>,
         /// The index of the accounts
         indexer: String,
     },
@@ -59,7 +59,7 @@ pub enum GeneratorError {
     #[error_msg("Account `{}` is not signer when should be", account)]
     AccountIsNotSigner {
         /// Account that is not a signer
-        account: Pubkey,
+        account: &'static Pubkey,
     },
     /// System program is missing when required.
     #[error_msg("Missing SystemProgram")]
@@ -68,7 +68,7 @@ pub enum GeneratorError {
     #[error_msg("Not enough space for initialization of account `{}`. Space Given: `{}`, Space Needed: `{}`", account, space_given, space_needed)]
     NotEnoughSpaceInit {
         /// The account that would have been initialized
-        account: Pubkey,
+        account: &'static Pubkey,
         /// The space the account was given
         space_given: u64,
         /// The space the account needed
@@ -78,7 +78,7 @@ pub enum GeneratorError {
     #[error_msg("Account data was not zeroed for account `{}`", account)]
     NonZeroedData {
         /// The account with non-zero data
-        account: Pubkey,
+        account: &'static Pubkey,
     },
     /// Account has wrong owner based on index. May be caused by owner matching or not matching.
     #[error_msg(
@@ -89,7 +89,7 @@ pub enum GeneratorError {
     )]
     AccountsOwnerError {
         /// The accounts indexed
-        accounts: Vec<Pubkey>,
+        accounts: Vec<&'static Pubkey>,
         /// The indexer for the accounts
         indexer: String,
         /// The owner the indexer was matching against
@@ -104,7 +104,7 @@ pub enum GeneratorError {
     )]
     AccountOwnerNotEqual {
         /// Account whose owner is wrong
-        account: Pubkey,
+        account: &'static Pubkey,
         /// The owner of the account
         owner: Pubkey,
         /// The expected possible owners that were not matched
@@ -140,7 +140,7 @@ pub enum GeneratorError {
     #[error_msg("No payer to init account: `{}`", account)]
     NoPayerForInit {
         /// The account needing a payer
-        account: Pubkey,
+        account: &'static Pubkey,
     },
     /// Not enough lamports in an account
     #[error_msg(
@@ -151,7 +151,7 @@ pub enum GeneratorError {
     )]
     NotEnoughLamports {
         /// Account with not enough lamports
-        account: Pubkey,
+        account: &'static Pubkey,
         /// Lamports in `account`
         lamports: u64,
         /// Lamports needed

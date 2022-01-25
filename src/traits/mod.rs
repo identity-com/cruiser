@@ -1,4 +1,3 @@
-mod account;
 mod account_argument;
 mod account_list;
 mod error;
@@ -8,7 +7,6 @@ mod instruction;
 mod instruction_list;
 mod serde;
 
-pub use account::*;
 pub use account_argument::*;
 pub use account_list::*;
 pub use error::*;

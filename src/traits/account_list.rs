@@ -1,5 +1,4 @@
 use crate::compressed_numbers::CompressedU64;
-use crate::Account;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::num::NonZeroU64;
 
@@ -8,10 +7,7 @@ pub trait AccountList: BorshSerialize + BorshDeserialize {
 }
 /// # Safety
 /// Implementor must guarantee that no two discriminates match
-pub unsafe trait AccountListItem<T>: AccountList
-where
-    T: Account,
-{
+pub unsafe trait AccountListItem<T>: AccountList {
     fn discriminant() -> NonZeroU64;
     fn compressed_discriminant() -> Self::DiscriminantCompressed {
         Self::DiscriminantCompressed::from_u64(Self::discriminant().get())

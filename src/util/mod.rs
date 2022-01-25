@@ -1,9 +1,7 @@
 use crate::{GeneratorError, GeneratorResult};
 pub use short_vec::ShortVec;
-use std::array;
 use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::mem::take;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::ptr::slice_from_raw_parts_mut;
 
@@ -123,17 +121,17 @@ impl<'a, T> Length for &'a mut [T] {
 }
 impl<T, const N: usize> Length for [T; N] {
     fn len(&self) -> usize {
-        self.len()
+        N
     }
 }
 impl<'a, T, const N: usize> Length for &'a [T; N] {
     fn len(&self) -> usize {
-        self.deref().len()
+        N
     }
 }
 impl<'a, T, const N: usize> Length for &'a mut [T; N] {
     fn len(&self) -> usize {
-        self.deref().len()
+        N
     }
 }
 

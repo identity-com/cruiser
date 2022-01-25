@@ -1,3 +1,4 @@
+use easy_proc::{parse_attribute_list, ArgumentList};
 use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use proc_macro_error::{abort, abort_call_site};
@@ -10,17 +11,42 @@ use syn::{
     Generics, Ident, Index, Token, Type,
 };
 
+#[derive(ArgumentList)]
+pub struct FromAttribute {
+    id: Option<Ident>,
+    data: NamedTupple,
+}
+impl FromAttribute {
+    const IDENT: &'static str = "from";
+}
+
+pub struct NamedTupple {
+    paren: token::Paren,
+    list: Punctuated<(Ident, Token![=], Type), Token![,]>,
+}
+impl Parse for NamedTupple {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let content;
+        let paren = parenthesized!(content in input);
+        let list = content
+            .parse_terminated(|stream| Ok((stream.parse()?, stream.parse()?, stream.parse()?)))?;
+        Ok(Self { paren, list })
+    }
+}
+
 pub struct AccountArgumentDerive {
     ident: Ident,
     generics: Generics,
     derive_type: AccountArgumentDeriveType,
-    account_argument_attribute: AccountArgumentAttribute,
+    from_attributes: Vec<FromAttribute>,
 }
 impl Parse for AccountArgumentDerive {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let from_attribute_ident = Ident::new(FromAttribute::IDENT, Span::call_site());
         let derive_input: DeriveInput = input.parse()?;
 
-        let account_argument_attribute = AccountArgumentAttribute::try_from(derive_input.attrs)?;
+        let from_attributes =
+            parse_attribute_list(&from_attribute_ident, derive_input.attrs.iter()).collect();
         let derive_type =
             AccountArgumentDeriveType::from_data(derive_input.data, &derive_input.ident)?;
 
@@ -28,7 +54,7 @@ impl Parse for AccountArgumentDerive {
             ident: derive_input.ident,
             generics: derive_input.generics,
             derive_type,
-            account_argument_attribute,
+            from_attributes,
         })
     }
 }
@@ -46,42 +72,6 @@ impl AccountArgumentDerive {
 
         let ident = self.ident;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
-
-        let instruction_arg = {
-            match &self.account_argument_attribute.instruction_data {
-                None => quote! { () },
-                Some(InstructionData::Single(attribute::InstructionField { ty, .. })) => {
-                    quote! { #ty }
-                }
-                Some(InstructionData::Multi(fields)) => {
-                    let types = fields.iter().map(|field| field.ty.clone());
-                    quote! {
-                        (#(#types,)*)
-                    }
-                }
-            }
-        };
-
-        let instruction_naming = {
-            match self.account_argument_attribute.instruction_data {
-                None => quote! {},
-                Some(InstructionData::Single(attribute::InstructionField { ident, .. })) => {
-                    quote! { let #ident = arg__; }
-                }
-                Some(InstructionData::Multi(fields)) => {
-                    let naming = fields.into_iter().enumerate().map(|(index, field)| {
-                        let ident = field.ident;
-                        let index = Index::from(index);
-                        quote! {
-                            let #ident = arg__.#index;
-                        }
-                    });
-                    quote! {
-                        #(#naming)*
-                    }
-                }
-            }
-        };
 
         let (fields_and_creation, write_back, keys) = {
             let AccountArgumentDeriveType::Struct(derive_struct) = self.derive_type.clone();
@@ -329,162 +319,53 @@ impl TryFrom<DataEnum> for AccountArgumentDeriveEnum {
 #[derive(Clone)]
 enum AccountArgumentDeriveStruct {
     Named {
-        fields: Vec<(Ident, AccountArgumentFieldAttribute, Type)>,
+        fields: Vec<(Ident, Vec<AccountArgumentFieldAttribute>, Type)>,
     },
     Unnamed {
-        fields: Vec<(AccountArgumentFieldAttribute, Type)>,
+        fields: Vec<(Vec<AccountArgumentFieldAttribute>, Type)>,
     },
     Unit,
 }
-impl TryFrom<Fields> for AccountArgumentDeriveStruct {
-    type Error = syn::Error;
-
-    fn try_from(value: Fields) -> Result<Self, Self::Error> {
+impl AccountArgumentDeriveStruct {
+    fn from_fields(
+        value: Fields,
+        account_argument_field_attr_ident: &Ident,
+    ) -> Result<Self, syn::Error> {
         match value {
             Fields::Named(named) => Ok(Self::Named {
                 fields: named
                     .named
                     .into_iter()
-                    .map(|field| Ok((field.ident.unwrap(), field.attrs.try_into()?, field.ty)))
+                    .map(|field| {
+                        Ok((
+                            field.ident.unwrap(),
+                            parse_attribute_list(
+                                account_argument_field_attr_ident,
+                                field.attrs.iter(),
+                            )
+                            .collect(),
+                            field.ty,
+                        ))
+                    })
                     .collect::<Result<_, Self::Error>>()?,
             }),
             Fields::Unnamed(unnamed) => Ok(Self::Unnamed {
                 fields: unnamed
                     .unnamed
                     .into_iter()
-                    .map(|field| Ok((field.attrs.try_into()?, field.ty)))
+                    .map(|field| {
+                        Ok((
+                            parse_attribute_list(
+                                account_argument_field_attr_ident,
+                                field.attrs.iter(),
+                            )
+                            .collect(),
+                            field.ty,
+                        ))
+                    })
                     .collect::<Result<_, Self::Error>>()?,
             }),
             Fields::Unit => Ok(Self::Unit),
-        }
-    }
-}
-
-struct AccountArgumentAttribute {
-    instruction_data: Option<InstructionData>,
-}
-impl AccountArgumentAttribute {
-    const IDENT: &'static str = "account_argument";
-}
-impl TryFrom<Vec<Attribute>> for AccountArgumentAttribute {
-    type Error = syn::Error;
-
-    fn try_from(from: Vec<Attribute>) -> Result<Self, Self::Error> {
-        match find_attribute(from, Self::IDENT) {
-            None => Ok(Self::default()),
-            Some(attribute) => attribute.parse_args(),
-        }
-    }
-}
-impl Parse for AccountArgumentAttribute {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let punctuated = input.parse_terminated::<_, Token![,]>(attribute::Items::parse)?;
-        let mut instruction_data = None;
-        for item in punctuated {
-            if let Some((scope, name)) = match item {
-                attribute::Items::InstructionData { ident, field, .. } => instruction_data
-                    .replace(InstructionData::Single(field))
-                    .map(|_| (ident, attribute::Items::INSTRUCTION_DATA_IDENT)),
-                attribute::Items::InstructionDataTupple { ident, fields, .. } => instruction_data
-                    .replace(InstructionData::Multi(fields.into_iter().collect()))
-                    .map(|_| (ident, attribute::Items::INSTRUCTION_DATA_IDENT)),
-            } {
-                abort!(scope, "Multiple `{}` arguments for `{}`", name, Self::IDENT);
-            }
-        }
-        Ok(Self { instruction_data })
-    }
-}
-impl Default for AccountArgumentAttribute {
-    fn default() -> Self {
-        Self {
-            instruction_data: None,
-        }
-    }
-}
-
-#[allow(clippy::large_enum_variant)]
-enum InstructionData {
-    Multi(Vec<attribute::InstructionField>),
-    Single(attribute::InstructionField),
-}
-
-mod attribute {
-    use super::*;
-
-    pub enum Items {
-        InstructionData {
-            ident: Ident,
-            equals: Token![=],
-            field: InstructionField,
-        },
-        InstructionDataTupple {
-            ident: Ident,
-            equals: Token![=],
-            paren: token::Paren,
-            fields: Punctuated<InstructionField, Token![,]>,
-        },
-    }
-    impl Items {
-        pub const INSTRUCTION_DATA_IDENT: &'static str = "instruction_data";
-    }
-    impl Parse for Items {
-        fn parse(input: ParseStream) -> syn::Result<Self> {
-            let ident: Ident = input.parse()?;
-            if ident == Self::INSTRUCTION_DATA_IDENT {
-                let equals = input.parse()?;
-                let lookahead = input.lookahead1();
-                if lookahead.peek(token::Paren) {
-                    let content;
-                    let paren = parenthesized!(content in input);
-                    let fields = content.parse_terminated(InstructionField::parse)?;
-                    Ok(Self::InstructionDataTupple {
-                        ident,
-                        equals,
-                        paren,
-                        fields,
-                    })
-                } else if lookahead.peek(Ident) {
-                    let field = input.parse()?;
-                    Ok(Self::InstructionData {
-                        ident,
-                        equals,
-                        field,
-                    })
-                } else {
-                    Err(lookahead.error())
-                }
-            } else {
-                abort!(
-                    ident,
-                    "Unknown `{}` argument `{}`",
-                    AccountArgumentAttribute::IDENT,
-                    ident
-                )
-            }
-        }
-    }
-
-    #[derive(Clone)]
-    pub struct InstructionField {
-        pub ident: Ident,
-        pub colon: Token![:],
-        pub ty: Type,
-    }
-    impl Parse for InstructionField {
-        fn parse(input: ParseStream) -> syn::Result<Self> {
-            Ok(Self {
-                ident: input.parse()?,
-                colon: input.parse()?,
-                ty: input.parse()?,
-            })
-        }
-    }
-    impl ToTokens for InstructionField {
-        fn to_tokens(&self, tokens: &mut TokenStream) {
-            self.ident.to_tokens(tokens);
-            self.colon.to_tokens(tokens);
-            self.ty.to_tokens(tokens);
         }
     }
 }
@@ -498,86 +379,36 @@ impl TryFrom<Vec<Attribute>> for AccountArgumentEnumAttribute {
     }
 }
 
-#[derive(Clone)]
+#[derive(ArgumentList, Clone)]
 struct AccountArgumentFieldAttribute {
-    instruction_data: Expr,
+    id: Ident,
+    from_data: Expr,
+    #[argument(custom)]
     signer: Vec<Indexes>,
+    #[argument(custom)]
     writable: Vec<Indexes>,
-    owner: Vec<(Indexes, Expr)>,
+    #[argument(custom)]
+    owner: Vec<IndexesValue<Expr>>,
 }
 impl AccountArgumentFieldAttribute {
     const IDENT: &'static str = "account_argument";
 }
-impl TryFrom<Vec<Attribute>> for AccountArgumentFieldAttribute {
-    type Error = syn::Error;
 
-    fn try_from(value: Vec<Attribute>) -> Result<Self, Self::Error> {
-        match find_attribute(value, Self::IDENT) {
-            None => Ok(Self::default()),
-            Some(attribute) => attribute.parse_args(),
-        }
-    }
+pub struct IndexesValue<T> {
+    indexes: Indexes,
+    equals: Token![=],
+    value: T,
 }
-impl Parse for AccountArgumentFieldAttribute {
+impl<T> Parse for IndexesValue<T>
+where
+    T: Parse,
+{
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let punctuated = input.parse_terminated::<_, Token![,]>(field_attribute::Items::parse)?;
-        let mut instruction_data = None;
-        let mut signer = Vec::new();
-        let mut writable = Vec::new();
-        let mut owner = Vec::new();
-        for item in punctuated {
-            if let Some((scope, name)) = match item {
-                field_attribute::Items::InstructionData { ident, expr, .. } => instruction_data
-                    .replace(expr)
-                    .map(|_| (ident, field_attribute::Items::INSTRUCTION_DATA_IDENT)),
-                field_attribute::Items::Signer { optional_index, .. } => {
-                    signer.push(optional_index.map_or_else(
-                        || Indexes::All(Ident::new(Indexes::ALL_IDENT, Span::call_site())),
-                        |val| val.1,
-                    ));
-                    None
-                }
-                field_attribute::Items::Writable { optional_index, .. } => {
-                    writable.push(optional_index.map_or_else(
-                        || Indexes::All(Ident::new(Indexes::ALL_IDENT, Span::call_site())),
-                        |val| val.1,
-                    ));
-                    None
-                }
-                field_attribute::Items::Owner {
-                    optional_index,
-                    owner: owner_expr,
-                    ..
-                } => {
-                    owner.push((
-                        optional_index.map_or_else(
-                            || Indexes::All(Ident::new(Indexes::ALL_IDENT, Span::call_site())),
-                            |val| val.1,
-                        ),
-                        *owner_expr,
-                    ));
-                    None
-                }
-            } {
-                abort!(scope, "Multiple `{}` arguments for `{}`", name, Self::IDENT);
-            }
-        }
         Ok(Self {
-            instruction_data: instruction_data.unwrap_or_else(|| parse_str("()").unwrap()),
-            signer,
-            writable,
-            owner,
+            indexes: input.parse()?,
+            equals: input.parse()?,
+            value: input.parse()?,
         })
-    }
-}
-impl Default for AccountArgumentFieldAttribute {
-    fn default() -> Self {
-        Self {
-            instruction_data: parse_str("()").unwrap(),
-            signer: vec![],
-            writable: vec![],
-            owner: vec![],
-        }
     }
 }
 
@@ -598,140 +429,27 @@ impl Indexes {
 impl Parse for Indexes {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
-        if lookahead.peek(Ident) {
-            let fork = input.fork();
-            let ident: Ident = fork.parse()?;
-            if ident == Self::ALL_IDENT {
-                Ok(Self::All(input.parse()?))
-            } else if ident == Self::NOT_ALL_IDENT {
-                Ok(Self::NotAll(input.parse()?))
-            } else if ident == Self::ANY_IDENT {
-                Ok(Self::Any(input.parse()?))
-            } else if ident == Self::NOT_ANY_IDENT {
-                Ok(Self::NotAny(input.parse()?))
+        if lookahead.peek(token::Paren) {
+            let lookahead = input.lookahead1();
+            if lookahead.peek(Ident) {
+                let fork = input.fork();
+                let ident: Ident = fork.parse()?;
+                if ident == Self::ALL_IDENT {
+                    Ok(Self::All(input.parse()?))
+                } else if ident == Self::NOT_ALL_IDENT {
+                    Ok(Self::NotAll(input.parse()?))
+                } else if ident == Self::ANY_IDENT {
+                    Ok(Self::Any(input.parse()?))
+                } else if ident == Self::NOT_ANY_IDENT {
+                    Ok(Self::NotAny(input.parse()?))
+                } else {
+                    Ok(Self::Expr(Box::new(input.parse()?)))
+                }
             } else {
                 Ok(Self::Expr(Box::new(input.parse()?)))
             }
         } else {
-            Ok(Self::Expr(Box::new(input.parse()?)))
+            Ok(Self::All(Ident::new(Self::ALL_IDENT, Span::call_site())))
         }
     }
-}
-
-mod field_attribute {
-    use super::*;
-
-    pub enum Items {
-        InstructionData {
-            ident: Ident,
-            equals: Token![=],
-            expr: Expr,
-        },
-        Signer {
-            ident: Ident,
-            optional_index: Option<(token::Paren, Indexes)>,
-        },
-        Writable {
-            ident: Ident,
-            optional_index: Option<(token::Paren, Indexes)>,
-        },
-        Owner {
-            ident: Ident,
-            optional_index: Option<(token::Paren, Indexes)>,
-            equals: Token![=],
-            owner: Box<Expr>,
-        },
-    }
-    impl Items {
-        pub const INSTRUCTION_DATA_IDENT: &'static str = "instruction_data";
-        pub const SIGNER_IDENT: &'static str = "signer";
-        pub const WRITABLE_IDENT: &'static str = "writable";
-        pub const OWNER_IDENT: &'static str = "owner";
-    }
-    impl Parse for Items {
-        fn parse(input: ParseStream) -> syn::Result<Self> {
-            let fork = input.fork();
-            let ident: Ident = fork.parse()?;
-            if ident == Self::INSTRUCTION_DATA_IDENT {
-                Ok(Self::InstructionData {
-                    ident: input.parse()?,
-                    equals: input.parse()?,
-                    expr: input.parse()?,
-                })
-            } else if ident == Self::SIGNER_IDENT {
-                let ident = input.parse()?;
-                let lookahead = input.lookahead1();
-                let optional_index = if lookahead.peek(token::Paren) {
-                    let content;
-                    let paren = parenthesized!(content in input);
-                    let expr = content.parse()?;
-                    Some((paren, expr))
-                } else {
-                    None
-                };
-                Ok(Self::Signer {
-                    ident,
-                    optional_index,
-                })
-            } else if ident == Self::WRITABLE_IDENT {
-                let ident = input.parse()?;
-                let lookahead = input.lookahead1();
-                let optional_index = if lookahead.peek(token::Paren) {
-                    let content;
-                    let paren = parenthesized!(content in input);
-                    let expr = content.parse()?;
-                    Some((paren, expr))
-                } else {
-                    None
-                };
-                Ok(Self::Writable {
-                    ident,
-                    optional_index,
-                })
-            } else if ident == Self::OWNER_IDENT {
-                let ident = input.parse()?;
-                let lookahead = input.lookahead1();
-                let optional_index = if lookahead.peek(token::Paren) {
-                    let content;
-                    let paren = parenthesized!(content in input);
-                    let expr = content.parse()?;
-                    Some((paren, expr))
-                } else {
-                    None
-                };
-                let equals = input.parse()?;
-                let owner = input.parse()?;
-                Ok(Self::Owner {
-                    ident,
-                    optional_index,
-                    equals,
-                    owner,
-                })
-            } else {
-                abort!(
-                    ident,
-                    "Unknown `{}` argument `{}`",
-                    AccountArgumentFieldAttribute::IDENT,
-                    ident
-                )
-            }
-        }
-    }
-}
-
-fn find_attribute(attributes: Vec<Attribute>, name: &str) -> Option<Attribute> {
-    let mut account_argument_attributes = attributes.into_iter().filter(|attribute| {
-        attribute
-            .path
-            .get_ident()
-            .map_or(false, |ident| ident == name)
-    });
-    let out = account_argument_attributes.next();
-    if account_argument_attributes.next().is_some() {
-        let attributes = quote! {
-            #(#account_argument_attributes)*
-        };
-        abort!(attributes, "Multiple `{}` attributes", name);
-    }
-    out
 }

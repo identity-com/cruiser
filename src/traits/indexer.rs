@@ -111,7 +111,7 @@ where
         self.is_writable((AllAny::All, indexer.1))
     }
 
-    fn is_owner(&self, owner: Pubkey, indexer: (All, I)) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (All, I)) -> GeneratorResult<bool> {
         self.is_owner(owner, (AllAny::All, indexer.1))
     }
 }
@@ -127,7 +127,7 @@ where
         self.is_writable(AllAny::All)
     }
 
-    fn is_owner(&self, owner: Pubkey, _indexer: All) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, _indexer: All) -> GeneratorResult<bool> {
         self.is_owner(owner, AllAny::All)
     }
 }
@@ -144,7 +144,7 @@ where
         self.is_writable((AllAny::NotAll, indexer.1))
     }
 
-    fn is_owner(&self, owner: Pubkey, indexer: (NotAll, I)) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (NotAll, I)) -> GeneratorResult<bool> {
         self.is_owner(owner, (AllAny::NotAll, indexer.1))
     }
 }
@@ -160,7 +160,7 @@ where
         self.is_writable(AllAny::NotAll)
     }
 
-    fn is_owner(&self, owner: Pubkey, _indexer: NotAll) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, _indexer: NotAll) -> GeneratorResult<bool> {
         self.is_owner(owner, AllAny::NotAll)
     }
 }
@@ -177,7 +177,7 @@ where
         self.is_writable((AllAny::Any, indexer.1))
     }
 
-    fn is_owner(&self, owner: Pubkey, indexer: (Any, I)) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (Any, I)) -> GeneratorResult<bool> {
         self.is_owner(owner, (AllAny::Any, indexer.1))
     }
 }
@@ -193,7 +193,7 @@ where
         self.is_writable(AllAny::Any)
     }
 
-    fn is_owner(&self, owner: Pubkey, _indexer: Any) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, _indexer: Any) -> GeneratorResult<bool> {
         self.is_owner(owner, AllAny::Any)
     }
 }
@@ -210,7 +210,7 @@ where
         self.is_writable((AllAny::NotAny, indexer.1))
     }
 
-    fn is_owner(&self, owner: Pubkey, indexer: (NotAny, I)) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (NotAny, I)) -> GeneratorResult<bool> {
         self.is_owner(owner, (AllAny::NotAny, indexer.1))
     }
 }
@@ -226,7 +226,7 @@ where
         self.is_writable(AllAny::NotAny)
     }
 
-    fn is_owner(&self, owner: Pubkey, _indexer: NotAny) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, _indexer: NotAny) -> GeneratorResult<bool> {
         self.is_owner(owner, AllAny::NotAny)
     }
 }
@@ -270,7 +270,7 @@ macro_rules! impl_range {
                 ))
             }
 
-            fn is_owner(&self, owner: Pubkey, indexer: ($range_ty, I)) -> GeneratorResult<bool> {
+            fn is_owner(&self, owner: &Pubkey, indexer: ($range_ty, I)) -> GeneratorResult<bool> {
                 self.is_owner(
                     owner,
                     (

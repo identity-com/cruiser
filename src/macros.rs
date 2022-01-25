@@ -30,7 +30,7 @@ macro_rules! impl_indexed_for_unit {
             }
 
             #[inline]
-            fn is_owner(&self, owner: $crate::solana_program::pubkey::Pubkey, indexer: $ty) -> $crate::GeneratorResult<bool> {
+            fn is_owner(&self, owner: &$crate::solana_program::pubkey::Pubkey, indexer: $ty) -> $crate::GeneratorResult<bool> {
                 <Self as $crate::MultiIndexableAccountArgument<($ty, ())>>::is_owner(self, owner, (indexer, ()))
             }
         }
@@ -43,12 +43,12 @@ macro_rules! impl_indexed_for_unit {
             $($($where_path: $where_bound)+)?
         {
             #[inline]
-            fn owner(&self, indexer: $ty) -> $crate::GeneratorResult<$crate::solana_program::pubkey::Pubkey> {
+            fn owner(&self, indexer: $ty) -> $crate::GeneratorResult<&::std::rc::Rc<::std::cell::RefCell<&'static mut $crate::solana_program::pubkey::Pubkey>>> {
                 <Self as $crate::SingleIndexableAccountArgument<($ty, ())>>::owner(self, (indexer, ()))
             }
 
             #[inline]
-            fn key(&self, indexer: $ty) -> $crate::GeneratorResult<$crate::solana_program::pubkey::Pubkey> {
+            fn key(&self, indexer: $ty) -> $crate::GeneratorResult<&'static $crate::solana_program::pubkey::Pubkey> {
                 <Self as $crate::SingleIndexableAccountArgument<($ty, ())>>::key(self, (indexer, ()))
             }
         }

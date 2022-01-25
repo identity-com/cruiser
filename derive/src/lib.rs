@@ -2,13 +2,11 @@
 
 extern crate proc_macro;
 
-mod account;
 mod account_argument;
 mod error;
 mod instruction_list;
 // mod instruction_list_processor;
 
-use crate::account::AccountDerive;
 use crate::account_argument::AccountArgumentDerive;
 use crate::error::ErrorDerive;
 use crate::instruction_list::InstructionListDerive;
@@ -16,17 +14,6 @@ use crate::instruction_list::InstructionListDerive;
 use proc_macro::TokenStream;
 use proc_macro_error::proc_macro_error;
 use syn::parse_macro_input;
-
-#[proc_macro_derive(Account, attributes(account))]
-pub fn derive_account(ts: TokenStream) -> TokenStream {
-    let stream = parse_macro_input!(ts as AccountDerive).into_token_stream();
-    #[cfg(feature = "debug_account")]
-    {
-        println!("{}", stream);
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
-    stream.into()
-}
 
 /// If no start specified starts at `300`
 #[proc_macro_error]
@@ -100,7 +87,7 @@ pub fn derive_account_argument(ts: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(InstructionList, attributes(instruction_list))]
+#[proc_macro_derive(InstructionList, attributes(instruction_list, instruction))]
 pub fn derive_instruction_list(ts: TokenStream) -> TokenStream {
     let stream = parse_macro_input!(ts as InstructionListDerive).into_token_stream();
     #[cfg(feature = "debug_instruction_list")]

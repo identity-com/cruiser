@@ -42,9 +42,11 @@ impl PathIsIdent for &mut Attribute {
     }
 }
 
-pub fn find_attrs<T: PathIsIdent, I: IntoIterator<Item = T>>(
+pub fn find_attrs<'a, T: PathIsIdent, I: 'a + IntoIterator<Item = T>>(
     attrs: I,
-    ident: &Ident,
-) -> Filter<I::IntoIter, impl FnMut(&T) -> bool + '_> {
-    attrs.into_iter().filter(|attr| attr.path_is_ident(ident))
+    ident: &'a Ident,
+) -> Filter<I::IntoIter, impl FnMut(&T) -> bool + 'a> {
+    attrs
+        .into_iter()
+        .filter(move |attr| attr.path_is_ident(ident))
 }

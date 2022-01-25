@@ -17,7 +17,7 @@ use std::slice::{from_raw_parts, from_raw_parts_mut};
 #[derive(Debug, Clone)]
 pub struct AccountInfo {
     /// The public key of the account.
-    pub key: Pubkey,
+    pub key: &'static Pubkey,
     /// Whether the account is a signer of the transaction
     pub is_signer: bool,
     /// Whether the account is writable
@@ -65,8 +65,13 @@ impl AccountInfo {
                 let is_signer = Self::read_value::<u8>(input, &mut offset) != 0;
                 let is_writable = Self::read_value::<u8>(input, &mut offset) != 0;
                 let executable = Self::read_value::<u8>(input, &mut offset) != 0;
-                offset += size_of::<u32>(); //padding to u64
-                let key = Self::read_value(input, &mut offset);
+                //padding to u64
+                offset += size_of::<u32>();
+                // Safe because Pubkey is transparent to [u8; 32]
+                let key = transmute::<&'static [u8; 32], &'static Pubkey>(
+                    &*(input.add(offset) as *const [u8; 32]),
+                );
+                offset += 32;
                 let owner = Rc::new(RefCell::new(&mut *(input.add(offset) as *mut _)));
                 offset += size_of::<Pubkey>();
                 let lamports = Rc::new(RefCell::new(&mut *(input.add(offset) as *mut _)));
@@ -113,7 +118,7 @@ impl AccountInfo {
     /// Only use this when the resulting account info will never be used after another use of self.
     pub unsafe fn to_solana_account_info<'a>(&'a self) -> SolanaAccountInfo<'a> {
         SolanaAccountInfo {
-            key: &self.key,
+            key: self.key,
             is_signer: self.is_signer,
             is_writable: self.is_writable,
             lamports: transmute::<Rc<RefCell<&'static mut u64>>, Rc<RefCell<&'a mut u64>>>(
@@ -131,19 +136,22 @@ impl AccountInfo {
 impl AccountArgument for AccountInfo {
     fn write_back(
         self,
-        _program_id: Pubkey,
+        _program_id: &Pubkey,
         _system_program: Option<&SystemProgram>,
     ) -> GeneratorResult<()> {
         Ok(())
     }
 
-    fn add_keys(&self, mut add: impl FnMut(Pubkey) -> GeneratorResult<()>) -> GeneratorResult<()> {
+    fn add_keys(
+        &self,
+        mut add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
+    ) -> GeneratorResult<()> {
         add(self.key)
     }
 }
 impl FromAccounts<()> for AccountInfo {
     fn from_accounts(
-        _program_id: Pubkey,
+        _program_id: &Pubkey,
         infos: &mut impl AccountInfoIterator,
         _arg: (),
     ) -> GeneratorResult<Self> {
@@ -166,8 +174,8 @@ impl MultiIndexableAccountArgument<()> for AccountInfo {
         Ok(self.is_writable)
     }
 
-    fn is_owner(&self, owner: Pubkey, _indexer: ()) -> GeneratorResult<bool> {
-        Ok(**self.owner.borrow() == owner)
+    fn is_owner(&self, owner: &Pubkey, _indexer: ()) -> GeneratorResult<bool> {
+        Ok(*self.owner.borrow() == owner)
     }
 }
 impl MultiIndexableAccountArgument<AllAny> for AccountInfo {
@@ -179,16 +187,16 @@ impl MultiIndexableAccountArgument<AllAny> for AccountInfo {
         Ok(indexer.is_not() ^ self.is_writable(())?)
     }
 
-    fn is_owner(&self, owner: Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
         Ok(indexer.is_not() ^ self.is_owner(owner, ())?)
     }
 }
 impl SingleIndexableAccountArgument<()> for AccountInfo {
-    fn owner(&self, _indexer: ()) -> GeneratorResult<Pubkey> {
-        Ok(**self.owner.borrow())
+    fn owner(&self, _indexer: ()) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
+        Ok(&self.owner)
     }
 
-    fn key(&self, _indexer: ()) -> GeneratorResult<Pubkey> {
+    fn key(&self, _indexer: ()) -> GeneratorResult<&'static Pubkey> {
         Ok(self.key)
     }
 }
@@ -319,7 +327,7 @@ pub mod account_info_test {
         assert!(generator_accounts[0].is_signer);
         assert!(generator_accounts[0].is_writable);
         assert!(!generator_accounts[0].executable);
-        assert_eq!(generator_accounts[0].key, key1);
+        assert_eq!(generator_accounts[0].key, &key1);
         assert_eq!(**generator_accounts[0].owner.borrow(), owner1);
         assert_eq!(**generator_accounts[0].lamports.borrow(), 100);
         assert_eq!(generator_accounts[0].data.borrow().len(), 10);
@@ -332,7 +340,7 @@ pub mod account_info_test {
         assert!(!generator_accounts[1].is_signer);
         assert!(!generator_accounts[1].is_writable);
         assert!(generator_accounts[1].executable);
-        assert_eq!(generator_accounts[1].key, key2);
+        assert_eq!(generator_accounts[1].key, &key2);
         assert_eq!(**generator_accounts[1].owner.borrow(), owner2);
         assert_eq!(**generator_accounts[1].lamports.borrow(), 100000);
         assert_eq!(generator_accounts[1].data.borrow().len(), 1000);
@@ -345,7 +353,7 @@ pub mod account_info_test {
         assert!(generator_accounts[2].is_signer);
         assert!(generator_accounts[2].is_writable);
         assert!(!generator_accounts[2].executable);
-        assert_eq!(generator_accounts[2].key, key1);
+        assert_eq!(generator_accounts[2].key, &key1);
         assert_eq!(**generator_accounts[2].owner.borrow(), owner1);
         assert_eq!(**generator_accounts[2].lamports.borrow(), 100);
         assert_eq!(generator_accounts[2].data.borrow().len(), 10);
@@ -391,7 +399,7 @@ pub mod account_info_test {
             *val = rng.gen();
         }
         AccountInfo {
-            key: Pubkey::new(&rng.gen::<[u8; 32]>()),
+            key: Box::leak(Box::new(Pubkey::new(&rng.gen::<[u8; 32]>()))),
             is_signer: rng.gen(),
             is_writable: rng.gen(),
             lamports: Rc::new(RefCell::new(Box::leak(Box::new(rng.gen())))),
@@ -495,34 +503,34 @@ pub mod account_info_test {
         let mut rng = thread_rng();
         let account_info = random_account_info(&mut rng);
         assert!(account_info
-            .is_owner(**account_info.owner.borrow(), ())
+            .is_owner(*account_info.owner.borrow(), ())
             .unwrap());
         assert!(account_info
-            .is_owner(**account_info.owner.borrow(), All)
+            .is_owner(*account_info.owner.borrow(), All)
             .unwrap());
         assert!(account_info
-            .is_owner(**account_info.owner.borrow(), Any)
+            .is_owner(*account_info.owner.borrow(), Any)
             .unwrap());
         assert!(!account_info
-            .is_owner(**account_info.owner.borrow(), NotAll)
+            .is_owner(*account_info.owner.borrow(), NotAll)
             .unwrap());
         assert!(!account_info
-            .is_owner(**account_info.owner.borrow(), NotAny)
+            .is_owner(*account_info.owner.borrow(), NotAny)
             .unwrap());
         assert!(!account_info
-            .is_owner(Pubkey::new(&rng.gen::<[u8; 32]>()), ())
+            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), ())
             .unwrap());
         assert!(!account_info
-            .is_owner(Pubkey::new(&rng.gen::<[u8; 32]>()), All)
+            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), All)
             .unwrap());
         assert!(!account_info
-            .is_owner(Pubkey::new(&rng.gen::<[u8; 32]>()), Any)
+            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), Any)
             .unwrap());
         assert!(account_info
-            .is_owner(Pubkey::new(&rng.gen::<[u8; 32]>()), NotAll)
+            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), NotAll)
             .unwrap());
         assert!(account_info
-            .is_owner(Pubkey::new(&rng.gen::<[u8; 32]>()), NotAny)
+            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), NotAny)
             .unwrap());
     }
 
@@ -531,7 +539,7 @@ pub mod account_info_test {
         let mut rng = thread_rng();
         let account_info = random_account_info(&mut rng);
         assert_eq!(
-            account_info.owner(()).unwrap(),
+            **account_info.owner(()).unwrap().borrow(),
             **account_info.owner.borrow()
         );
     }

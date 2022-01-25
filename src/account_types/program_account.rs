@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -7,18 +8,18 @@ use crate::account_types::system_program::SystemProgram;
 use crate::compressed_numbers::CompressedU64;
 use crate::traits::AccountArgument;
 use crate::{
-    Account, AccountInfo, AccountInfoIterator, AccountListItem, AllAny, FromAccounts,
-    GeneratorError, GeneratorResult, MultiIndexableAccountArgument, SingleIndexableAccountArgument,
+    AccountInfo, AccountInfoIterator, AccountListItem, AllAny, FromAccounts, GeneratorError,
+    GeneratorResult, MultiIndexableAccountArgument, SingleIndexableAccountArgument,
 };
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 /// A data account owned by this program. Checks that is owned by this program.
 #[derive(Debug)]
 pub struct ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: Account,
 {
     /// The [`AccountInfo`] for this, data field will be overwritten on write back.
     pub info: AccountInfo,
@@ -28,11 +29,11 @@ where
 impl<AL, A> AccountArgument for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: Account,
+    A: BorshSerialize,
 {
     fn write_back(
         self,
-        _program_id: Pubkey,
+        _program_id: &'static Pubkey,
         _system_program: Option<&SystemProgram>,
     ) -> GeneratorResult<()> {
         let mut account_data_ref = self.info.data.borrow_mut();
@@ -43,7 +44,10 @@ where
         Ok(())
     }
 
-    fn add_keys(&self, add: impl FnMut(Pubkey) -> GeneratorResult<()>) -> GeneratorResult<()> {
+    fn add_keys(
+        &self,
+        add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
+    ) -> GeneratorResult<()> {
         self.info.add_keys(add)
     }
 }
@@ -51,20 +55,20 @@ impl<AL, A, Arg> FromAccounts<Arg> for ProgramAccount<AL, A>
 where
     AccountInfo: FromAccounts<Arg>,
     AL: AccountListItem<A>,
-    A: Account,
+    A: BorshSerialize + BorshDeserialize,
 {
     fn from_accounts(
-        program_id: Pubkey,
+        program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: Arg,
     ) -> GeneratorResult<Self> {
         let info = AccountInfo::from_accounts(program_id, infos, arg)?;
 
-        if *info.owner.borrow().deref() != &program_id {
+        if *info.owner.borrow() != program_id {
             return Err(GeneratorError::AccountOwnerNotEqual {
                 account: info.key,
                 owner: **info.owner.borrow(),
-                expected_owner: vec![program_id],
+                expected_owner: vec![*program_id],
             }
             .into());
         }
@@ -106,7 +110,7 @@ where
 impl<AL, A> MultiIndexableAccountArgument<()> for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: Account,
+    A: BorshSerialize,
 {
     fn is_signer(&self, indexer: ()) -> GeneratorResult<bool> {
         self.info.is_signer(indexer)
@@ -116,14 +120,14 @@ where
         self.info.is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: Pubkey, indexer: ()) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: ()) -> GeneratorResult<bool> {
         self.info.is_owner(owner, indexer)
     }
 }
 impl<AL, A> MultiIndexableAccountArgument<AllAny> for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: Account,
+    A: BorshSerialize,
 {
     fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
         self.info.is_signer(indexer)
@@ -133,27 +137,26 @@ where
         self.info.is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
         self.info.is_owner(owner, indexer)
     }
 }
 impl<AL, A> SingleIndexableAccountArgument<()> for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: Account,
+    A: BorshSerialize,
 {
-    fn owner(&self, indexer: ()) -> GeneratorResult<Pubkey> {
+    fn owner(&self, indexer: ()) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
         self.info.owner(indexer)
     }
 
-    fn key(&self, indexer: ()) -> GeneratorResult<Pubkey> {
+    fn key(&self, indexer: ()) -> GeneratorResult<&'static Pubkey> {
         self.info.key(indexer)
     }
 }
 impl<AL, A> Deref for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: Account,
 {
     type Target = A;
 
@@ -164,7 +167,6 @@ where
 impl<AL, A> DerefMut for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: Account,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data

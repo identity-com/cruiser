@@ -5,9 +5,10 @@ mod vec;
 pub use option::*;
 pub use vec::*;
 
-use crate::{AdvanceArray, Error, GeneratorError, GeneratorResult};
+use crate::{Advance, Error, GeneratorError, GeneratorResult};
+use array_init::try_array_init;
 use std::convert::{Infallible, TryInto};
-use std::mem::{size_of, ManuallyDrop, MaybeUninit};
+use std::mem::size_of;
 
 pub trait InPlaceBuilder {
     type InPlaceData<'a>: InPlaceData;
@@ -26,7 +27,7 @@ pub trait InPlaceBuilder {
     /// Incoming length has no guarantees.
     fn read(data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>>;
 }
-pub trait StaticSized: InPlaceBuilder<SizeError = Infallible> {
+pub trait StaticSized: InPlaceBuilder {
     const DATA_SIZE: usize;
 
     // // TODO: Add back in when https://github.com/rust-lang/rust/issues/92961 resolved
@@ -157,11 +158,63 @@ where
         self.0.self_data_size() + self.1.self_data_size()
     }
 }
+impl<T1, T2> StaticSized for (T1, T2)
+where
+    T1: StaticSized,
+    T2: StaticSized,
+    Box<dyn Error>: From<T1::SizeError> + From<T2::SizeError>,
+{
+    const DATA_SIZE: usize = T1::DATA_SIZE + T2::DATA_SIZE;
+}
+
+impl<T, const N: usize> InPlaceBuilder for [T; N]
+where
+    T: StaticSized<SizeError = Infallible>,
+{
+    type InPlaceData<'a> = [T::InPlaceData<'a>; N];
+    type SizeError = Infallible;
+    type CreateArg = [T::CreateArg; N];
+
+    fn data_size(_data: &[u8]) -> Result<usize, Self::SizeError> {
+        Ok(Self::DATA_SIZE)
+    }
+
+    fn create_size(_create_arg: &Self::CreateArg) -> usize {
+        Self::DATA_SIZE
+    }
+
+    fn create(
+        mut data: &mut [u8],
+        create_arg: Self::CreateArg,
+    ) -> GeneratorResult<Self::InPlaceData<'_>> {
+        let mut iter = IntoIterator::into_iter(create_arg);
+        try_array_init(|_| T::create(data.try_advance(T::DATA_SIZE)?, iter.next().unwrap()))
+    }
+
+    fn read(mut data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>> {
+        try_array_init(|_| T::read(data.try_advance(T::DATA_SIZE)?))
+    }
+}
+impl<T, const N: usize> StaticSized for [T; N]
+where
+    T: StaticSized<SizeError = Infallible>,
+{
+    const DATA_SIZE: usize = T::DATA_SIZE * N;
+}
+
+impl<T, const N: usize> InPlaceData for [T; N]
+where
+    T: InPlaceData,
+{
+    fn self_data_size(&self) -> usize {
+        self.iter().map(|item| item.self_data_size()).sum()
+    }
+}
 
 #[derive(Debug)]
 pub struct InPlaceNumber<'a, T>(pub(crate) &'a mut [u8; size_of::<T>()])
 where
-    [(); size_of::<T>()]:;
+    [(); size_of::<T>()]: ;
 
 macro_rules! impl_in_place_for_prim_num {
     (all $(($ty:ty, $type_ident:ident)),+ $(,)?) => {

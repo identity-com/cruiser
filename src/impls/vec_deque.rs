@@ -1,6 +1,8 @@
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
+use std::rc::Rc;
 
 use crate::{
     AccountArgument, AllAny, AllAnyRange, GeneratorError, GeneratorResult,
@@ -13,7 +15,7 @@ where
 {
     fn write_back(
         self,
-        program_id: Pubkey,
+        program_id: &'static Pubkey,
         system_program: Option<&SystemProgram>,
     ) -> GeneratorResult<()> {
         for account in self {
@@ -22,7 +24,10 @@ where
         Ok(())
     }
 
-    fn add_keys(&self, mut add: impl FnMut(Pubkey) -> GeneratorResult<()>) -> GeneratorResult<()> {
+    fn add_keys(
+        &self,
+        mut add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
+    ) -> GeneratorResult<()> {
         for account in self {
             account.add_keys(&mut add)?;
         }
@@ -47,7 +52,7 @@ where
             .run_func(self.iter(), |val| val.is_writable(indexer.1.clone()))
     }
 
-    fn is_owner(&self, owner: Pubkey, indexer: (AllAny, I)) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (AllAny, I)) -> GeneratorResult<bool> {
         indexer
             .0
             .run_func(self.iter(), |val| val.is_owner(owner, indexer.1.clone()))
@@ -80,7 +85,7 @@ where
         )
     }
 
-    fn is_owner(&self, owner: Pubkey, indexer: (usize, I)) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (usize, I)) -> GeneratorResult<bool> {
         self.get(indexer.0).map_or(
             Err(GeneratorError::IndexOutOfRange {
                 index: indexer.0.to_string(),
@@ -96,11 +101,11 @@ where
     T: AccountArgument + SingleIndexableAccountArgument<I>,
     I: Debug + Clone,
 {
-    fn owner(&self, indexer: (usize, I)) -> GeneratorResult<Pubkey> {
+    fn owner(&self, indexer: (usize, I)) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
         self[indexer.0].owner(indexer.1)
     }
 
-    fn key(&self, indexer: (usize, I)) -> GeneratorResult<Pubkey> {
+    fn key(&self, indexer: (usize, I)) -> GeneratorResult<&'static Pubkey> {
         self[indexer.0].key(indexer.1)
     }
 }
@@ -130,7 +135,7 @@ where
             })
     }
 
-    fn is_owner(&self, owner: Pubkey, indexer: (AllAnyRange<R>, I)) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (AllAnyRange<R>, I)) -> GeneratorResult<bool> {
         let (start, end) = crate::convert_range(&indexer.0.range, self.len())?;
         indexer
             .0

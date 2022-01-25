@@ -103,7 +103,7 @@ macro_rules! small_vec {
         {
             fn write_back(
                 self,
-                program_id: Pubkey,
+                program_id: &'static Pubkey,
                 system_program: Option<&SystemProgram>,
             ) -> GeneratorResult<()> {
                 for val in self.0 {
@@ -114,7 +114,7 @@ macro_rules! small_vec {
 
             fn add_keys(
                 &self,
-                mut add: impl FnMut(Pubkey) -> GeneratorResult<()>,
+                mut add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
             ) -> GeneratorResult<()> {
                 for val in &self.0 {
                     val.add_keys(&mut add)?;

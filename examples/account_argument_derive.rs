@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
-use solana_generator::{Account, AccountArgument, InitAccount, ProgramAccount, ZeroedAccount};
+use solana_generator::{AccountArgument, InitAccount, ProgramAccount, ZeroedAccount};
 use solana_program::pubkey::Pubkey;
 
 #[derive(AccountArgument)]
@@ -31,7 +31,7 @@ pub struct FullStruct2 {
     other_accounts: [ZeroedAccount<i8>; 8],
 }
 
-#[derive(Default, Account, BorshSerialize, BorshDeserialize, BorshSchema)]
+#[derive(Default, BorshSerialize, BorshDeserialize, BorshSchema)]
 pub struct CoolAccount {
     data_1: u64,
     cool_data: [u8; 32],

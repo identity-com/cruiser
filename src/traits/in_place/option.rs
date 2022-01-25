@@ -3,10 +3,11 @@ use core::convert::Infallible;
 use solana_generator::traits::error::GeneratorResult;
 use solana_generator::traits::in_place::{InPlaceBuilder, InPlaceData, StaticSized};
 
+#[derive(Debug)]
 pub struct InPlaceOption<'a, T>
 where
     T: StaticSized,
-    [(); T::DATA_SIZE]:,
+    [(); T::DATA_SIZE]: ,
 {
     discriminant: &'a mut u8,
     value: &'a mut [u8; T::DATA_SIZE],
@@ -14,13 +15,13 @@ where
 impl<'a, T> InPlaceOption<'a, T>
 where
     T: StaticSized,
-    [(); T::DATA_SIZE]:,
+    [(); T::DATA_SIZE]: ,
 {
     const fn data_size() -> usize {
         T::DATA_SIZE + 1
     }
 
-    fn get(&mut self) -> GeneratorResult<Option<T::InPlaceData<'_>>> {
+    pub fn get(&mut self) -> GeneratorResult<Option<T::InPlaceData<'_>>> {
         match *self.discriminant {
             0 => Ok(None),
             1 => Ok(Some(T::read(self.value)?)),
@@ -31,7 +32,7 @@ where
 impl<'a, T> InPlaceBuilder for InPlaceOption<'a, T>
 where
     T: StaticSized,
-    [(); T::DATA_SIZE]:,
+    [(); T::DATA_SIZE]: ,
 {
     type InPlaceData<'b> = InPlaceOption<'b, T>;
     type SizeError = Infallible;
@@ -68,7 +69,7 @@ where
 impl<'a, T> StaticSized for InPlaceOption<'a, T>
 where
     T: StaticSized,
-    [(); T::DATA_SIZE]:,
+    [(); T::DATA_SIZE]: ,
 {
     const DATA_SIZE: usize = T::DATA_SIZE + 1;
 
@@ -94,7 +95,7 @@ where
 impl<'a, T> InPlaceData for InPlaceOption<'a, T>
 where
     T: StaticSized,
-    [(); T::DATA_SIZE]:,
+    [(); T::DATA_SIZE]: ,
 {
     fn self_data_size(&self) -> usize {
         Self::data_size()

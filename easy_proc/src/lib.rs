@@ -19,6 +19,6 @@ where
 {
     attrs
         .into_iter()
-        .filter(|attr| attr.path.is_ident(ident))
+        .filter(move |attr| attr.path.is_ident(ident))
         .map(T::parse_arguments)
 }
