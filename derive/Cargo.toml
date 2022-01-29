@@ -13,6 +13,7 @@ debug_error = []
 debug_account_argument = []
 debug_instruction_list = []
 debug_instruction_list_processor = []
+easy_proc_test = []
 debug = ["debug_account", "debug_error", "debug_account_argument", "debug_instruction_list", "debug_instruction_list_processor"]
 
 [dependencies]

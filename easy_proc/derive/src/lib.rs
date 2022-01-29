@@ -33,25 +33,53 @@ pub fn argument_list_derive(ts: TokenStream) -> TokenStream {
     let (impl_gen, ty_gen, where_clause) = derive.generics.split_for_impl();
     let data_struct = match derive.data {
         Data::Struct(data) => data,
-        Data::Enum(data) => abort!(data.enum_token, "#[derive(ArgEnum)] only supports structs"),
-        Data::Union(data) => abort!(data.union_token, "#[derive(ArgEnum)] only supports structs"),
+        Data::Enum(data) => abort!(
+            data.enum_token,
+            "#[derive(ArgumentList)] only supports structs"
+        ),
+        Data::Union(data) => abort!(
+            data.union_token,
+            "#[derive(ArgumentList)] only supports structs"
+        ),
     };
     let fields = match data_struct.fields {
         Fields::Named(named) => named.named,
         Fields::Unnamed(_) => abort!(ident, "Unnamed fields are not supported"),
         Fields::Unit => Punctuated::new(),
     };
-    let field_names: Vec<Ident> = fields
+    let mut field_names: Vec<Ident> = fields
         .iter()
         .map(|field| field.ident.as_ref().unwrap().clone())
         .collect();
-    let field_strs = field_names
+    let mut field_strs: Vec<_> = field_names
         .iter()
-        .map(|name: &Ident| LitStr::new(name.to_string().as_str(), name.span()));
-    let field_variants: Vec<_> = fields
+        .map(|name: &Ident| LitStr::new(name.to_string().as_str(), name.span()))
+        .collect();
+    let mut field_variants: Vec<_> = fields
         .into_iter()
         .map(|field| ArgEnumVariant::from_field(field, &arg_enum_ident))
         .collect();
+    let attr_ident_fields = field_variants
+        .iter()
+        .enumerate()
+        .filter_map(|(index, variant)| match variant {
+            ArgEnumVariant::AttrIdent(ident) => Some((index, ident)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if attr_ident_fields.len() > 1 {
+        abort!(attr_ident_fields[1].1, "Multiple `attr_ident` fields");
+    }
+    let attr_ident_field = attr_ident_fields.get(0).map(|(index, _)| {
+        (
+            field_names.remove(*index),
+            field_strs.remove(*index),
+            *index,
+        )
+    });
+    if let Some((_, _, index)) = attr_ident_field {
+        field_variants.remove(index);
+    }
     let inits = field_variants
         .iter()
         .zip(field_names.iter())
@@ -70,7 +98,15 @@ pub fn argument_list_derive(ts: TokenStream) -> TokenStream {
         .zip(field_names.iter())
         .map(|(variant, variable_name)| variant.to_verify(variable_name, &attr_ident, &crate_name));
 
+    let attr_ident_parse = match attr_ident_field {
+        None => quote! {},
+        Some((ident, _, _)) => quote! {
+            #ident: ::syn::Path::get_ident(&#attr_ident.path).unwrap().clone(),
+        },
+    };
+
     (quote! {
+        #[automatically_derived]
         impl #impl_gen #crate_name::ArgumentList for #ident #ty_gen #where_clause{
             fn parse_arguments(#attr_ident: &::syn::Attribute) -> Self{
                 #(#inits)*
@@ -108,6 +144,7 @@ pub fn argument_list_derive(ts: TokenStream) -> TokenStream {
                     )
                 }
                 Self{
+                    #attr_ident_parse
                     #(#verifies)*
                 }
             }
@@ -117,6 +154,7 @@ pub fn argument_list_derive(ts: TokenStream) -> TokenStream {
 }
 
 enum ArgEnumVariant {
+    AttrIdent(Ident),
     Required(Type),
     Optional(Type),
     Many(Type),
@@ -127,14 +165,14 @@ enum ArgEnumVariant {
     Presence,
 }
 impl ArgEnumVariant {
+    const ATTR_IDENT_IDENT: &'static str = "attr_ident";
     const PRESENCE_IDENT: &'static str = "presence";
-    const RAW_TYPE_IDENT: &'static str = "raw_type";
     const CUSTOM_IDENT: &'static str = "custom";
     const DEFAULT_IDENT: &'static str = "default";
 
     fn from_field(field: Field, arg_enum_ident: &Ident) -> Self {
+        let mut attr_ident = None;
         let mut presence = None;
-        let mut raw_type = None;
         let mut custom = None;
         let mut default = None;
         for attr in find_attrs(field.attrs, arg_enum_ident) {
@@ -146,16 +184,16 @@ impl ArgEnumVariant {
                     let ident: Ident = input.parse()?;
                     let ident_str = ident.to_string();
                     let ident_str = ident_str.as_str();
-                    if ident_str == Self::PRESENCE_IDENT {
+                    if ident_str == Self::ATTR_IDENT_IDENT {
+                        if attr_ident.is_some() {
+                            abort!(ident, "Multiple `{}` arguments", Self::ATTR_IDENT_IDENT);
+                        }
+                        attr_ident = Some(ident);
+                    } else if ident_str == Self::PRESENCE_IDENT {
                         if presence.is_some() {
                             abort!(ident, "Multiple `{}` arguments", Self::PRESENCE_IDENT);
                         }
                         presence = Some(ident);
-                    } else if ident_str == Self::RAW_TYPE_IDENT {
-                        if raw_type.is_some() {
-                            abort!(ident, "Multiple `{}` arguments", Self::RAW_TYPE_IDENT);
-                        }
-                        raw_type = Some(ident);
                     } else if ident_str == Self::CUSTOM_IDENT {
                         if custom.is_some() {
                             abort!(ident, "Multiple `{}` arguments", Self::CUSTOM_IDENT);
@@ -189,13 +227,16 @@ impl ArgEnumVariant {
             }
         }
         if presence.is_some() as u8
-            + (raw_type.is_some() || default.is_some()) as u8
+            + default.is_some() as u8
             + custom.is_some() as u8
+            + attr_ident.is_some() as u8
             > 1
         {
             abort!(field.ident.unwrap(), "Field has incompatible arguments");
         }
-        if let Some(presence) = presence {
+        if let Some(ident) = attr_ident {
+            Self::AttrIdent(ident)
+        } else if let Some(presence) = presence {
             if !is_bool(&field.ty) {
                 abort!(presence, "Presence type must be `bool`")
             } else {
@@ -203,8 +244,6 @@ impl ArgEnumVariant {
             }
         } else if let Some((_, _, default_expr)) = default {
             Self::Default(field.ty, default_expr)
-        } else if raw_type.is_some() {
-            Self::Required(field.ty)
         } else {
             match (custom.is_some(), is_option(&field.ty), is_vec(&field.ty)) {
                 (false, None, None) => Self::Required(field.ty),
@@ -218,6 +257,7 @@ impl ArgEnumVariant {
         }
     }
 
+    /// Must not pass Self::AttrIdent
     fn to_init(&self, variable_ident: &Ident) -> proc_macro2::TokenStream {
         match self {
             Self::Required(ty)
@@ -233,9 +273,11 @@ impl ArgEnumVariant {
             Self::Presence => quote! {
                 let mut #variable_ident: bool = false;
             },
+            Self::AttrIdent(_) => unreachable!(),
         }
     }
 
+    /// Must not pass Self::AttrIdent
     fn to_read(
         &self,
         input_ident: &Ident,
@@ -288,9 +330,11 @@ impl ArgEnumVariant {
                     #variable_ident = true;
                 }
             }
+            ArgEnumVariant::AttrIdent(_) => unreachable!(),
         }
     }
 
+    /// Must not pass Self::AttrIdent
     fn to_verify(
         &self,
         variable_ident: &Ident,
@@ -323,6 +367,7 @@ impl ArgEnumVariant {
                     ::std::option::Option::None => #default,
                 },
             },
+            ArgEnumVariant::AttrIdent(_) => unreachable!(),
         }
     }
 }

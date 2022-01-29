@@ -1,10 +1,13 @@
-#![feature(
-    generic_associated_types,
-    generic_const_exprs,
-    const_fn_trait_bound,
-    exclusive_range_pattern
+#![cfg_attr(
+    feature = "nightly",
+    feature(
+        generic_associated_types,
+        generic_const_exprs,
+        const_fn_trait_bound,
+        exclusive_range_pattern
+    )
 )]
-#![allow(incomplete_features)]
+#![cfg_attr(feature = "nightly", allow(incomplete_features))]
 #![warn(
     unused_import_braces,
     unused_imports,

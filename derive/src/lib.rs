@@ -5,6 +5,7 @@ extern crate proc_macro;
 mod account_argument;
 mod error;
 mod instruction_list;
+mod log_level;
 // mod instruction_list_processor;
 
 use crate::account_argument::AccountArgumentDerive;
@@ -75,7 +76,7 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 /// This is optional and allows the setting of the [`InstructionArg`](AccountArgument::InstructionArg) passed to this field.
 /// If not used calls [`Default::default`] instead.
 #[proc_macro_error]
-#[proc_macro_derive(AccountArgument, attributes(account_argument))]
+#[proc_macro_derive(AccountArgument, attributes(from, account_argument))]
 pub fn derive_account_argument(ts: TokenStream) -> TokenStream {
     let stream = parse_macro_input!(ts as AccountArgumentDerive).into_token_stream();
     #[cfg(feature = "debug_account_argument")]
@@ -109,3 +110,82 @@ pub fn derive_instruction_list(ts: TokenStream) -> TokenStream {
 //     }
 //     stream.into()
 // }
+
+#[cfg(feature = "easy_proc_test")]
+#[proc_macro_error]
+#[proc_macro_attribute]
+pub fn test_easy_proc(args: TokenStream, tokens: TokenStream) -> TokenStream {
+    println!("ts1: {}", args);
+    println!("ts2: {}", tokens);
+
+    let tokens = parse_macro_input!(tokens as TestStruct);
+    tokens.into_token_stream()
+}
+
+#[cfg(feature = "easy_proc_test")]
+struct TestStruct {
+    cool: Cool,
+}
+#[cfg(feature = "easy_proc_test")]
+impl TestStruct {
+    fn into_token_stream(self) -> TokenStream {
+        if self.cool.boolean_value {
+            (quote::quote! {
+                fn cool(){
+                    println!("Success!");
+                }
+            })
+            .into()
+        } else {
+            proc_macro_error::abort_call_site!("Oh No!");
+        }
+    }
+}
+#[cfg(feature = "easy_proc_test")]
+impl Parse for TestStruct {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        input.parse::<syn::Token![fn]>()?;
+        input.parse::<syn::Ident>()?;
+        let _content;
+        syn::parenthesized!(_content in input);
+        let content;
+        syn::braced!(content in input);
+        let function = content.parse::<syn::ItemFn>()?;
+        let cool = Cool::parse_arguments(&function.attrs[0]);
+        Ok(Self { cool })
+    }
+}
+
+#[cfg(feature = "easy_proc_test")]
+use easy_proc::ArgumentList;
+#[cfg(feature = "easy_proc_test")]
+use proc_macro2::Span;
+#[cfg(feature = "easy_proc_test")]
+use syn::parse::{Parse, ParseStream};
+#[cfg(feature = "easy_proc_test")]
+use syn::{Ident, LitInt, LitStr};
+
+#[cfg(feature = "easy_proc_test")]
+#[derive(ArgumentList)]
+#[allow(dead_code)]
+struct Cool {
+    /// The ident of the whole attribute, not required and can only be one
+    #[argument(attr_ident)]
+    pub attr_ident: Ident,
+    /// [`true`] if arg is present
+    #[argument(presence)]
+    pub boolean_value: bool,
+    /// Required argument of form `count = 10`
+    pub count: LitInt,
+    /// Optional argument, if present of form `size = 3`
+    pub size: Option<LitInt>,
+    /// Custom parsing, including equals. Uses parse function.
+    /// Ex: `custom_parse cool`
+    #[argument(custom)]
+    pub custom_parse: Ident,
+    /// Optional with default value. Also implies `raw_type`
+    #[argument(default = Ident::new("default", Span::call_site()))]
+    pub default: Ident,
+    /// Many, 0 or more
+    pub many: Vec<LitStr>,
+}

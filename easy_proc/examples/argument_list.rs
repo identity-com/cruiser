@@ -1,9 +1,12 @@
 use easy_proc::ArgumentList;
 use proc_macro2::Span;
-use syn::{Ident, LitInt, LitStr};
+use syn::{AttrStyle, Attribute, Ident, LitInt, LitStr, Path};
 
 #[derive(ArgumentList)]
 pub struct Cool {
+    /// The ident of the whole attribute, not required and can only be one
+    #[argument(attr_ident)]
+    pub attr_ident: Ident,
     /// [`true`] if arg is present
     #[argument(presence)]
     pub boolean_value: bool,

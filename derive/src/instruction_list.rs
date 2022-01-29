@@ -1,18 +1,17 @@
+use crate::log_level::LogLevel;
 use easy_proc::{find_attr, ArgumentList};
 use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use proc_macro_error::{abort, abort_call_site};
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::{
-    parenthesized, token, Data, DeriveInput, Expr, Fields, Generics, Ident, LitStr, Token, Type,
-    Variant, Visibility,
-};
+use syn::{Data, DeriveInput, Expr, Fields, Generics, Ident, LitStr, Type, Variant, Visibility};
 
 #[derive(ArgumentList)]
 pub struct InstructionListAttribute {
     build_enum_ident: Option<Ident>,
+    #[argument(default = Default::default())]
+    log_level: LogLevel,
 }
 impl InstructionListAttribute {
     const IDENT: &'static str = "instruction_list";
@@ -75,13 +74,20 @@ impl InstructionListDerive {
 
         let enum_ident = self
             .attribute
-            .and_then(|a| a.build_enum_ident)
+            .as_ref()
+            .and_then(|a| a.build_enum_ident.as_ref())
+            .cloned()
             .unwrap_or_else(|| {
                 Ident::new(
                     &("Build".to_string() + &ident.to_string()),
                     Span::call_site(),
                 )
             });
+        let log_level = self
+            .attribute
+            .as_ref()
+            .map(|attr| attr.log_level)
+            .unwrap_or_default();
 
         let (variant_ident, variant_instruction_type, variant_discriminant) = {
             let mut variant_ident = Vec::with_capacity(self.variants.len());
@@ -112,9 +118,15 @@ impl InstructionListDerive {
             )
         };
 
-        let instruction_prints = variant_ident
-            .iter()
-            .map(|ident| LitStr::new(&format!("Instruction: {}", ident), ident.span()));
+        //TODO: Move this to instruction processor
+        let _instruction_prints = variant_ident.iter().map(|ident| {
+            log_level.if_level(LogLevel::Info, |_| {
+                let message = LitStr::new(&format!("Instruction: {}", ident), ident.span());
+                quote! {
+                    #crate_name::msg!(#message);
+                }
+            })
+        });
 
         quote! {
             #[automatically_derived]

@@ -71,6 +71,7 @@ pub trait FromAccounts<A>: Sized + AccountArgument {
     ///
     /// The default return of `(0, None)` is valid for all although may not be as accurate as possible.
     // TODO: Make this const once const trait functions are stabilized
+    // TODO: Figure out how to make this derivable
     fn accounts_usage_hint() -> (usize, Option<usize>) {
         (0, None)
     }
