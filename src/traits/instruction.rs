@@ -9,25 +9,28 @@ pub trait Instruction: Sized {
     type FromAccountsData;
     /// The list of accounts for this instruction.
     type Accounts: FromAccounts<Self::FromAccountsData>;
-    /// The argument for creating this instruction.
-    type BuildArg;
 
     /// Turns the [`Self::Data`] into the instruction arg for [`Self::Accounts`].
     fn data_to_instruction_arg(data: &mut Self::Data) -> GeneratorResult<Self::FromAccountsData>;
-
-    /// Creates this instruction from a given argument
-    fn build_instruction(
-        program_id: &Pubkey,
-        arg: Self::BuildArg,
-    ) -> GeneratorResult<(Vec<SolanaAccountMeta>, Self::Data)>;
 }
 
 /// A processor for a given instruction `I`
-pub trait InstructionProcessor<I: Instruction>: Sized{
+pub trait InstructionProcessor<I: Instruction> {
     /// Processes the instruction, writing back after this instruction.
     fn process(
-        program_id: &Pubkey,
+        program_id: &'static Pubkey,
         data: I::Data,
         accounts: &mut I::Accounts,
     ) -> GeneratorResult<Option<SystemProgram>>;
+}
+
+pub trait InstructionBuilder<I: Instruction> {
+    /// The argument for creating this instruction.
+    type BuildArg;
+
+    /// Creates this instruction from a given argument
+    fn build_instruction(
+        program_id: &'static Pubkey,
+        arg: Self::BuildArg,
+    ) -> GeneratorResult<(Vec<SolanaAccountMeta>, I::Data)>;
 }

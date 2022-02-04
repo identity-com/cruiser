@@ -48,6 +48,10 @@ name = "instruction_list"
 crate-type = ["cdylib", "lib"]
 
 [[example]]
+name = "account_list"
+crate-type = ["cdylib", "lib"]
+
+[[example]]
 name = "easy_proc_test"
 crate-type = ["cdylib", "lib"]
 required-features = ["easy_proc_test"]

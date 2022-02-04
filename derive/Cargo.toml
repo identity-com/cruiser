@@ -12,9 +12,9 @@ debug_account = []
 debug_error = []
 debug_account_argument = []
 debug_instruction_list = []
-debug_instruction_list_processor = []
+debug_account_list = []
 easy_proc_test = []
-debug = ["debug_account", "debug_error", "debug_account_argument", "debug_instruction_list", "debug_instruction_list_processor"]
+debug = ["debug_account", "debug_error", "debug_account_argument", "debug_instruction_list", "debug_account_list"]
 
 [dependencies]
 proc-macro2 = "1.0.27"

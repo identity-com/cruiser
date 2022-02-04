@@ -1,6 +1,6 @@
 use easy_proc::ArgumentList;
 use proc_macro2::Span;
-use syn::{AttrStyle, Attribute, Ident, LitInt, LitStr, Path};
+use syn::{Ident, LitInt, LitStr, Token};
 
 #[derive(ArgumentList)]
 pub struct Cool {
@@ -14,9 +14,6 @@ pub struct Cool {
     pub count: LitInt,
     /// Optional argument, if present of form `size = 3`
     pub size: Option<LitInt>,
-    /// Required argument with option type
-    #[argument(raw_type)]
-    pub health: Option<LitInt>,
     /// Custom parsing, including equals. Uses parse function.
     /// Ex: `custom_parse cool`
     #[argument(custom)]
@@ -26,4 +23,7 @@ pub struct Cool {
     pub default: Ident,
     /// Many, 0 or more
     pub many: Vec<LitStr>,
+    /// default using implementation
+    #[argument(default)]
+    pub def: Token![=],
 }

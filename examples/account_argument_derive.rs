@@ -15,47 +15,10 @@ pub struct EmptyTupple();
 #[derive(AccountArgument)]
 pub struct Empty;
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(AccountList, BorshSerialize, BorshDeserialize)]
 pub enum TestAccountList {
     CoolAccount(CoolAccount),
     I8(i8),
-}
-impl AccountList for TestAccountList {
-    type DiscriminantCompressed = u64;
-}
-unsafe impl AccountListItem<CoolAccount> for TestAccountList {
-    fn discriminant() -> NonZeroU64 {
-        NonZeroU64::new(1).unwrap()
-    }
-
-    fn from_account(account: CoolAccount) -> Self {
-        Self::CoolAccount(account)
-    }
-
-    fn into_account(self) -> Result<CoolAccount, Self> {
-        if let Self::CoolAccount(account) = self {
-            Ok(account)
-        } else {
-            Err(self)
-        }
-    }
-}
-unsafe impl AccountListItem<i8> for TestAccountList {
-    fn discriminant() -> NonZeroU64 {
-        NonZeroU64::new(2).unwrap()
-    }
-
-    fn from_account(account: i8) -> Self {
-        Self::I8(account)
-    }
-
-    fn into_account(self) -> Result<i8, Self> {
-        if let Self::I8(account) = self {
-            Ok(account)
-        } else {
-            Err(self)
-        }
-    }
 }
 
 #[derive(AccountArgument)]

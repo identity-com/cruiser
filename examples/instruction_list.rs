@@ -1,4 +1,7 @@
-use solana_generator::{GeneratorResult, Instruction, InstructionList, SolanaAccountMeta};
+use solana_generator::{
+    GeneratorResult, Instruction, InstructionList, InstructionProcessor, SolanaAccountMeta,
+    SystemProgram,
+};
 use solana_program::instruction::AccountMeta;
 use solana_program::pubkey::Pubkey;
 
@@ -13,21 +16,24 @@ pub enum TestList {
     TestInstruction3,
 }
 
+::static_assertions::const_assert_ne!(0, 1);
+
 pub struct TestInstruction1;
 impl Instruction for TestInstruction1 {
     type Data = ();
     type FromAccountsData = ();
     type Accounts = ();
-    type BuildArg = ();
 
     fn data_to_instruction_arg(_data: &mut Self::Data) -> GeneratorResult<Self::FromAccountsData> {
         Ok(())
     }
-
-    fn build_instruction(
-        program_id: &Pubkey,
-        arg: Self::BuildArg,
-    ) -> GeneratorResult<(Vec<SolanaAccountMeta>, Self::Data)> {
-        Ok((vec![], ()))
+}
+impl InstructionProcessor<TestInstruction1> for TestInstruction1 {
+    fn process(
+        program_id: &'static Pubkey,
+        data: <TestInstruction1 as Instruction>::Data,
+        accounts: &mut <TestInstruction1 as Instruction>::Accounts,
+    ) -> GeneratorResult<Option<SystemProgram>> {
+        todo!()
     }
 }

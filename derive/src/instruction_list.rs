@@ -5,23 +5,34 @@ use proc_macro_crate::{crate_name, FoundCrate};
 use proc_macro_error::{abort, abort_call_site};
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
-use syn::{Data, DeriveInput, Expr, Fields, Generics, Ident, LitStr, Type, Variant, Visibility};
+use syn::{Data, DeriveInput, Expr, Fields, Generics, Ident, LitStr, Type, Variant};
 
 #[derive(ArgumentList)]
 pub struct InstructionListAttribute {
-    build_enum_ident: Option<Ident>,
-    #[argument(default = Default::default())]
+    #[argument(default = syn::parse_str("u64").unwrap())]
+    discriminant_type: Type,
+    #[argument(default)]
     log_level: LogLevel,
+    #[argument(presence)]
+    no_processor: bool,
 }
 impl InstructionListAttribute {
     const IDENT: &'static str = "instruction_list";
 }
+impl Default for InstructionListAttribute {
+    fn default() -> Self {
+        Self {
+            discriminant_type: syn::parse_str("u64").unwrap(),
+            log_level: LogLevel::default(),
+            no_processor: false,
+        }
+    }
+}
 
 pub struct InstructionListDerive {
-    vis: Visibility,
     ident: Ident,
     generics: Generics,
-    attribute: Option<InstructionListAttribute>,
+    attribute: InstructionListAttribute,
     variants: Vec<InstructionListVariant>,
 }
 impl Parse for InstructionListDerive {
@@ -33,7 +44,8 @@ impl Parse for InstructionListDerive {
 
         let instruction_list_attribute = find_attr(derive_input.attrs, &instruction_list_ident)
             .as_ref()
-            .map(InstructionListAttribute::parse_arguments);
+            .map(InstructionListAttribute::parse_arguments)
+            .unwrap_or_default();
 
         let variants = match derive_input.data {
             Data::Struct(_) | Data::Union(_) => {
@@ -47,8 +59,15 @@ impl Parse for InstructionListDerive {
             .map(|variant| InstructionListVariant::from_variant(variant, &variant_attr_ident))
             .collect::<Result<Vec<_>, _>>()?;
 
+        if instruction_list_attribute.no_processor {
+            for variant in &variants {
+                if let Some(processor) = &variant.attribute.processor {
+                    abort!(processor, "`no_processor` passed for instruction list");
+                }
+            }
+        }
+
         Ok(Self {
-            vis: derive_input.vis,
             ident: derive_input.ident,
             generics: derive_input.generics,
             attribute: instruction_list_attribute,
@@ -68,33 +87,26 @@ impl InstructionListDerive {
             }
         };
 
-        let vis = self.vis;
         let ident = self.ident;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
-        let enum_ident = self
-            .attribute
-            .as_ref()
-            .and_then(|a| a.build_enum_ident.as_ref())
-            .cloned()
-            .unwrap_or_else(|| {
-                Ident::new(
-                    &("Build".to_string() + &ident.to_string()),
-                    Span::call_site(),
-                )
-            });
-        let log_level = self
-            .attribute
-            .as_ref()
-            .map(|attr| attr.log_level)
-            .unwrap_or_default();
+        let discriminant_type = self.attribute.discriminant_type;
+        let log_level = self.attribute.log_level;
 
-        let (variant_ident, variant_instruction_type, variant_discriminant) = {
-            let mut variant_ident = Vec::with_capacity(self.variants.len());
+        let (variant_ident, variant_instruction_type, variant_discriminant, variant_processors) = {
+            let mut variant_idents = Vec::with_capacity(self.variants.len());
             let mut variant_instruction_type = Vec::with_capacity(self.variants.len());
             let mut variant_discriminant = Vec::with_capacity(self.variants.len());
+            let mut variant_processors = Vec::with_capacity(self.variants.len());
             for variant in self.variants {
-                variant_ident.push(variant.ident);
+                let instruction_type = &variant.attribute.instruction_type;
+                variant_processors.push(
+                    variant
+                        .attribute
+                        .processor
+                        .unwrap_or_else(|| instruction_type.clone()),
+                );
+                variant_idents.push(variant.ident);
                 variant_instruction_type.push(variant.attribute.instruction_type);
                 variant_discriminant.push(
                     variant
@@ -106,64 +118,91 @@ impl InstructionListDerive {
                                 .cloned()
                                 .unwrap_or_else(|| quote! { 0 });
                             quote! {
-                                #last + 1
+                                (#last) + 1
                             }
                         }),
                 );
             }
             (
-                variant_ident,
+                variant_idents,
                 variant_instruction_type,
                 variant_discriminant,
+                variant_processors,
             )
         };
 
-        //TODO: Move this to instruction processor
-        let _instruction_prints = variant_ident.iter().map(|ident| {
-            log_level.if_level(LogLevel::Info, |_| {
-                let message = LitStr::new(&format!("Instruction: {}", ident), ident.span());
-                quote! {
-                    #crate_name::msg!(#message);
+        let processor = if self.attribute.no_processor {
+            quote! {}
+        } else {
+            let instruction_prints = variant_ident.iter().map(|ident| {
+                log_level.if_level(LogLevel::Info, |_| {
+                    let message = LitStr::new(&format!("Instruction: {}", ident), ident.span());
+                    quote! {
+                        #crate_name::msg!(#message);
+                    }
+                })
+            });
+
+            quote! {
+                #[automatically_derived]
+                impl #impl_generics #crate_name::InstructionListProcessor<#ident> for #ident #ty_generics #where_clause{
+                    fn process_instruction(
+                        program_id: &'static #crate_name::Pubkey,
+                        accounts: &mut impl #crate_name::AccountInfoIterator,
+                        mut data: &[u8],
+                    ) -> GeneratorResult<()>{
+                        let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as ::borsh::BorshDeserialize>::deserialize(&mut data)?;
+                        let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as #crate_name::compressed_numbers::CompressedU64>::into_u64(discriminant);
+                        if false{
+                            ::std::unreachable!();
+                        }
+                        #(else if discriminant == #variant_discriminant{
+                            #instruction_prints
+                            let mut data = <<#variant_instruction_type as #crate_name::Instruction>::Data as ::borsh::BorshDeserialize>::deserialize(&mut data)?;
+                            let from_data = <#variant_instruction_type as #crate_name::Instruction>::data_to_instruction_arg(&mut data)?;
+                            let mut accounts = <<#variant_instruction_type as #crate_name::Instruction>::Accounts as #crate_name::FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
+                            let system_program = <#variant_processors as #crate_name::InstructionProcessor<#variant_instruction_type>>::process(
+                                program_id,
+                                data,
+                                &mut accounts,
+                            )?;
+                            <<#variant_instruction_type as #crate_name::Instruction>::Accounts as #crate_name::AccountArgument>::write_back(accounts, program_id, system_program.as_ref())?;
+                            Ok(())
+                        })* else{
+                            todo!();
+                        }
+                    }
                 }
-            })
-        });
+            }
+        };
 
         quote! {
             #[automatically_derived]
             impl #impl_generics InstructionList for #ident #ty_generics #where_clause{
-                type BuildEnum = #enum_ident;
+                type DiscriminantCompressed = #discriminant_type;
 
-                fn build_instruction(
-                    program_id: #crate_name::Pubkey,
-                    build_enum: Self::BuildEnum,
-                ) -> #crate_name::GeneratorResult<#crate_name::SolanaInstruction>{
-                    match build_enum{
-                        #(
-                            Self::BuildEnum::#variant_ident(build) => {
-                                let (accounts, data_assoc) = <#variant_instruction_type as #crate_name::Instruction>::build_instruction(program_id, build)?;
-                                let mut data = ::std::vec![#variant_discriminant];
-                                ::borsh::BorshSerialize::serialize(&data_assoc, &mut data)?;
-                                Ok(#crate_name::SolanaInstruction{ program_id, accounts, data })
-                            },
-                        )*
-                    }
-                }
-
-                fn discriminant(self) -> u8{
+                fn discriminant(self) -> u64{
                     match self{
                         #(Self::#variant_ident => #variant_discriminant,)*
                     }
                 }
+
+                fn from_discriminant(discriminant: u64) -> Option<Self>{
+                    if false{
+                        ::std::unreachable!();
+                    }
+                    #(else if discriminant == #variant_discriminant{
+                        Some(Self::#variant_ident)
+                    })*
+                    else{
+                        None
+                    }
+                }
             }
 
-            /// The build enum for [`#ident`]
-            #[allow(missing_docs)]
-            #[derive(Debug)]
-            #vis enum #enum_ident #impl_generics #where_clause{
-                #(
-                    #variant_ident(<#variant_instruction_type as #crate_name::Instruction>::BuildArg),
-                )*
-            }
+            #(#crate_name::static_assertions::const_assert_ne!(0, #variant_discriminant);)*
+
+            #processor
         }
     }
 }
@@ -200,6 +239,7 @@ impl InstructionListVariant {
 #[derive(ArgumentList)]
 struct InstructionListVariantAttribute {
     instruction_type: Type,
+    processor: Option<Type>,
 }
 impl InstructionListVariantAttribute {
     const IDENT: &'static str = "instruction";

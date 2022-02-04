@@ -10,8 +10,8 @@ use quote::quote;
 use syn::parse::ParseStream;
 use syn::punctuated::Punctuated;
 use syn::{
-    parse_macro_input, Data, DeriveInput, Expr, Field, Fields, GenericArgument, Ident, LitStr,
-    PathArguments, PathSegment, Token, Type, TypePath,
+    parse_macro_input, token, Data, DeriveInput, Expr, Field, Fields, GenericArgument, Ident,
+    LitStr, PathArguments, PathSegment, Token, Type, TypePath,
 };
 
 #[proc_macro_error]
@@ -203,11 +203,19 @@ impl ArgEnumVariant {
                         if default.is_some() {
                             abort!(ident, "Multiple `{}` arguments", Self::DEFAULT_IDENT);
                         }
-                        default = Some((
-                            ident,
-                            input.parse::<Token![=]>()?,
-                            Box::new(input.parse::<Expr>()?),
-                        ));
+                        if input.peek(Token![=]) {
+                            default = Some((
+                                ident,
+                                input.parse::<Token![=]>()?,
+                                Box::new(input.parse::<Expr>()?),
+                            ));
+                        } else {
+                            default = Some((
+                                ident,
+                                token::Eq::default(),
+                                syn::parse_str("::std::default::Default::default()")?,
+                            ));
+                        }
                     } else {
                         abort!(ident, "Unknown argument `{}`", ident);
                     }

@@ -41,6 +41,11 @@ unsafe impl CompressedU64 for ByteCount<u64> {
     fn num_bytes(self) -> usize {
         self.num_bytes()
     }
+
+    #[inline]
+    fn max_bytes() -> usize {
+        9
+    }
 }
 impl BorshSerialize for ByteCount<u64> {
     fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {

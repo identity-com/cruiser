@@ -36,6 +36,7 @@ pub use solana_program::{
     instruction::{AccountMeta as SolanaAccountMeta, Instruction as SolanaInstruction},
     pubkey::Pubkey,
 };
+pub use static_assertions;
 
 #[macro_use]
 mod macros;

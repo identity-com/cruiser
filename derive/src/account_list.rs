@@ -1,0 +1,155 @@
+use easy_proc::{find_attr, ArgumentList};
+use proc_macro2::{Span, TokenStream};
+use proc_macro_crate::{crate_name, FoundCrate};
+use proc_macro_error::abort;
+use quote::quote;
+use syn::parse::{Parse, ParseStream};
+use syn::{Data, DataStruct, DataUnion, DeriveInput, Fields, Generics, Ident, Type};
+
+#[derive(ArgumentList)]
+pub struct AccountListAttribute {
+    #[argument(default = syn::parse_str("u64").unwrap())]
+    discriminant_type: Type,
+}
+impl Default for AccountListAttribute {
+    fn default() -> Self {
+        Self {
+            discriminant_type: syn::parse_str("u64").unwrap(),
+        }
+    }
+}
+pub struct AccountListDerive {
+    generics: Generics,
+    attribute: AccountListAttribute,
+    ident: Ident,
+    variant_idents: Vec<Ident>,
+    variant_types: Vec<Type>,
+    variant_discriminants: Vec<TokenStream>,
+}
+impl AccountListDerive {
+    pub fn into_token_stream(self) -> TokenStream {
+        let generator_crate =
+            crate_name("solana_generator").expect("Could not find `solana_generator`");
+        let crate_name = match generator_crate {
+            FoundCrate::Itself => quote! { ::solana_generator },
+            FoundCrate::Name(name) => {
+                let ident = Ident::new(&name, Span::call_site());
+                quote! { ::#ident }
+            }
+        };
+
+        let AccountListDerive {
+            generics,
+            attribute,
+            ident,
+            variant_idents,
+            variant_types,
+            variant_discriminants,
+        } = self;
+        let (impl_gen, ty_gen, where_clause) = generics.split_for_impl();
+        let discriminant_type = attribute.discriminant_type;
+
+        let variant_impls = variant_idents
+            .into_iter()
+            .zip(variant_types.into_iter())
+            .zip(variant_discriminants.into_iter())
+            .map(|((var_ident, ty), dis)| {
+                quote! {
+                    #crate_name::static_assertions::const_assert_ne!(0, #dis);
+                    #[automatically_derived]
+                    unsafe impl #impl_gen #crate_name::AccountListItem<#ty> for #ident #ty_gen #where_clause {
+                        fn discriminant() -> ::std::num::NonZeroU64{
+                            ::std::num::NonZeroU64::new(#dis).unwrap()
+                        }
+                        fn from_account(account: #ty) -> Self{
+                            Self::#var_ident(account)
+                        }
+                        fn into_account(self) -> Result<#ty, Self>{
+                            if let Self::#var_ident(account) = self{
+                                Ok(account)
+                            } else {
+                                Err(self)
+                            }
+                        }
+                    }
+                }
+            }).collect::<Vec<_>>();
+
+        quote! {
+            #(#variant_impls)*
+
+            #[automatically_derived]
+            impl #impl_gen #crate_name::AccountList for #ident #ty_gen #where_clause {
+                type DiscriminantCompressed = #discriminant_type;
+            }
+        }
+    }
+}
+impl Parse for AccountListDerive {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let derive: DeriveInput = input.parse()?;
+        let enum_data = match derive.data {
+            Data::Struct(DataStruct { struct_token, .. }) => {
+                abort!(struct_token, "`#[derive(AccountList)] only supports enums")
+            }
+            Data::Enum(data) => data,
+            Data::Union(DataUnion { union_token, .. }) => {
+                abort!(union_token, "`#[derive(AccountList)] only supports enums")
+            }
+        };
+
+        let account_list_attribute =
+            find_attr(derive.attrs, &Ident::new("account_list", Span::call_site()))
+                .as_ref()
+                .map(AccountListAttribute::parse_arguments)
+                .unwrap_or_default();
+
+        let mut variant_idents = Vec::with_capacity(enum_data.variants.len());
+        let mut variant_types = Vec::with_capacity(enum_data.variants.len());
+        let mut variant_discriminants = Vec::with_capacity(enum_data.variants.len());
+        let mut last = None;
+        for variant in enum_data.variants {
+            match variant.fields {
+                Fields::Named(_) | Fields::Unit => abort!(
+                    variant.ident,
+                    "Only single type unnamed variants are allowed"
+                ),
+                Fields::Unnamed(unnamed) => {
+                    if unnamed.unnamed.len() != 1 {
+                        abort!(
+                            variant.ident,
+                            "Only single type unnamed variants are allowed"
+                        );
+                    }
+                    variant_types.push(unnamed.unnamed.into_iter().next().unwrap().ty);
+                }
+            }
+            variant_idents.push(variant.ident);
+            let value = match variant.discriminant {
+                None => {
+                    if let Some(last) = last {
+                        quote! {
+                            (#last) + 1
+                        }
+                    } else {
+                        quote! {
+                            1
+                        }
+                    }
+                }
+                Some((_, discriminant)) => quote! { #discriminant },
+            };
+            variant_discriminants.push(value.clone());
+            last = Some(value.clone());
+        }
+
+        Ok(Self {
+            generics: derive.generics,
+            ident: derive.ident,
+            attribute: account_list_attribute,
+            variant_idents,
+            variant_types,
+            variant_discriminants,
+        })
+    }
+}

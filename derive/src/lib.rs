@@ -3,10 +3,10 @@
 extern crate proc_macro;
 
 mod account_argument;
+mod account_list;
 mod error;
 mod instruction_list;
 mod log_level;
-// mod instruction_list_processor;
 
 use crate::account_argument::AccountArgumentDerive;
 use crate::error::ErrorDerive;
@@ -99,17 +99,17 @@ pub fn derive_instruction_list(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
-// #[proc_macro_error]
-// #[proc_macro_derive(InstructionListProcessor, attributes(instruction_list_processor))]
-// pub fn derive_instruction_list_processor(ts: TokenStream) -> TokenStream{
-//     let stream = parse_macro_input!(ts as InstructionListProcessorDerive).into_token_stream();
-//     #[cfg(feature = "debug_instruction_list_processor")]
-//     {
-//         println!("{}", stream);
-//         std::thread::sleep(std::time::Duration::from_millis(100));
-//     }
-//     stream.into()
-// }
+#[proc_macro_error]
+#[proc_macro_derive(AccountList)]
+pub fn derive_account_list(ts: TokenStream) -> TokenStream {
+    let stream = parse_macro_input!(ts as AccountListDerive).into_token_stream();
+    #[cfg(feature = "debug_account_list")]
+    {
+        println!("{}", stream);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    stream.into()
+}
 
 #[cfg(feature = "easy_proc_test")]
 #[proc_macro_error]
@@ -164,6 +164,7 @@ use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
 #[cfg(feature = "easy_proc_test")]
 use syn::{Ident, LitInt, LitStr};
+use crate::account_list::AccountListDerive;
 
 #[cfg(feature = "easy_proc_test")]
 #[derive(ArgumentList)]
