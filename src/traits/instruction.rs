@@ -1,10 +1,10 @@
 use crate::{FromAccounts, GeneratorResult, Pubkey, SolanaAccountMeta, SystemProgram};
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 
 /// An instruction for a program with it's accounts and data.
 pub trait Instruction: Sized {
     /// The data type minus the discriminant.
-    type Data: BorshSerialize + BorshDeserialize + BorshSchema;
+    type Data: BorshSerialize + BorshDeserialize;
     /// The type used for passing data to accounts.
     type FromAccountsData;
     /// The list of accounts for this instruction.
@@ -24,13 +24,11 @@ pub trait InstructionProcessor<I: Instruction> {
     ) -> GeneratorResult<Option<SystemProgram>>;
 }
 
-pub trait InstructionBuilder<I: Instruction> {
-    /// The argument for creating this instruction.
-    type BuildArg;
-
+/// This instruction supports building from a given build arg
+pub trait InstructionBuilder<I: Instruction, B> {
     /// Creates this instruction from a given argument
     fn build_instruction(
         program_id: &'static Pubkey,
-        arg: Self::BuildArg,
+        arg: B,
     ) -> GeneratorResult<(Vec<SolanaAccountMeta>, I::Data)>;
 }

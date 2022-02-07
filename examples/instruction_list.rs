@@ -1,12 +1,13 @@
 use solana_generator::{
-    GeneratorResult, Instruction, InstructionList, InstructionProcessor, SolanaAccountMeta,
-    SystemProgram,
+    AccountList, GeneratorResult, Instruction, InstructionList, InstructionProcessor, SystemProgram,
 };
-use solana_program::instruction::AccountMeta;
 use solana_program::pubkey::Pubkey;
 
+#[derive(AccountList)]
+pub enum TestAccountList {}
+
 #[derive(Copy, Clone, InstructionList)]
-#[instruction_list()]
+#[instruction_list(account_list = TestAccountList)]
 pub enum TestList {
     #[instruction(instruction_type = TestInstruction1)]
     TestInstruction1,
@@ -30,9 +31,9 @@ impl Instruction for TestInstruction1 {
 }
 impl InstructionProcessor<TestInstruction1> for TestInstruction1 {
     fn process(
-        program_id: &'static Pubkey,
-        data: <TestInstruction1 as Instruction>::Data,
-        accounts: &mut <TestInstruction1 as Instruction>::Accounts,
+        _program_id: &'static Pubkey,
+        _data: <TestInstruction1 as Instruction>::Data,
+        _accounts: &mut <TestInstruction1 as Instruction>::Accounts,
     ) -> GeneratorResult<Option<SystemProgram>> {
         todo!()
     }

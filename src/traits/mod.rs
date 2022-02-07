@@ -6,7 +6,6 @@ mod in_place;
 mod indexer;
 mod instruction;
 mod instruction_list;
-mod serde;
 
 pub use account_argument::*;
 pub use account_list::*;
@@ -16,7 +15,6 @@ pub use in_place::*;
 pub use indexer::*;
 pub use instruction::*;
 pub use instruction_list::*;
-pub use serde::*;
 
 impl_indexed_for_unit!(u8[][]);
 impl_indexed_for_unit!(u16[][]);

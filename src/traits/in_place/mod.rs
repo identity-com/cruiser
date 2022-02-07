@@ -214,7 +214,7 @@ where
 #[derive(Debug)]
 pub struct InPlaceNumber<'a, T>(pub(crate) &'a mut [u8; size_of::<T>()])
 where
-    [(); size_of::<T>()]: ;
+    [(); size_of::<T>()]:;
 
 macro_rules! impl_in_place_for_prim_num {
     (all $(($ty:ty, $type_ident:ident)),+ $(,)?) => {

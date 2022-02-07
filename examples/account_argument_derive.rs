@@ -1,9 +1,6 @@
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
-use solana_generator::{
-    AccountArgument, AccountList, AccountListItem, InitAccount, ProgramAccount, ZeroedAccount,
-};
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_generator::{AccountArgument, AccountList, InitAccount, ProgramAccount, ZeroedAccount};
 use solana_program::pubkey::Pubkey;
-use std::num::NonZeroU64;
 
 #[derive(AccountArgument)]
 #[from(data = (cool: u8, hi: usize), log_level = trace)]
@@ -41,7 +38,7 @@ pub struct FullStruct2 {
     other_accounts: [ZeroedAccount<TestAccountList, i8>; 8],
 }
 
-#[derive(Default, BorshSerialize, BorshDeserialize, BorshSchema)]
+#[derive(Default, BorshSerialize, BorshDeserialize)]
 pub struct CoolAccount {
     data_1: u64,
     cool_data: [u8; 32],

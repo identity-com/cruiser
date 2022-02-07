@@ -1,9 +1,10 @@
-use crate::compressed_numbers::CompressedU64;
+use crate::compressed_numbers::CompressedNumber;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_generator::bytes_ext::{ReadExt, WriteExt};
 use std::io::Write;
 use std::mem::size_of;
 
+/// A compressed number whose first
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ByteCount<T>(T);
 impl<T> ByteCount<T> {
@@ -26,14 +27,16 @@ impl ByteCount<u64> {
         }
     }
 }
-unsafe impl CompressedU64 for ByteCount<u64> {
+unsafe impl CompressedNumber for ByteCount<u64> {
+    type Num = u64;
+
     #[inline]
-    fn from_u64(number: u64) -> Self {
+    fn from_number(number: Self::Num) -> Self {
         Self::from_u64(number)
     }
 
     #[inline]
-    fn into_u64(self) -> u64 {
+    fn into_number(self) -> Self::Num {
         self.into_u64()
     }
 

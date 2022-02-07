@@ -9,7 +9,10 @@ use strum::EnumDiscriminants;
 pub enum GeneratorError {
     /// Custom error message for infrequent one-off errors
     #[error_msg("{}", error)]
-    Custom { error: String },
+    Custom {
+        /// The error message to print
+        error: String,
+    },
     /// Discriminant mismatch for accounts. Usually caused by passing the wrong account for a slot
     #[error_msg(
         "Mismatched Discriminant for account `{}`. Received: `{:?}`, Expected: `{:?}`",

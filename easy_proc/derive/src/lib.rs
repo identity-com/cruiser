@@ -1,4 +1,6 @@
-#![warn(unused_import_braces, unused_imports)]
+#![warn(unused_import_braces, unused_imports, missing_docs)]
+
+//! Helpers for creating proc macro crates
 
 extern crate proc_macro;
 use easy_proc_common::find_attrs;
@@ -14,6 +16,39 @@ use syn::{
     LitStr, PathArguments, PathSegment, Token, Type, TypePath,
 };
 
+/// Makes a struct able to parse a list of arguments.
+///
+/// # Arguments
+/// ```
+/// use syn::{Ident, Token, LitInt, LitStr};
+/// use easy_proc::ArgumentList;
+///
+/// #[derive(ArgumentList)]
+/// pub struct Cool {
+///     /// The ident of the whole attribute, not required and can only be one
+///     #[argument(attr_ident)]
+///     pub attr_ident: Ident,
+///     /// [`true`] if arg is present
+///     #[argument(presence)]
+///     pub boolean_value: bool,
+///     /// Required argument of form `count = 10`
+///     pub count: LitInt,
+///     /// Optional argument, if present of form `size = 3`
+///     pub size: Option<LitInt>,
+///     /// Custom parsing, including equals. Uses parse function.
+///     /// Ex: `custom_parse cool`
+///     #[argument(custom)]
+///     pub custom_parse: Ident,
+///     /// Optional with default value. Also implies `raw_type`
+///     #[argument(default = Ident::new("default", Span::call_site()))]
+///     pub default: Ident,
+///     /// Many, 0 or more
+///     pub many: Vec<LitStr>,
+///     /// default using [`Default`] implementation
+///     #[argument(default)]
+///     pub def: Token![=],
+/// }
+/// ```
 #[proc_macro_error]
 #[proc_macro_derive(ArgumentList, attributes(argument))]
 pub fn argument_list_derive(ts: TokenStream) -> TokenStream {

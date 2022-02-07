@@ -19,7 +19,7 @@ pub struct FromAttribute {
     attr_ident: Ident,
     id: Option<Ident>,
     data: NamedTupple,
-    #[argument(default = LogLevel::default())]
+    #[argument(default)]
     log_level: LogLevel,
 }
 impl FromAttribute {

@@ -15,18 +15,10 @@ pub struct InstructionListAttribute {
     log_level: LogLevel,
     #[argument(presence)]
     no_processor: bool,
+    account_list: Type,
 }
 impl InstructionListAttribute {
     const IDENT: &'static str = "instruction_list";
-}
-impl Default for InstructionListAttribute {
-    fn default() -> Self {
-        Self {
-            discriminant_type: syn::parse_str("u64").unwrap(),
-            log_level: LogLevel::default(),
-            no_processor: false,
-        }
-    }
 }
 
 pub struct InstructionListDerive {
@@ -45,7 +37,7 @@ impl Parse for InstructionListDerive {
         let instruction_list_attribute = find_attr(derive_input.attrs, &instruction_list_ident)
             .as_ref()
             .map(InstructionListAttribute::parse_arguments)
-            .unwrap_or_default();
+            .unwrap_or_else(|| abort!(derive_input.ident, "Missing `instruction_list` attribute"));
 
         let variants = match derive_input.data {
             Data::Struct(_) | Data::Union(_) => {
@@ -92,6 +84,7 @@ impl InstructionListDerive {
 
         let discriminant_type = self.attribute.discriminant_type;
         let log_level = self.attribute.log_level;
+        let account_list = self.attribute.account_list;
 
         let (variant_ident, variant_instruction_type, variant_discriminant, variant_processors) = {
             let mut variant_idents = Vec::with_capacity(self.variants.len());
@@ -152,7 +145,7 @@ impl InstructionListDerive {
                         mut data: &[u8],
                     ) -> GeneratorResult<()>{
                         let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as ::borsh::BorshDeserialize>::deserialize(&mut data)?;
-                        let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as #crate_name::compressed_numbers::CompressedU64>::into_u64(discriminant);
+                        let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as #crate_name::compressed_numbers::CompressedNumber>::into_number(discriminant);
                         if false{
                             ::std::unreachable!();
                         }
@@ -180,14 +173,16 @@ impl InstructionListDerive {
             #[automatically_derived]
             impl #impl_generics InstructionList for #ident #ty_generics #where_clause{
                 type DiscriminantCompressed = #discriminant_type;
+                type AccountList = #account_list;
 
-                fn discriminant(self) -> u64{
+                fn discriminant(self) -> ::std::num::NonZeroU64{
                     match self{
-                        #(Self::#variant_ident => #variant_discriminant,)*
+                        #(Self::#variant_ident => #crate_name::ToNonZero::to_non_zero(#variant_discriminant),)*
                     }
                 }
 
-                fn from_discriminant(discriminant: u64) -> Option<Self>{
+                fn from_discriminant(discriminant: ::std::num::NonZeroU64) -> Option<Self>{
+                    let discriminant = discriminant.get();
                     if false{
                         ::std::unreachable!();
                     }

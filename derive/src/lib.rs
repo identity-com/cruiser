@@ -1,4 +1,6 @@
-#![warn(unused_import_braces, unused_imports)]
+#![warn(unused_import_braces, unused_imports, missing_docs)]
+
+//! The proc macros of [`solana_generator`]
 
 extern crate proc_macro;
 
@@ -87,6 +89,7 @@ pub fn derive_account_argument(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
+/// Derives the [`InstructionList`] trait.
 #[proc_macro_error]
 #[proc_macro_derive(InstructionList, attributes(instruction_list, instruction))]
 pub fn derive_instruction_list(ts: TokenStream) -> TokenStream {
@@ -99,6 +102,7 @@ pub fn derive_instruction_list(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
+/// Derives the [`AccountList`] trait
 #[proc_macro_error]
 #[proc_macro_derive(AccountList)]
 pub fn derive_account_list(ts: TokenStream) -> TokenStream {
@@ -156,6 +160,7 @@ impl Parse for TestStruct {
     }
 }
 
+use crate::account_list::AccountListDerive;
 #[cfg(feature = "easy_proc_test")]
 use easy_proc::ArgumentList;
 #[cfg(feature = "easy_proc_test")]
@@ -164,7 +169,6 @@ use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
 #[cfg(feature = "easy_proc_test")]
 use syn::{Ident, LitInt, LitStr};
-use crate::account_list::AccountListDerive;
 
 #[cfg(feature = "easy_proc_test")]
 #[derive(ArgumentList)]

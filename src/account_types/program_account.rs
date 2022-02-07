@@ -5,7 +5,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 
 use crate::account_types::system_program::SystemProgram;
-use crate::compressed_numbers::CompressedU64;
+use crate::compressed_numbers::CompressedNumber;
 use crate::traits::AccountArgument;
 use crate::{
     AccountInfo, AccountInfoIterator, AccountListItem, AllAny, FromAccounts, GeneratorError,
@@ -76,7 +76,7 @@ where
         let mut account_data = &**account_data_ref.deref();
 
         let in_discriminant =
-            AL::DiscriminantCompressed::deserialize(&mut account_data)?.into_u64();
+            AL::DiscriminantCompressed::deserialize(&mut account_data)?.into_number();
         if in_discriminant != AL::discriminant().get() {
             return Err(GeneratorError::MismatchedDiscriminant {
                 account: info.key,

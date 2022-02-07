@@ -2,6 +2,7 @@ use crate::{GeneratorError, GeneratorResult};
 pub use short_vec::ShortVec;
 use std::borrow::Cow;
 use std::cmp::{max, min};
+use std::num::NonZeroU64;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::ptr::slice_from_raw_parts_mut;
 
@@ -98,8 +99,11 @@ pub fn mul_size_hint(hint: (usize, Option<usize>), mul: usize) -> (usize, Option
     )
 }
 
+/// Length grabbing functions
 pub trait Length {
+    /// Gets the length
     fn len(&self) -> usize;
+    /// Tells whether the length is 0
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -135,7 +139,9 @@ impl<'a, T, const N: usize> Length for &'a mut [T; N] {
     }
 }
 
+/// Advances a given slice while maintaining lifetimes
 pub trait Advance<'a>: Length {
+    /// The output of advancing
     type AdvanceOut;
 
     /// Advances self forward by `amount`, returning the advanced over portion.
@@ -168,7 +174,9 @@ pub trait Advance<'a>: Length {
     /// Caller must guarantee that `amount` is not greater than the length of self.
     unsafe fn advance_unchecked(&'a mut self, amount: usize) -> Self::AdvanceOut;
 }
+/// Advances a given slice giving back an array
 pub trait AdvanceArray<'a, const N: usize>: Length {
+    /// The output of advancing
     type AdvanceOut;
 
     /// Advances self forward by `N`, returning the advanced over portion.
@@ -221,5 +229,28 @@ impl<'a, 'b, T, const N: usize> AdvanceArray<'a, N> for &'b mut [T] {
             // Safety: Same requirements as this function
             self.advance_unchecked(N) as *mut [T] as *mut [T; N]
         )
+    }
+}
+
+/// Number can become non-zero, panicking if can't
+pub trait ToNonZero {
+    /// The non-zero type
+    type NonZero;
+
+    /// Converts to non-zero
+    fn to_non_zero(self) -> Self::NonZero;
+}
+impl ToNonZero for u64 {
+    type NonZero = NonZeroU64;
+
+    fn to_non_zero(self) -> Self::NonZero {
+        NonZeroU64::new(self).unwrap()
+    }
+}
+impl ToNonZero for NonZeroU64 {
+    type NonZero = NonZeroU64;
+
+    fn to_non_zero(self) -> Self::NonZero {
+        self
     }
 }

@@ -1,10 +1,8 @@
 //! Small size vectors for additional space savings than the
 
 use crate::{AccountArgument, GeneratorError, GeneratorResult, Pubkey, SystemProgram};
-use borsh::schema::{Declaration, Definition};
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 use solana_generator::bytes_ext::{ReadExt, WriteExt};
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::io::Write;
 use std::ops::{Deref, Index, IndexMut};
@@ -76,25 +74,6 @@ macro_rules! small_vec {
                     out.push(T::deserialize(buf)?);
                 }
                 Ok(Self(out))
-            }
-        }
-        impl<T> BorshSchema for $ident<T>
-        where
-            T: BorshSchema,
-        {
-            fn add_definitions_recursively(definitions: &mut HashMap<Declaration, Definition>) {
-                Self::add_definition(
-                    Self::declaration(),
-                    Definition::Sequence {
-                        elements: T::declaration(),
-                    },
-                    definitions,
-                );
-                T::add_definitions_recursively(definitions);
-            }
-
-            fn declaration() -> Declaration {
-                stringify!($ident).to_string()
             }
         }
         impl<T> AccountArgument for $ident<T>

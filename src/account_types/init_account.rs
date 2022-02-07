@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::SYSTEM_PROGRAM_ID;
-use crate::compressed_numbers::CompressedU64;
+use crate::compressed_numbers::CompressedNumber;
 use crate::solana_program::rent::Rent;
 use crate::solana_program::sysvar::Sysvar;
 use std::fmt::Debug;

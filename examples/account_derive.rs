@@ -1,9 +1,9 @@
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 
-#[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct Cool(String);
 
-#[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct AccountTest {
     pub data: u8,
     pub cool: Cool,
