@@ -1,5 +1,7 @@
 use solana_program::system_program::ID as SYSTEM_PROGRAM_ID;
 
+#[cfg(feature = "nightly")]
+pub use in_place_account::*;
 pub use init_account::*;
 pub use init_or_zeroed_account::*;
 pub use program_account::*;
@@ -9,6 +11,8 @@ pub use zeroed_account::*;
 
 use crate::*;
 
+#[cfg(feature = "nightly")]
+mod in_place_account;
 mod init_account;
 mod init_or_zeroed_account;
 mod program_account;

@@ -13,7 +13,7 @@ members = [
 
 [features]
 default = []
-nightly = []
+nightly = ["solana_generator_derive/nightly"]
 
 derive_debug_account = ["solana_generator_derive/debug_account"]
 derive_debug_error = ["solana_generator_derive/debug_error"]

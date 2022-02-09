@@ -5,6 +5,7 @@ use borsh::BorshSerialize;
 use solana_program::program_error::ProgramError;
 use solana_program::pubkey::Pubkey;
 
+use crate::compressed_numbers::CompressedNumber;
 use crate::solana_program::sysvar::Sysvar;
 use crate::traits::AccountArgument;
 use crate::{
@@ -78,7 +79,13 @@ where
             return Err(GeneratorError::CannotWrite { account: info.key }.into());
         }
 
-        if !info.data.borrow().iter().all(|&byte| byte == 0) {
+        if !info
+            .data
+            .borrow()
+            .iter()
+            .take(AL::DiscriminantCompressed::max_bytes())
+            .all(|&byte| byte == 0)
+        {
             return Err(GeneratorError::NonZeroedData { account: info.key }.into());
         }
 

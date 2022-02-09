@@ -143,7 +143,7 @@ impl InstructionListDerive {
                         program_id: &'static #crate_name::Pubkey,
                         accounts: &mut impl #crate_name::AccountInfoIterator,
                         mut data: &[u8],
-                    ) -> GeneratorResult<()>{
+                    ) -> #crate_name::GeneratorResult<()>{
                         let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as ::borsh::BorshDeserialize>::deserialize(&mut data)?;
                         let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as #crate_name::compressed_numbers::CompressedNumber>::into_number(discriminant);
                         if false{

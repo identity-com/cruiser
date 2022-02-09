@@ -1,7 +1,8 @@
-pub mod builders;
+mod array;
 mod option;
 mod vec;
 
+pub use array::*;
 pub use option::*;
 pub use vec::*;
 
@@ -27,7 +28,9 @@ pub trait InPlaceBuilder {
     /// Incoming length has no guarantees.
     fn read(data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>>;
 }
+/// An in place structure
 pub trait StaticSized: InPlaceBuilder {
+    /// The size of the data on-chain
     const DATA_SIZE: usize;
 
     // // TODO: Add back in when https://github.com/rust-lang/rust/issues/92961 resolved
@@ -201,7 +204,6 @@ where
 {
     const DATA_SIZE: usize = T::DATA_SIZE * N;
 }
-
 impl<T, const N: usize> InPlaceData for [T; N]
 where
     T: InPlaceData,
@@ -221,8 +223,8 @@ macro_rules! impl_in_place_for_prim_num {
         $(impl_in_place_for_prim_num!($ty, $type_ident);)+
     };
     ($ty:ty, $type_ident:ident) => {
-        pub type $type_ident = InPlaceNumber<'static, $ty>;
-        impl<'b> InPlaceBuilder for InPlaceNumber<'b, $ty> {
+        pub type $type_ident<'a> = InPlaceNumber<'a, $ty>;
+        impl InPlaceBuilder for $ty {
             type InPlaceData<'a> = InPlaceNumber<'a, $ty>;
             type SizeError = Infallible;
             type CreateArg = $ty;
@@ -267,7 +269,7 @@ macro_rules! impl_in_place_for_prim_num {
                 size_of::<$ty>()
             }
         }
-        impl<'a> StaticSized for InPlaceNumber<'a, $ty> {
+        impl StaticSized for $ty {
             const DATA_SIZE: usize = size_of::<$ty>();
 
             // fn create_static(

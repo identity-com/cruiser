@@ -8,11 +8,13 @@ proc-macro = true
 
 [features]
 default = []
+nightly = []
 debug_account = []
 debug_error = []
 debug_account_argument = []
 debug_instruction_list = []
 debug_account_list = []
+debug_in_place = ["nightly"]
 easy_proc_test = []
 debug = ["debug_account", "debug_error", "debug_account_argument", "debug_instruction_list", "debug_account_list"]
 
@@ -24,6 +26,7 @@ sha2 = "0.9.5"
 proc-macro-error = "1.0.4"
 proc-macro-crate = "1.0.0"
 easy_proc = { path = "../easy_proc" }
+heck = "0.4.0"
 
 [dev-dependencies]
 solana_generator = { path = ".." }

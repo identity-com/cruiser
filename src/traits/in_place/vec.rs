@@ -7,41 +7,62 @@ use num_traits::Zero;
 use std::collections::Bound;
 use std::convert::Infallible;
 use std::marker::PhantomData;
-use std::ops::RangeBounds;
+use std::ops::{Deref, RangeBounds};
 
+/// Standard functions on an in-place vec
 pub trait InPlaceVec<'a, T, D>: InPlaceData
 where
     T: StaticSized,
     D: InPlaceBuilder,
     for<'b> D::InPlaceData<'a>: InPlaceGet<'b, usize> + InPlaceSet<'b, usize>,
 {
+    /// The length of the vector
     fn len(&self) -> usize;
+    /// Mutable access to the length of the vector
+    ///
+    /// # Safety
+    /// Length of vector must not allow access to un-allocated data
     unsafe fn len_mut(&mut self) -> &mut D::InPlaceData<'a>;
+    /// Mutable access to the data of the vector
+    ///
+    /// # Safety
+    /// The data must not be put in an invalid state
     unsafe fn data(&mut self) -> &mut [u8];
+    /// Mutable access to both the length and data
+    ///
+    /// # Safety
+    /// Same requirements as both `len_mut` and `data`
     unsafe fn length_and_data(&mut self) -> (&mut D::InPlaceData<'a>, &mut [u8]);
+    /// Returns true if vec is zero length
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+    /// The maximum length this vec can be
     fn max_length(&self) -> usize;
+    /// Gets an item from the vec
     fn get(&mut self, index: usize) -> GeneratorResult<Option<T::InPlaceData<'_>>> {
         vec_get::<T>(self.len(), index, unsafe { self.data() })
     }
+    /// Gets all the items in the vec
     fn get_all(&mut self) -> GeneratorResult<Vec<T::InPlaceData<'_>>> {
         let length = self.len();
         vec_get_subset::<T, _>(length, 0..length, unsafe { self.data() })
     }
+    /// Gets a subset of the vec
     fn get_subset(
         &mut self,
         range: impl RangeBounds<usize>,
     ) -> GeneratorResult<Vec<T::InPlaceData<'_>>> {
         vec_get_subset::<T, _>(self.len(), range, unsafe { self.data() })
     }
+    /// Gets an array of items from the vec
     fn get_array<const N: usize>(
         &mut self,
         start: usize,
     ) -> GeneratorResult<Option<[T::InPlaceData<'_>; N]>> {
         vec_get_array::<T, N>(self.len(), start, unsafe { self.data() })
     }
+    /// Replaces a given item in the vec
     fn replace(
         &mut self,
         index: usize,
@@ -49,6 +70,7 @@ where
     ) -> GeneratorResult<Result<T::InPlaceData<'_>, T::CreateArg>> {
         vec_replace::<T>(self.len(), index, value, unsafe { self.data() })
     }
+    /// Swaps two items in the vec with a given buffer
     fn swap_buffer(
         &mut self,
         index1: usize,
@@ -59,12 +81,14 @@ where
             self.data()
         })
     }
+    /// Swaps two items in a vec
     fn swap(&mut self, index1: usize, index2: usize) -> GeneratorResult<bool>
     where
         [(); T::DATA_SIZE]:,
     {
         self.swap_buffer(index1, index2, &mut [0; T::DATA_SIZE])
     }
+    /// Adds an item to the vec
     fn push<'b>(
         &'b mut self,
         value: T::CreateArg,
@@ -76,6 +100,7 @@ where
         let (length, data) = unsafe { self.length_and_data() };
         vec_push::<T, _>(max_length, value, length, data)
     }
+    /// Adds all of the given items to the vec
     // TODO: Add version that returns iterator when impl return without lifetime bound bug fixed
     fn push_all<'b, I>(
         &'b mut self,
@@ -90,11 +115,18 @@ where
         let (length, data) = unsafe { self.length_and_data() };
         vec_push_all::<T, I, _>(max_length, values, length, data)
     }
+    /// Removes an item from the vec, moving all items later down an index
     fn remove(&mut self, index: usize) -> GeneratorResult<bool> {
         let (length, data) = unsafe { self.length_and_data() };
         vec_remove::<T, _>(index, length, data)
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct DynamicVec<T, D>(pub Vec<T>, pub PhantomData<fn() -> D>);
+
+#[derive(Clone, Debug)]
+pub struct StaticVec<T, const N: usize>(pub Vec<T>);
 
 #[derive(Debug)]
 pub struct DynamicInPlaceVec<'a, T, D>
@@ -107,7 +139,7 @@ where
     data: &'a mut [u8],
     phantom_t: PhantomData<fn() -> T>,
 }
-impl<T, D> InPlaceBuilder for DynamicInPlaceVec<'static, T, D>
+impl<T, D> InPlaceBuilder for DynamicVec<T, D>
 where
     T: StaticSized,
     D: InPlaceBuilder,

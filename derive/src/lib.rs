@@ -7,6 +7,7 @@ extern crate proc_macro;
 mod account_argument;
 mod account_list;
 mod error;
+mod in_place;
 mod instruction_list;
 mod log_level;
 
@@ -114,6 +115,20 @@ pub fn derive_account_list(ts: TokenStream) -> TokenStream {
     }
     stream.into()
 }
+
+// /// Sets up an in-place struct
+// #[cfg(feature = "nightly")]
+// #[proc_macro_error]
+// #[proc_macro_attribute]
+// pub fn derive_in_place(args: TokenStream, tokens: TokenStream) -> TokenStream {
+//     let stream = parse_macro_input!(tokens as AccountListDerive).into_token_stream();
+//     #[cfg(feature = "debug_in_place")]
+//     {
+//         println!("{}", stream);
+//         std::thread::sleep(std::time::Duration::from_millis(100));
+//     }
+//     stream.into()
+// }
 
 #[cfg(feature = "easy_proc_test")]
 #[proc_macro_error]

@@ -19,6 +19,13 @@ pub struct SystemProgram {
     /// If `is_signer` or `is_writable` is ever [`true`] you probably just got a big bug bounty from Solana!
     pub info: AccountInfo,
 }
+impl SystemProgram {
+    /// The key of the sytem program
+    pub const KEY: Pubkey = Pubkey::new_from_array([
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0,
+    ]);
+}
 impl AccountArgument for SystemProgram {
     fn write_back(
         self,

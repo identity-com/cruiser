@@ -7,7 +7,7 @@ use solana_generator::traits::in_place::{InPlaceBuilder, InPlaceData, StaticSize
 pub struct InPlaceOption<'a, T>
 where
     T: StaticSized,
-    [(); T::DATA_SIZE]: ,
+    [(); T::DATA_SIZE]:,
 {
     discriminant: &'a mut u8,
     value: &'a mut [u8; T::DATA_SIZE],
@@ -15,7 +15,7 @@ where
 impl<'a, T> InPlaceOption<'a, T>
 where
     T: StaticSized,
-    [(); T::DATA_SIZE]: ,
+    [(); T::DATA_SIZE]:,
 {
     const fn data_size() -> usize {
         T::DATA_SIZE + 1
@@ -29,21 +29,21 @@ where
         }
     }
 }
-impl<'a, T> InPlaceBuilder for InPlaceOption<'a, T>
+impl<T> InPlaceBuilder for Option<T>
 where
     T: StaticSized,
-    [(); T::DATA_SIZE]: ,
+    [(); T::DATA_SIZE]:,
 {
-    type InPlaceData<'b> = InPlaceOption<'b, T>;
+    type InPlaceData<'a> = InPlaceOption<'a, T>;
     type SizeError = Infallible;
     type CreateArg = ();
 
     fn data_size(_data: &[u8]) -> Result<usize, Self::SizeError> {
-        Ok(Self::data_size())
+        Ok(InPlaceOption::<T>::data_size())
     }
 
     fn create_size(_create_arg: &Self::CreateArg) -> usize {
-        Self::data_size()
+        InPlaceOption::<T>::data_size()
     }
 
     fn create(
@@ -66,10 +66,10 @@ where
         })
     }
 }
-impl<'a, T> StaticSized for InPlaceOption<'a, T>
+impl<T> StaticSized for Option<T>
 where
     T: StaticSized,
-    [(); T::DATA_SIZE]: ,
+    [(); T::DATA_SIZE]:,
 {
     const DATA_SIZE: usize = T::DATA_SIZE + 1;
 
@@ -95,7 +95,7 @@ where
 impl<'a, T> InPlaceData for InPlaceOption<'a, T>
 where
     T: StaticSized,
-    [(); T::DATA_SIZE]: ,
+    [(); T::DATA_SIZE]:,
 {
     fn self_data_size(&self) -> usize {
         Self::data_size()
