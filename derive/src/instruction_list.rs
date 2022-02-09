@@ -149,7 +149,7 @@ impl InstructionListDerive {
                         }
                         #(else if discriminant == #variant_discriminant{
                             #instruction_prints
-                            let mut data = <<#variant_instruction_type as #crate_name::Instruction>::Data as ::borsh::BorshDeserialize>::deserialize(&mut data)?;
+                            let mut data = <<#variant_instruction_type as #crate_name::Instruction>::Data as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
                             let from_data = <#variant_instruction_type as #crate_name::Instruction>::data_to_instruction_arg(&mut data)?;
                             let mut accounts = <<#variant_instruction_type as #crate_name::Instruction>::Accounts as #crate_name::FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
                             let system_program = <#variant_processors as #crate_name::InstructionProcessor<#variant_instruction_type>>::process(
