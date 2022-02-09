@@ -54,7 +54,9 @@ impl AccountInfo {
         out
     }
 
-    pub(crate) unsafe fn deserialize(input: *mut u8) -> (Pubkey, Vec<Self>, &'static [u8]) {
+    pub(crate) unsafe fn deserialize(
+        input: *mut u8,
+    ) -> (&'static Pubkey, Vec<Self>, &'static [u8]) {
         let mut offset = 0;
 
         let num_accounts = Self::read_value::<u64>(input, &mut offset) as usize;
@@ -84,7 +86,7 @@ impl AccountInfo {
                 offset += data_len + MAX_PERMITTED_DATA_INCREASE;
                 offset += (offset as *const u8).align_offset(align_of::<u128>());
 
-                let rent_epoch = Self::read_value(input, &mut offset);
+                let rent_epoch = Self::read_value::<Epoch>(input, &mut offset);
 
                 accounts.push(Self {
                     key,
@@ -107,7 +109,7 @@ impl AccountInfo {
         let instruction_data = from_raw_parts(input.add(offset), instruction_data_len);
         offset += instruction_data_len;
 
-        let program_id = Self::read_value(input, &mut offset);
+        let program_id = &*(input.add(offset) as *const Pubkey);
         (program_id, accounts, instruction_data)
     }
 
@@ -322,7 +324,7 @@ pub mod account_info_test {
 
         let (generator_program_id, generator_accounts, generator_instruction_data) =
             unsafe { crate::AccountInfo::deserialize(data.as_mut_ptr()) };
-        assert_eq!(generator_program_id, program_id);
+        assert_eq!(generator_program_id, &program_id);
         assert_eq!(generator_accounts.len(), 3);
         assert!(generator_accounts[0].is_signer);
         assert!(generator_accounts[0].is_writable);

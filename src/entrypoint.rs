@@ -59,7 +59,7 @@ macro_rules! entrypoint_list {
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
             $crate::entrypoint::entry(
                 input,
-                <$instruction_list as $crate::InstructionList>::process_instruction,
+                <$instruction_list as $crate::InstructionListProcessor>::process_instruction,
             )
         }
     };
@@ -72,7 +72,7 @@ macro_rules! entrypoint_list {
 /// This must be called with the input from `pub unsafe extern "C" fn entrypoint`
 pub unsafe fn entry(
     input: *mut u8,
-    function: impl FnOnce(Pubkey, &mut IntoIter<AccountInfo>, &[u8]) -> GeneratorResult<()>,
+    function: impl FnOnce(&'static Pubkey, &mut IntoIter<AccountInfo>, &[u8]) -> GeneratorResult<()>,
 ) -> u64 {
     let (program_id, accounts, instruction_data) = AccountInfo::deserialize(input);
     match function(program_id, &mut accounts.into_iter(), instruction_data) {

@@ -7,7 +7,7 @@ use num_traits::Zero;
 use std::collections::Bound;
 use std::convert::Infallible;
 use std::marker::PhantomData;
-use std::ops::{Deref, RangeBounds};
+use std::ops::RangeBounds;
 
 /// Standard functions on an in-place vec
 pub trait InPlaceVec<'a, T, D>: InPlaceData

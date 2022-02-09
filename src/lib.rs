@@ -29,6 +29,7 @@ pub use pda_seeds::*;
 pub use traits::*;
 pub use util::*;
 
+pub use borsh;
 pub use solana_program;
 pub use solana_program::msg;
 pub use solana_program::{

@@ -106,13 +106,11 @@ impl InstructionListDerive {
                         .discriminant
                         .map(|expr| quote! { #expr })
                         .unwrap_or_else(|| {
-                            let last = variant_discriminant
+                            variant_discriminant
                                 .last()
                                 .cloned()
-                                .unwrap_or_else(|| quote! { 0 });
-                            quote! {
-                                (#last) + 1
-                            }
+                                .map(|last| quote! { (#last) + 1 })
+                                .unwrap_or_else(|| quote! { 0 })
                         }),
                 );
             }
@@ -144,7 +142,7 @@ impl InstructionListDerive {
                         accounts: &mut impl #crate_name::AccountInfoIterator,
                         mut data: &[u8],
                     ) -> #crate_name::GeneratorResult<()>{
-                        let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as ::borsh::BorshDeserialize>::deserialize(&mut data)?;
+                        let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
                         let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as #crate_name::compressed_numbers::CompressedNumber>::into_number(discriminant);
                         if false{
                             ::std::unreachable!();
@@ -194,8 +192,6 @@ impl InstructionListDerive {
                     }
                 }
             }
-
-            #(#crate_name::static_assertions::const_assert_ne!(0, #variant_discriminant);)*
 
             #processor
         }
