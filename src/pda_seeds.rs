@@ -193,21 +193,24 @@ where
     /// Gets the seeds as an iterator of strings with an additional nonce
     fn seeds_to_strings_with_nonce(&'a self, nonce: u8) -> Self::SeedsToStringsWithNonceIter;
     /// Finds an address for the given seeds returning `(key, nonce)`
-    fn find_address(&self, program_id: Pubkey) -> (Pubkey, u8);
+    fn find_address(&self, program_id: &'static Pubkey) -> (Pubkey, u8);
     /// Creates an address from given seeds and nonce, ~50% chance to error if given a random nonce
-    fn create_address(&self, program_id: Pubkey, nonce: u8) -> GeneratorResult<Pubkey>;
+    fn create_address(&self, program_id: &'static Pubkey, nonce: u8) -> GeneratorResult<Pubkey>;
     /// Verifies that a given address is derived from given seeds and finds nonce. Returns the found nonce.
-    fn verify_address_find_nonce(&self, program_id: Pubkey, address: Pubkey)
-        -> GeneratorResult<u8>;
+    fn verify_address_find_nonce(
+        &self,
+        program_id: &'static Pubkey,
+        address: &Pubkey,
+    ) -> GeneratorResult<u8>;
     /// Verifies that a given address is derived from given seeds and nonce.
     fn verify_address_with_nonce(
         &self,
-        program_id: Pubkey,
-        address: Pubkey,
+        program_id: &'static Pubkey,
+        address: &Pubkey,
         nonce: u8,
     ) -> GeneratorResult<()>;
     /// Verifies that a given address is derived from given seeds.
-    fn verify_address(&self, program_id: Pubkey, address: Pubkey) -> GeneratorResult<()>;
+    fn verify_address(&self, program_id: &'static Pubkey, address: &Pubkey) -> GeneratorResult<()>;
 }
 #[allow(clippy::type_complexity)]
 impl<'a, 'b, 'c, T: ?Sized> PDAGenerator<'a, 'b, 'c> for T
@@ -245,15 +248,15 @@ where
         self.seeds_to_strings().chain(once(nonce.to_string()))
     }
 
-    fn find_address(&self, program_id: Pubkey) -> (Pubkey, u8) {
+    fn find_address(&self, program_id: &'static Pubkey) -> (Pubkey, u8) {
         let seed_bytes = self.seeds_to_bytes().collect::<Vec<_>>();
-        Pubkey::find_program_address(&seed_bytes, &program_id)
+        Pubkey::find_program_address(&seed_bytes, program_id)
     }
 
-    fn create_address(&self, program_id: Pubkey, nonce: u8) -> GeneratorResult<Pubkey> {
+    fn create_address(&self, program_id: &'static Pubkey, nonce: u8) -> GeneratorResult<Pubkey> {
         Pubkey::create_program_address(
             &self.seeds_to_bytes_with_nonce(&[nonce]).collect::<Vec<_>>(),
-            &program_id,
+            program_id,
         )
         .map_err(|error| match error {
             PubkeyError::InvalidSeeds => GeneratorError::NoAccountFromSeeds {
@@ -266,13 +269,13 @@ where
 
     fn verify_address_find_nonce(
         &self,
-        program_id: Pubkey,
-        address: Pubkey,
+        program_id: &'static Pubkey,
+        address: &Pubkey,
     ) -> GeneratorResult<u8> {
         let (key, nonce) = self.find_address(program_id);
-        if address != key {
+        if address != &key {
             return Err(GeneratorError::AccountNotFromSeeds {
-                account: address,
+                account: *address,
                 seeds: self.seeds_to_strings().collect(),
                 program_id,
             }
@@ -283,27 +286,28 @@ where
 
     fn verify_address_with_nonce(
         &self,
-        program_id: Pubkey,
-        address: Pubkey,
+        program_id: &'static Pubkey,
+        address: &Pubkey,
         nonce: u8,
     ) -> GeneratorResult<()> {
         let created_key = self.create_address(program_id, nonce);
-        if created_key.is_err() || address != created_key? {
-            return Err(GeneratorError::AccountNotFromSeeds {
-                account: address,
+        if created_key.is_err() || address != &created_key? {
+            Err(GeneratorError::AccountNotFromSeeds {
+                account: *address,
                 seeds: self.seeds_to_strings_with_nonce(nonce).collect(),
                 program_id,
             }
-            .into());
+            .into())
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 
-    fn verify_address(&self, program_id: Pubkey, address: Pubkey) -> GeneratorResult<()> {
+    fn verify_address(&self, program_id: &'static Pubkey, address: &Pubkey) -> GeneratorResult<()> {
         let created_key = self.find_address(program_id).0;
-        if address != created_key {
+        if address != &created_key {
             return Err(GeneratorError::AccountNotFromSeeds {
-                account: address,
+                account: *address,
                 seeds: self.seeds_to_strings().collect(),
                 program_id,
             }

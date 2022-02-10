@@ -11,6 +11,7 @@ use std::marker::PhantomData;
 use std::ops::DerefMut;
 use std::rc::Rc;
 
+/// Access a given account in-place
 #[derive(Debug)]
 pub struct InPlaceProgramAccount<AL, A>
 where
@@ -25,8 +26,9 @@ where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
 {
-    pub fn borrow_mut(&mut self) -> InPlaceHolder<'_, AL, A> {
-        InPlaceHolder {
+    /// Borrows the account mutably
+    pub fn borrow_mut(&mut self) -> InPlaceMutHolder<'_, AL, A> {
+        InPlaceMutHolder {
             value: self.account.data.borrow_mut(),
             phantom_al_a: PhantomData,
         }
@@ -136,8 +138,9 @@ where
     }
 }
 
+/// Holds an in place mutable reference
 #[derive(Debug)]
-pub struct InPlaceHolder<'a, AL, A>
+pub struct InPlaceMutHolder<'a, AL, A>
 where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
@@ -145,16 +148,18 @@ where
     value: RefMut<'a, &'static mut [u8]>,
     phantom_al_a: PhantomData<fn() -> (AL, A)>,
 }
-impl<'a, AL, A> InPlaceHolder<'a, AL, A>
+impl<'a, AL, A> InPlaceMutHolder<'a, AL, A>
 where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
 {
+    /// Gets the in-place data
     pub fn get_data(&mut self) -> GeneratorResult<A::InPlaceData<'_>> {
         A::read(&mut self.value.deref_mut()[AL::discriminant().get() as usize..])
     }
 }
 
+/// A zeroed account accessed in-place
 #[derive(Debug)]
 pub struct InPlaceZeroed<AL, A>
 where
@@ -170,8 +175,8 @@ where
     A: InPlaceBuilder,
 {
     /// Gets the data mutably
-    pub fn borrow_mut(&mut self) -> InPlaceHolder<'_, AL, A> {
-        InPlaceHolder {
+    pub fn borrow_mut(&mut self) -> InPlaceMutHolder<'_, AL, A> {
+        InPlaceMutHolder {
             value: self.account.data.borrow_mut(),
             phantom_al_a: PhantomData,
         }

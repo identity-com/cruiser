@@ -3,6 +3,7 @@ use core::convert::Infallible;
 use solana_generator::traits::error::GeneratorResult;
 use solana_generator::traits::in_place::{InPlaceBuilder, InPlaceData, StaticSized};
 
+/// The option version of in-place data
 #[derive(Debug)]
 pub struct InPlaceOption<'a, T>
 where
@@ -21,6 +22,7 @@ where
         T::DATA_SIZE + 1
     }
 
+    /// Gets the optional value
     pub fn get(&mut self) -> GeneratorResult<Option<T::InPlaceData<'_>>> {
         match *self.discriminant {
             0 => Ok(None),
@@ -38,7 +40,7 @@ where
     type SizeError = Infallible;
     type CreateArg = ();
 
-    fn data_size(_data: &[u8]) -> Result<usize, Self::SizeError> {
+    fn data_size(_data: &mut [u8]) -> Result<usize, Self::SizeError> {
         Ok(InPlaceOption::<T>::data_size())
     }
 

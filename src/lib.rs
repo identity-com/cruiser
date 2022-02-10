@@ -14,6 +14,7 @@
     missing_docs,
     missing_debug_implementations
 )]
+#![allow(clippy::init_numbered_fields)]
 //! A generator program that will be able to generate solana program code from a much easier starting place.
 
 extern crate self as solana_generator;

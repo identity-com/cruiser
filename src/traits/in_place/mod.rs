@@ -11,14 +11,19 @@ use array_init::try_array_init;
 use std::convert::{Infallible, TryInto};
 use std::mem::size_of;
 
+/// A type that has an in-place representation
 pub trait InPlaceBuilder {
+    /// The in-place data
     type InPlaceData<'a>: InPlaceData;
+    /// The error that [`InPlaceBuilder::data_size`] returns. [`Infallible`] if statically sized
     type SizeError;
+    /// The type needed to initialize the in-place data
     type CreateArg;
 
     /// This size is cached and should never change since creation.
     /// Incoming length has no guarantees.
-    fn data_size(data: &[u8]) -> Result<usize, Self::SizeError>;
+    fn data_size(data: &mut [u8]) -> Result<usize, Self::SizeError>;
+    /// The size based on the create arg
     fn create_size(create_arg: &Self::CreateArg) -> usize;
     /// Incoming length has no guarantees.
     fn create(
@@ -44,15 +49,19 @@ pub trait StaticSized: InPlaceBuilder {
     // /// [`InPlaceBuilder::read`] should usually call this function by converting with [`TryInto`].
     // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>>;
 }
+/// Data that is read/written in-place
 pub trait InPlaceData {
+    /// Gets the on-chain data size of self
     fn self_data_size(&self) -> usize;
 }
+/// Gets a value from in-place data
 pub trait InPlaceGet<'a, V>: InPlaceData {
     /// Incoming length has no guarantees.
     fn get_value(&'a self) -> V;
-    fn read_and_get(data: &[u8]) -> GeneratorResult<V>;
 }
+/// Sets a value from in-place data
 pub trait InPlaceSet<'a, V>: InPlaceData {
+    /// Sets the on-chain value
     fn set_value(&'a mut self, value: V);
 }
 
@@ -62,7 +71,7 @@ impl InPlaceBuilder for () {
     type CreateArg = ();
 
     #[inline]
-    fn data_size(_data: &[u8]) -> Result<usize, Self::SizeError> {
+    fn data_size(_data: &mut [u8]) -> Result<usize, Self::SizeError> {
         Ok(0)
     }
 
@@ -114,13 +123,13 @@ where
     type SizeError = Box<dyn Error>;
     type CreateArg = (T1::CreateArg, T2::CreateArg);
 
-    fn data_size(data: &[u8]) -> Result<usize, Self::SizeError> {
+    fn data_size(data: &mut [u8]) -> Result<usize, Self::SizeError> {
         let mut size = 0;
         size += T1::data_size(data)?;
         size += T2::data_size(if data.len() < size {
-            &[]
+            &mut []
         } else {
-            &data[size..]
+            &mut data[size..]
         })?;
         Ok(size)
     }
@@ -178,7 +187,7 @@ where
     type SizeError = Infallible;
     type CreateArg = [T::CreateArg; N];
 
-    fn data_size(_data: &[u8]) -> Result<usize, Self::SizeError> {
+    fn data_size(_data: &mut [u8]) -> Result<usize, Self::SizeError> {
         Ok(Self::DATA_SIZE)
     }
 
@@ -213,24 +222,24 @@ where
     }
 }
 
+/// In-place representation of a number
 #[derive(Debug)]
 pub struct InPlaceNumber<'a, T>(pub(crate) &'a mut [u8; size_of::<T>()])
 where
     [(); size_of::<T>()]:;
 
 macro_rules! impl_in_place_for_prim_num {
-    (all $(($ty:ty, $type_ident:ident)),+ $(,)?) => {
-        $(impl_in_place_for_prim_num!($ty, $type_ident);)+
+    (all $($ty:ty),+ $(,)?) => {
+        $(impl_in_place_for_prim_num!($ty);)+
     };
-    ($ty:ty, $type_ident:ident) => {
-        pub type $type_ident<'a> = InPlaceNumber<'a, $ty>;
+    ($ty:ty) => {
         impl InPlaceBuilder for $ty {
             type InPlaceData<'a> = InPlaceNumber<'a, $ty>;
             type SizeError = Infallible;
             type CreateArg = $ty;
 
             #[inline]
-            fn data_size(_data: &[u8]) -> Result<usize, Self::SizeError> {
+            fn data_size(_data: &mut [u8]) -> Result<usize, Self::SizeError> {
                 Ok(size_of::<$ty>())
             }
 
@@ -284,29 +293,9 @@ macro_rules! impl_in_place_for_prim_num {
             //     Ok(InPlaceNumber(data))
             // }
         }
-        impl<'a> InPlaceNumber<'a, $ty>{
-            pub fn set(&mut self, value: $ty){
-                self.0.copy_from_slice(&value.to_le_bytes())
-            }
-
-            pub fn get(&self) -> $ty{
-                <$ty>::from_le_bytes(*self.0)
-            }
-        }
         impl<'a, 'b> InPlaceGet<'b, $ty> for InPlaceNumber<'a, $ty> {
             fn get_value(&'b self) -> $ty{
-                self.get()
-            }
-            fn read_and_get(data: &[u8]) -> GeneratorResult<$ty>{
-                if data.len() < size_of::<$ty>() {
-                    Err(GeneratorError::NotEnoughData {
-                        needed: size_of::<$ty>(),
-                        remaining: data.len(),
-                    }
-                    .into())
-                } else {
-                    Ok(<$ty>::from_le_bytes(data[..size_of::<$ty>()].try_into().unwrap()))
-                }
+                <$ty>::from_le_bytes(*self.0)
             }
         }
         impl<'a, 'b> InPlaceSet<'b, $ty> for InPlaceNumber<'a, $ty> {
@@ -317,14 +306,5 @@ macro_rules! impl_in_place_for_prim_num {
     }
 }
 impl_in_place_for_prim_num!(
-    all(u8, InPlaceU8),
-    (u16, InPlaceU16),
-    (u32, InPlaceU32),
-    (u64, InPlaceU64),
-    (u128, InPlaceU128),
-    (i8, InPlaceI8),
-    (i16, InPlaceI16),
-    (i32, InPlaceI32),
-    (i64, InPlaceI64),
-    (i128, InPlaceI128),
+    all u8, u16, u32, u64, u128, i8, i16, i32, i64, i128
 );

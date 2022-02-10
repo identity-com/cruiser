@@ -13,6 +13,12 @@ pub enum GeneratorError {
         /// The error message to print
         error: String,
     },
+    /// Error for invalid sysvar
+    #[error_msg("`{:?}` is an invalid sysvar", actual)]
+    InvalidSysVar {
+        /// The invalid sysvar
+        actual: &'static Pubkey,
+    },
     /// Discriminant mismatch for accounts. Usually caused by passing the wrong account for a slot
     #[error_msg(
         "Mismatched Discriminant for account `{}`. Received: `{:?}`, Expected: `{:?}`",
@@ -179,7 +185,7 @@ pub enum GeneratorError {
         /// Seeds that should have generated `account`
         seeds: Vec<String>,
         /// The program id for seeding
-        program_id: Pubkey,
+        program_id: &'static Pubkey,
     },
     /// Interface is not yet supported.
     #[error_msg("Interfaces are not yet supported")]

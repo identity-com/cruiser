@@ -22,7 +22,7 @@ pub enum TestAccountList {
 #[from(data = (init_size: u64))]
 pub struct FullStruct {
     data_account: ProgramAccount<TestAccountList, CoolAccount>,
-    #[account_argument(signer, writable, owner(0) = &get_pubkey(), from_data = vec![(); init_size as usize])]
+    #[account_argument(signer, writable, owner(0) = &get_pubkey(), from_data = init_size as usize)]
     init_accounts: Vec<InitAccount<TestAccountList, CoolAccount>>,
     #[account_argument(signer, writable(3), owner(0..4) = &get_pubkey())]
     other_accounts: [ZeroedAccount<TestAccountList, i8>; 8],

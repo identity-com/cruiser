@@ -122,12 +122,15 @@ where
     }
 }
 
+/// Dynamically max sized in-place vec
 #[derive(Clone, Debug)]
 pub struct DynamicVec<T, D>(pub Vec<T>, pub PhantomData<fn() -> D>);
 
+/// Statically max sized in-place vec
 #[derive(Clone, Debug)]
 pub struct StaticVec<T, const N: usize>(pub Vec<T>);
 
+/// In-place data for [`DynamicVec`]
 #[derive(Debug)]
 pub struct DynamicInPlaceVec<'a, T, D>
 where
@@ -152,9 +155,9 @@ where
     type SizeError = Box<dyn Error>;
     type CreateArg = D::CreateArg;
 
-    fn data_size(data: &[u8]) -> Result<usize, Self::SizeError> {
+    fn data_size(data: &mut [u8]) -> Result<usize, Self::SizeError> {
         let data_size = D::data_size(data)?;
-        let max_length = D::InPlaceData::<'static>::read_and_get(data)?;
+        let max_length = D::read(data)?.get_value();
         Ok(data_size * 2 + max_length * T::DATA_SIZE)
     }
 
@@ -227,6 +230,7 @@ where
     }
 }
 
+/// In-place data for [`StaticVec`]
 #[derive(Debug)]
 pub struct StaticInPlaceVec<'a, T, D, const N: usize>
 where
@@ -261,7 +265,7 @@ where
     type SizeError = Infallible;
     type CreateArg = ();
 
-    fn data_size(_data: &[u8]) -> Result<usize, Self::SizeError> {
+    fn data_size(_data: &mut [u8]) -> Result<usize, Self::SizeError> {
         Ok(Self::DATA_SIZE)
     }
 
