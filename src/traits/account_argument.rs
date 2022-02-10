@@ -88,6 +88,7 @@ impl<T> AccountInfoIterator for T where
 }
 
 /// An account set that can be indexed by 0+ accounts at time with index `I`.
+/// All should be infallible if `I` is [`()`].
 pub trait MultiIndexableAccountArgument<I>: AccountArgument
 where
     I: Debug + Clone,
@@ -100,6 +101,7 @@ where
     fn is_owner(&self, owner: &Pubkey, indexer: I) -> GeneratorResult<bool>;
 }
 /// An account set that can be indexed to a single account at a time with index `I`.
+/// All should be infallible if `I` is [`()`].
 pub trait SingleIndexableAccountArgument<I>: MultiIndexableAccountArgument<I>
 where
     I: Debug + Clone,
@@ -115,6 +117,41 @@ where
             is_signer: self.is_signer(indexer.clone())?,
             is_writable: self.is_writable(indexer)?,
         })
+    }
+}
+
+/// Infallible single access functions.
+/// Relies on the infallibility of [`()`] for [`SingleIndexableAccountArgument`] and [`MultiIndexableAccountArgument`].
+pub trait SingleAccountArgument: SingleIndexableAccountArgument<()> {
+    /// True if account is signer
+    fn is_signer(&self) -> bool;
+    /// True if account is writable
+    fn is_writable(&self) -> bool;
+    /// Gets the owner of the account
+    fn owner(&self) -> &Rc<RefCell<&'static mut Pubkey>>;
+    /// Gets the key of the account
+    fn key(&self) -> &'static Pubkey;
+}
+impl<T> SingleAccountArgument for T
+where
+    T: SingleIndexableAccountArgument<()>,
+{
+    fn is_signer(&self) -> bool {
+        self.is_signer(())
+            .expect("`()` is_signer is not infallible!")
+    }
+
+    fn is_writable(&self) -> bool {
+        self.is_writable(())
+            .expect("`()` is_writable is not infallible!")
+    }
+
+    fn owner(&self) -> &Rc<RefCell<&'static mut Pubkey>> {
+        self.owner(()).expect("`()` owner is not infallible!")
+    }
+
+    fn key(&self) -> &'static Pubkey {
+        self.key(()).expect("`()` key is not infallible!")
     }
 }
 

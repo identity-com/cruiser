@@ -318,14 +318,14 @@ impl AccountArgumentDerive {
                             let index = owner.indexes.to_tokens(&crate_name);
                             let value = &owner.value;
                             quote! {
-                                #crate_name::assert_is_owner(&out #accessor, #value, #index)?;
+                                #crate_name::assert_is_owner(&accounts #accessor, #value, #index)?;
                             }
                         })
                         .collect::<Vec<_>>();
 
                     quote! {
-                        #(#crate_name::assert_is_signer(&out #accessor, #signers)?;)*
-                        #(#crate_name::assert_is_writable(&out #accessor, #writables)?;)*
+                        #(#crate_name::assert_is_signer(&accounts #accessor, #signers)?;)*
+                        #(#crate_name::assert_is_writable(&accounts #accessor, #writables)?;)*
                         #(#owners)*
                     }
                 })
@@ -344,9 +344,9 @@ impl AccountArgumentDerive {
                     ) -> #crate_name::GeneratorResult<Self>{
                         #logging
                         #impl_create
-                        let out = Self #creation;
+                        let accounts = Self #creation;
                         #verifications
-                        Ok(out)
+                        Ok(accounts)
                     }
                 })*
             }

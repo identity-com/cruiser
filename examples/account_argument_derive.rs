@@ -1,5 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_generator::{AccountArgument, AccountList, InitAccount, ProgramAccount, ZeroedAccount};
+use solana_generator::{
+    AccountArgument, AccountList, InitAccount, ProgramAccount, SingleAccountArgument, ZeroedAccount,
+};
 use solana_program::pubkey::Pubkey;
 
 #[derive(AccountArgument)]
@@ -24,7 +26,7 @@ pub struct FullStruct {
     data_account: ProgramAccount<TestAccountList, CoolAccount>,
     #[account_argument(signer, writable, owner(0) = &get_pubkey(), from_data = init_size as usize)]
     init_accounts: Vec<InitAccount<TestAccountList, CoolAccount>>,
-    #[account_argument(signer, writable(3), owner(0..4) = &get_pubkey())]
+    #[account_argument(signer, writable(3), owner(0..4) = &get_pubkey(), owner(0) = accounts.data_account.key())]
     other_accounts: [ZeroedAccount<TestAccountList, i8>; 8],
 }
 
