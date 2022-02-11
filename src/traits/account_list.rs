@@ -1,5 +1,5 @@
 use crate::compressed_numbers::CompressedNumber;
-pub use solana_generator_derive::AccountList;
+pub use cruiser_derive::AccountList;
 use std::num::NonZeroU64;
 
 /// A list of all accounts used by a program.

@@ -1,6 +1,6 @@
 use crate::compressed_numbers::CompressedNumber;
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_generator::bytes_ext::{ReadExt, WriteExt};
+use cruiser::bytes_ext::{ReadExt, WriteExt};
 use std::io::Write;
 use std::mem::size_of;
 

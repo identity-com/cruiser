@@ -166,10 +166,9 @@ impl Parse for AccountArgumentDerive {
 }
 impl AccountArgumentDerive {
     pub fn into_token_stream(mut self) -> TokenStream {
-        let generator_crate =
-            crate_name("solana_generator").expect("Could not find `solana_generator`");
+        let generator_crate = crate_name("cruiser").expect("Could not find `cruiser`");
         let crate_name = match generator_crate {
-            FoundCrate::Itself => quote! { ::solana_generator },
+            FoundCrate::Itself => quote! { ::cruiser },
             FoundCrate::Name(name) => {
                 let ident = Ident::new(&name, Span::call_site());
                 quote! { ::#ident }

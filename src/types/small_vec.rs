@@ -2,7 +2,7 @@
 
 use crate::{AccountArgument, GeneratorError, GeneratorResult, Pubkey, SystemProgram};
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_generator::bytes_ext::{ReadExt, WriteExt};
+use cruiser::bytes_ext::{ReadExt, WriteExt};
 use std::convert::TryFrom;
 use std::io::Write;
 use std::ops::{Deref, Index, IndexMut};

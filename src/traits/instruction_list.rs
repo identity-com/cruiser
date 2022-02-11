@@ -1,6 +1,6 @@
 use crate::compressed_numbers::CompressedNumber;
 use crate::{AccountInfoIterator, AccountList, GeneratorResult, Pubkey, SolanaInstruction};
-pub use solana_generator_derive::InstructionList;
+pub use cruiser_derive::InstructionList;
 use std::num::NonZeroU64;
 
 /// A list of possible instructions for a program.

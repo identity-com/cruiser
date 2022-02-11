@@ -1,4 +1,4 @@
-use solana_generator_derive::test_easy_proc;
+use cruiser_derive::test_easy_proc;
 
 #[test_easy_proc]
 fn cool() {

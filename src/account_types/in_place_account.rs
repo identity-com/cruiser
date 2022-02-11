@@ -4,7 +4,7 @@ use crate::{
     InPlaceBuilder, MultiIndexableAccountArgument, SystemProgram,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_generator::{AccountArgument, AccountListItem, AllAny, SingleIndexableAccountArgument};
+use cruiser::{AccountArgument, AccountListItem, AllAny, SingleIndexableAccountArgument};
 use solana_program::pubkey::Pubkey;
 use std::cell::{RefCell, RefMut};
 use std::marker::PhantomData;

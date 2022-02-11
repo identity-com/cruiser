@@ -1,11 +1,11 @@
 use crate::msg;
 use crate::solana_program::pubkey::PubkeyError;
-use solana_generator::GeneratorError;
-pub use solana_generator_derive::Error;
+use cruiser::GeneratorError;
+pub use cruiser_derive::Error;
 use solana_program::program_error::ProgramError;
 use std::fmt::{Debug, Display, Formatter};
 
-/// A version of [`Result`] returned by many [`solana_generator`] functions.
+/// A version of [`Result`] returned by many [`cruiser`] functions.
 pub type GeneratorResult<T = ()> = Result<T, Box<dyn Error>>;
 
 /// An error that can be returned on the chain

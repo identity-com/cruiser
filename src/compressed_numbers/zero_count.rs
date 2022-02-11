@@ -1,6 +1,6 @@
 // use crate::compressed_numbers::CompressedU64;
 // use borsh::{BorshDeserialize, BorshSerialize};
-// use solana_generator::bytes_ext::ReadExt;
+// use cruiser::bytes_ext::ReadExt;
 // use solana_program::program_memory::sol_memcpy;
 // use std::io::{Read, Write};
 // use std::mem::size_of;

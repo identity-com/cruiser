@@ -1,4 +1,4 @@
-use solana_generator::{
+use cruiser::{
     AccountList, GeneratorResult, Instruction, InstructionList, InstructionProcessor, SystemProgram,
 };
 use solana_program::pubkey::Pubkey;

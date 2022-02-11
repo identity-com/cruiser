@@ -1,7 +1,7 @@
 use crate::AdvanceArray;
 use core::convert::Infallible;
-use solana_generator::traits::error::GeneratorResult;
-use solana_generator::traits::in_place::{InPlaceBuilder, InPlaceData, StaticSized};
+use cruiser::traits::error::GeneratorResult;
+use cruiser::traits::in_place::{InPlaceBuilder, InPlaceData, StaticSized};
 
 /// The option version of in-place data
 #[derive(Debug)]

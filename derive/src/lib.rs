@@ -1,6 +1,6 @@
 #![warn(unused_import_braces, unused_imports, missing_docs)]
 
-//! The proc macros of [`solana_generator`]
+//! The proc macros of [`cruiser`]
 
 extern crate proc_macro;
 
@@ -38,7 +38,7 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 /// The struct macro is `account_argument` and contains a comma seperated list of arguments.
 /// ex:
 /// ```
-/// use solana_generator::AccountArgument;
+/// use cruiser::AccountArgument;
 /// #[derive(AccountArgument)]
 /// #[account_argument(instruction_data = (size: usize))]
 ///  pub struct ArgumentAccounts{}
@@ -53,7 +53,7 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 /// These arguments can access the top level `instruction_data` by name.
 /// ex:
 /// ```
-/// use solana_generator::{AccountInfo, AccountArgument};
+/// use cruiser::{AccountInfo, AccountArgument};
 /// #[derive(AccountArgument)]
 ///  pub struct ArgumentAccounts{
 ///      #[account_argument(signer, writable)]

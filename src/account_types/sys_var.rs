@@ -2,7 +2,7 @@ use crate::{
     AccountArgument, AccountInfoIterator, FromAccounts, GeneratorError, GeneratorResult,
     SystemProgram,
 };
-use solana_generator::AccountInfo;
+use cruiser::AccountInfo;
 use solana_program::pubkey::Pubkey;
 use solana_program::sysvar::Sysvar;
 use std::marker::PhantomData;

@@ -4,7 +4,7 @@ on:
   pull_request:
 jobs:
   program-lint:
-    name: Format and lint solana_generator on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Format and lint cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
     strategy:
@@ -44,7 +44,7 @@ jobs:
           args: --tests --examples -- --deny=warnings
 
   program-unit-test:
-    name: Test solana_generator on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Test cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
     strategy:

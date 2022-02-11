@@ -1,7 +1,7 @@
 use solana_program::pubkey::Pubkey;
 use std::cell::RefCell;
 
-pub use solana_generator_derive::AccountArgument;
+pub use cruiser_derive::AccountArgument;
 
 use crate::{AccountInfo, GeneratorError, GeneratorResult, SolanaAccountMeta, SystemProgram};
 use std::fmt::Debug;

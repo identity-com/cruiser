@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_generator::{
+use cruiser::{
     AccountArgument, AccountList, InitAccount, ProgramAccount, SingleAccountArgument, ZeroedAccount,
 };
 use solana_program::pubkey::Pubkey;
