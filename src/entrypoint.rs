@@ -39,27 +39,27 @@ macro_rules! entrypoint {
 /// Similar to the [`entrypoint`] macro but only requires passing a type that implements [`InstructionList`].
 #[macro_export]
 macro_rules! entrypoint_list {
-    ($instruction_list:ty) => {
-        $crate::entrypoint_list!($instruction_list, no_heap, no_panic);
+    ($instruction_list:ty, $processor:ty) => {
+        $crate::entrypoint_list!($instruction_list, $processor, no_heap, no_panic);
         $crate::entrypoint::custom_heap_default!();
         $crate::entrypoint::custom_panic_default!();
     };
-    ($instruction_list:ty, no_heap) => {
-        $crate::entrypoint_list!($instruction_list, no_heap, no_panic);
+    ($instruction_list:ty, $processor:ty, no_heap) => {
+        $crate::entrypoint_list!($instruction_list, $processor, no_heap, no_panic);
         $crate::entrypoint::custom_panic_default!();
     };
-    ($instruction_list:ty, no_panic) => {
-        $crate::entrypoint_list!($instruction_list, no_heap, no_panic);
+    ($instruction_list:ty, $processor:ty, no_panic) => {
+        $crate::entrypoint_list!($instruction_list, $processor, no_heap, no_panic);
         $crate::entrypoint::custom_heap_default!();
     };
-    ($instruction_list:ty, no_heap, no_panic) => {
+    ($instruction_list:ty, $processor:ty, no_heap, no_panic) => {
         /// # Safety
         /// This function should not be called by rust code
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
             $crate::entrypoint::entry(
                 input,
-                <$instruction_list as $crate::InstructionListProcessor>::process_instruction,
+                <$processor as $crate::InstructionListProcessor<$instruction_list>>::process_instruction,
             )
         }
     };

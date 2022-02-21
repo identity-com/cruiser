@@ -7,10 +7,8 @@ use crate::{
     SystemProgram, ZeroedAccount,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use std::cell::RefCell;
 use std::iter::once;
 use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
 
 /// A combination of [`InitAccount`] and [`ZeroedAccount`] accepting either based on owner.
 /// Should call [`InitOrZeroedAccount::set_funder`] unless guaranteed not [`InitAccount`]
@@ -198,11 +196,7 @@ where
     AL: AccountListItem<A>,
     A: BorshSerialize,
 {
-    fn owner(&self, indexer: ()) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
-        self.info().owner(indexer)
-    }
-
-    fn key(&self, indexer: ()) -> GeneratorResult<&'static Pubkey> {
-        self.info().key(indexer)
+    fn info(&self, indexer: ()) -> GeneratorResult<&AccountInfo> {
+        self.info().info(indexer)
     }
 }

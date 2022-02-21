@@ -14,7 +14,7 @@ use std::rc::Rc;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
 /// A custom version of [`solana_program::account_info::AccountInfo`] that allows for owner changes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AccountInfo {
     /// The public key of the account.
     pub key: &'static Pubkey,
@@ -193,13 +193,10 @@ impl MultiIndexableAccountArgument<AllAny> for AccountInfo {
         Ok(indexer.is_not() ^ self.is_owner(owner, ())?)
     }
 }
+impl_indexed_for_all_any!(AccountInfo);
 impl SingleIndexableAccountArgument<()> for AccountInfo {
-    fn owner(&self, _indexer: ()) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
-        Ok(&self.owner)
-    }
-
-    fn key(&self, _indexer: ()) -> GeneratorResult<&'static Pubkey> {
-        Ok(self.key)
+    fn info(&self, _indexer: ()) -> GeneratorResult<&AccountInfo> {
+        Ok(self)
     }
 }
 
@@ -207,7 +204,7 @@ impl SingleIndexableAccountArgument<()> for AccountInfo {
 pub mod account_info_test {
     use crate::{
         AccountInfo, All, Any, MultiIndexableAccountArgument, NotAll, NotAny, Pubkey,
-        SingleIndexableAccountArgument,
+        SingleAccountArgument,
     };
     use rand::{thread_rng, Rng};
     use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
@@ -537,19 +534,9 @@ pub mod account_info_test {
     }
 
     #[test]
-    fn owner_test() {
+    fn get_inf0_test() {
         let mut rng = thread_rng();
         let account_info = random_account_info(&mut rng);
-        assert_eq!(
-            **account_info.owner(()).unwrap().borrow(),
-            **account_info.owner.borrow()
-        );
-    }
-
-    #[test]
-    fn key_test() {
-        let mut rng = thread_rng();
-        let account_info = random_account_info(&mut rng);
-        assert_eq!(account_info.key(()).unwrap(), account_info.key);
+        assert_eq!(account_info.get_info(), &account_info);
     }
 }

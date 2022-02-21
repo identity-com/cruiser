@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::io::Write;
 use std::num::NonZeroU64;
 use std::ops::{Deref, DerefMut};
@@ -20,7 +19,6 @@ use crate::solana_program::rent::Rent;
 use crate::solana_program::sysvar::Sysvar;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::rc::Rc;
 
 /// The size the account will be initialized to.
 #[derive(Clone, Debug)]
@@ -248,12 +246,8 @@ where
     AL: AccountListItem<A>,
     A: BorshSerialize + BorshDeserialize + Default,
 {
-    fn owner(&self, indexer: ()) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
-        self.info.owner(indexer)
-    }
-
-    fn key(&self, indexer: ()) -> GeneratorResult<&'static Pubkey> {
-        self.info.key(indexer)
+    fn info(&self, indexer: ()) -> GeneratorResult<&AccountInfo> {
+        self.info.info(indexer)
     }
 }
 impl<AL, A> Deref for InitAccount<AL, A>

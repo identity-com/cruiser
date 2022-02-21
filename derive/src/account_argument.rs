@@ -6,6 +6,7 @@ use proc_macro_error::{abort, abort_call_site};
 use quote::quote;
 use std::collections::HashSet;
 use std::convert::{TryFrom, TryInto};
+use std::marker::PhantomData;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{
@@ -48,6 +49,8 @@ struct AccountArgumentFieldAttribute {
     writable: Vec<Indexes>,
     #[argument(custom)]
     owner: Vec<IndexesValue<Expr>>,
+    #[argument(custom)]
+    key: Option<IndexesValue<Expr, UnitDefault>>,
 }
 impl AccountArgumentFieldAttribute {
     const IDENT: &'static str = "account_argument";
@@ -61,6 +64,7 @@ impl Default for AccountArgumentFieldAttribute {
             signer: Vec::new(),
             writable: Vec::new(),
             owner: Vec::new(),
+            key: None,
         }
     }
 }
@@ -321,11 +325,22 @@ impl AccountArgumentDerive {
                             }
                         })
                         .collect::<Vec<_>>();
+                    let key = match &field_attr.key {
+                        None => quote! {},
+                        Some(key) => {
+                            let index = key.indexes.to_tokens(&crate_name);
+                            let value = &key.value;
+                            quote! {
+                                #crate_name::assert_is_key(&accounts #accessor, #index, #value)?;
+                            }
+                        }
+                    };
 
                     quote! {
                         #(#crate_name::assert_is_signer(&accounts #accessor, #signers)?;)*
                         #(#crate_name::assert_is_writable(&accounts #accessor, #writables)?;)*
                         #(#owners)*
+                        #key
                     }
                 })
                 .collect();
@@ -499,13 +514,34 @@ impl TryFrom<Vec<Attribute>> for AccountArgumentEnumAttribute {
     }
 }
 
-pub struct IndexesValue<T> {
-    indexes: Indexes,
-    value: T,
+pub trait DefaultIndex: Sized {
+    fn default_index() -> Indexes<Self>;
 }
-impl<T> Parse for IndexesValue<T>
+pub struct AllDefault;
+impl DefaultIndex for AllDefault {
+    fn default_index() -> Indexes<Self> {
+        Indexes::All(
+            Ident::new(Indexes::<Self>::ALL_IDENT, Span::call_site()),
+            PhantomData,
+        )
+    }
+}
+pub struct UnitDefault;
+impl DefaultIndex for UnitDefault {
+    fn default_index() -> Indexes<Self> {
+        Indexes::Expr(syn::parse_str("()").unwrap())
+    }
+}
+
+pub struct IndexesValue<T, D: DefaultIndex = AllDefault> {
+    indexes: Indexes<D>,
+    value: T,
+    phantom_d: PhantomData<fn() -> D>,
+}
+impl<T, D> Parse for IndexesValue<T, D>
 where
     T: Parse,
+    D: DefaultIndex,
 {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let indexes = input.parse()?;
@@ -513,19 +549,20 @@ where
         Ok(Self {
             indexes,
             value: input.parse()?,
+            phantom_d: PhantomData,
         })
     }
 }
 
 #[derive(Clone)]
-pub enum Indexes {
-    All(Ident),
+pub enum Indexes<D: DefaultIndex = AllDefault> {
+    All(Ident, PhantomData<fn() -> D>),
     NotAll(Ident),
     Any(Ident),
     NotAny(Ident),
     Expr(Box<Expr>),
 }
-impl Indexes {
+impl<D: DefaultIndex> Indexes<D> {
     pub const ALL_IDENT: &'static str = "all";
     pub const NOT_ALL_IDENT: &'static str = "not_all";
     pub const ANY_IDENT: &'static str = "any";
@@ -533,7 +570,7 @@ impl Indexes {
 
     fn to_tokens(&self, crate_name: &TokenStream) -> TokenStream {
         match self {
-            Indexes::All(_) => quote! { #crate_name::All },
+            Indexes::All(_, _) => quote! { #crate_name::All },
             Indexes::NotAll(_) => quote! { #crate_name::NotAll },
             Indexes::Any(_) => quote! { #crate_name::Any },
             Indexes::NotAny(_) => quote! { #crate_name::NotAny },
@@ -541,7 +578,7 @@ impl Indexes {
         }
     }
 }
-impl Parse for Indexes {
+impl<D: DefaultIndex> Parse for Indexes<D> {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
         if lookahead.peek(token::Paren) {
@@ -552,7 +589,7 @@ impl Parse for Indexes {
                 let fork = content.fork();
                 let ident: Ident = fork.parse()?;
                 if ident == Self::ALL_IDENT {
-                    Ok(Self::All(content.parse()?))
+                    Ok(Self::All(content.parse()?, PhantomData))
                 } else if ident == Self::NOT_ALL_IDENT {
                     Ok(Self::NotAll(content.parse()?))
                 } else if ident == Self::ANY_IDENT {
@@ -566,7 +603,7 @@ impl Parse for Indexes {
                 Ok(Self::Expr(Box::new(content.parse()?)))
             }
         } else {
-            Ok(Self::All(Ident::new(Self::ALL_IDENT, Span::call_site())))
+            Ok(D::default_index())
         }
     }
 }

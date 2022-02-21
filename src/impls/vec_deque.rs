@@ -5,7 +5,7 @@ use std::ops::RangeBounds;
 use std::rc::Rc;
 
 use crate::{
-    AccountArgument, AllAny, AllAnyRange, GeneratorError, GeneratorResult,
+    AccountArgument, AccountInfo, AllAny, AllAnyRange, GeneratorError, GeneratorResult,
     MultiIndexableAccountArgument, Pubkey, SingleIndexableAccountArgument, SystemProgram,
 };
 
@@ -101,12 +101,8 @@ where
     T: AccountArgument + SingleIndexableAccountArgument<I>,
     I: Debug + Clone,
 {
-    fn owner(&self, indexer: (usize, I)) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
-        self[indexer.0].owner(indexer.1)
-    }
-
-    fn key(&self, indexer: (usize, I)) -> GeneratorResult<&'static Pubkey> {
-        self[indexer.0].key(indexer.1)
+    fn info(&self, indexer: (usize, I)) -> GeneratorResult<&AccountInfo> {
+        self[indexer.0].info(indexer.1)
     }
 }
 impl<T, R, I> MultiIndexableAccountArgument<(AllAnyRange<R>, I)> for VecDeque<T>

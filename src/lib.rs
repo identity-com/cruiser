@@ -14,7 +14,6 @@
     missing_docs,
     missing_debug_implementations
 )]
-#![allow(clippy::init_numbered_fields)]
 //! A generator program that will be able to generate solana program code from a much easier starting place.
 
 extern crate self as cruiser;
@@ -52,6 +51,7 @@ mod impls;
 mod pda_seeds;
 mod traits;
 pub mod types;
+pub mod spl;
 mod util;
 
 /// Invokes another solana program.

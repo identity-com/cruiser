@@ -152,7 +152,7 @@ where
         arg: (&'a S, B, D, I),
     ) -> GeneratorResult<Self> {
         let argument = A::from_accounts(program_id, infos, arg.2)?;
-        let account_key = argument.key(arg.3)?;
+        let account_key = argument.info(arg.3)?.key;
         let bump_seed = arg.1.verify_address(arg.0, program_id, account_key)?;
         Ok(Self {
             argument,

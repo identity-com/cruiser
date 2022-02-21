@@ -96,138 +96,44 @@ impl AllAny {
         }
     }
 }
-impl_indexed_for_unit!(AllAny, yield no single[][]);
-
-impl<T, I> MultiIndexableAccountArgument<(All, I)> for T
-where
-    T: MultiIndexableAccountArgument<(AllAny, I)>,
-    I: Debug + Clone,
-{
-    fn is_signer(&self, indexer: (All, I)) -> GeneratorResult<bool> {
-        self.is_signer((AllAny::All, indexer.1))
-    }
-
-    fn is_writable(&self, indexer: (All, I)) -> GeneratorResult<bool> {
-        self.is_writable((AllAny::All, indexer.1))
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: (All, I)) -> GeneratorResult<bool> {
-        self.is_owner(owner, (AllAny::All, indexer.1))
+impl From<AllAny> for All {
+    fn from(_: AllAny) -> Self {
+        Self
     }
 }
-impl<T> MultiIndexableAccountArgument<All> for T
-where
-    T: MultiIndexableAccountArgument<AllAny>,
-{
-    fn is_signer(&self, _indexer: All) -> GeneratorResult<bool> {
-        self.is_signer(AllAny::All)
-    }
-
-    fn is_writable(&self, _indexer: All) -> GeneratorResult<bool> {
-        self.is_writable(AllAny::All)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, _indexer: All) -> GeneratorResult<bool> {
-        self.is_owner(owner, AllAny::All)
+impl From<All> for AllAny {
+    fn from(_: All) -> Self {
+        Self::All
     }
 }
-impl<T, I> MultiIndexableAccountArgument<(NotAll, I)> for T
-where
-    T: MultiIndexableAccountArgument<(AllAny, I)>,
-    I: Debug + Clone,
-{
-    fn is_signer(&self, indexer: (NotAll, I)) -> GeneratorResult<bool> {
-        self.is_signer((AllAny::NotAll, indexer.1))
-    }
-
-    fn is_writable(&self, indexer: (NotAll, I)) -> GeneratorResult<bool> {
-        self.is_writable((AllAny::NotAll, indexer.1))
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: (NotAll, I)) -> GeneratorResult<bool> {
-        self.is_owner(owner, (AllAny::NotAll, indexer.1))
+impl From<AllAny> for NotAll {
+    fn from(_: AllAny) -> Self {
+        Self
     }
 }
-impl<T> MultiIndexableAccountArgument<NotAll> for T
-where
-    T: MultiIndexableAccountArgument<AllAny>,
-{
-    fn is_signer(&self, _indexer: NotAll) -> GeneratorResult<bool> {
-        self.is_signer(AllAny::NotAll)
-    }
-
-    fn is_writable(&self, _indexer: NotAll) -> GeneratorResult<bool> {
-        self.is_writable(AllAny::NotAll)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, _indexer: NotAll) -> GeneratorResult<bool> {
-        self.is_owner(owner, AllAny::NotAll)
+impl From<NotAll> for AllAny {
+    fn from(_: NotAll) -> Self {
+        Self::NotAll
     }
 }
-impl<T, I> MultiIndexableAccountArgument<(Any, I)> for T
-where
-    T: MultiIndexableAccountArgument<(AllAny, I)>,
-    I: Debug + Clone,
-{
-    fn is_signer(&self, indexer: (Any, I)) -> GeneratorResult<bool> {
-        self.is_signer((AllAny::Any, indexer.1))
-    }
-
-    fn is_writable(&self, indexer: (Any, I)) -> GeneratorResult<bool> {
-        self.is_writable((AllAny::Any, indexer.1))
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: (Any, I)) -> GeneratorResult<bool> {
-        self.is_owner(owner, (AllAny::Any, indexer.1))
+impl From<AllAny> for Any {
+    fn from(_: AllAny) -> Self {
+        Self
     }
 }
-impl<T> MultiIndexableAccountArgument<Any> for T
-where
-    T: MultiIndexableAccountArgument<AllAny>,
-{
-    fn is_signer(&self, _indexer: Any) -> GeneratorResult<bool> {
-        self.is_signer(AllAny::Any)
-    }
-
-    fn is_writable(&self, _indexer: Any) -> GeneratorResult<bool> {
-        self.is_writable(AllAny::Any)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, _indexer: Any) -> GeneratorResult<bool> {
-        self.is_owner(owner, AllAny::Any)
+impl From<Any> for AllAny {
+    fn from(_: Any) -> Self {
+        Self::Any
     }
 }
-impl<T, I> MultiIndexableAccountArgument<(NotAny, I)> for T
-where
-    T: MultiIndexableAccountArgument<(AllAny, I)>,
-    I: Debug + Clone,
-{
-    fn is_signer(&self, indexer: (NotAny, I)) -> GeneratorResult<bool> {
-        self.is_signer((AllAny::NotAny, indexer.1))
-    }
-
-    fn is_writable(&self, indexer: (NotAny, I)) -> GeneratorResult<bool> {
-        self.is_writable((AllAny::NotAny, indexer.1))
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: (NotAny, I)) -> GeneratorResult<bool> {
-        self.is_owner(owner, (AllAny::NotAny, indexer.1))
+impl From<AllAny> for NotAny {
+    fn from(_: AllAny) -> Self {
+        Self
     }
 }
-impl<T> MultiIndexableAccountArgument<NotAny> for T
-where
-    T: MultiIndexableAccountArgument<AllAny>,
-{
-    fn is_signer(&self, _indexer: NotAny) -> GeneratorResult<bool> {
-        self.is_signer(AllAny::NotAny)
-    }
-
-    fn is_writable(&self, _indexer: NotAny) -> GeneratorResult<bool> {
-        self.is_writable(AllAny::NotAny)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, _indexer: NotAny) -> GeneratorResult<bool> {
-        self.is_owner(owner, AllAny::NotAny)
+impl From<NotAny> for AllAny {
+    fn from(_: NotAny) -> Self {
+        Self::NotAny
     }
 }
 
@@ -240,55 +146,3 @@ pub struct AllAnyRange<R> {
     /// The execution strategy for this range.
     pub all_any: AllAny,
 }
-impl_indexed_for_unit!(AllAnyRange<R>, yield no single [gen: R][where: R: Debug, R: Clone]);
-
-macro_rules! impl_range {
-    ($range_gen:ident, $range_ty:ty) => {
-        impl<T, $range_gen, I> MultiIndexableAccountArgument<($range_ty, I)> for T
-        where
-            T: MultiIndexableAccountArgument<(AllAnyRange<$range_ty>, I)>,
-            $range_gen: Debug + Clone,
-            I: Debug + Clone,
-        {
-            fn is_signer(&self, indexer: ($range_ty, I)) -> GeneratorResult<bool> {
-                self.is_signer((
-                    AllAnyRange {
-                        range: indexer.0,
-                        all_any: AllAny::All,
-                    },
-                    indexer.1,
-                ))
-            }
-
-            fn is_writable(&self, indexer: ($range_ty, I)) -> GeneratorResult<bool> {
-                self.is_writable((
-                    AllAnyRange {
-                        range: indexer.0,
-                        all_any: AllAny::All,
-                    },
-                    indexer.1,
-                ))
-            }
-
-            fn is_owner(&self, owner: &Pubkey, indexer: ($range_ty, I)) -> GeneratorResult<bool> {
-                self.is_owner(
-                    owner,
-                    (
-                        AllAnyRange {
-                            range: indexer.0,
-                            all_any: AllAny::All,
-                        },
-                        indexer.1,
-                    ),
-                )
-            }
-        }
-
-        impl_indexed_for_unit!($range_ty, yield no single [gen: $range_gen][where: $range_gen: Debug, $range_gen: Clone]);
-    };
-}
-impl_range!(U, Range<U>);
-impl_range!(U, RangeFrom<U>);
-impl_range!(U, RangeInclusive<U>);
-impl_range!(U, RangeTo<U>);
-impl_range!(U, RangeToInclusive<U>);

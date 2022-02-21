@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -13,7 +12,6 @@ use crate::{
 };
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::rc::Rc;
 
 /// A data account owned by this program. Checks that is owned by this program.
 #[derive(Debug)]
@@ -146,12 +144,8 @@ where
     AL: AccountListItem<A>,
     A: BorshSerialize,
 {
-    fn owner(&self, indexer: ()) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
-        self.info.owner(indexer)
-    }
-
-    fn key(&self, indexer: ()) -> GeneratorResult<&'static Pubkey> {
-        self.info.key(indexer)
+    fn info(&self, indexer: ()) -> GeneratorResult<&AccountInfo> {
+        self.info.info(indexer)
     }
 }
 impl<AL, A> Deref for ProgramAccount<AL, A>

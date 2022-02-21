@@ -92,12 +92,4 @@ impl MultiIndexableAccountArgument<AllAny> for SystemProgram {
         self.info.is_owner(owner, indexer)
     }
 }
-impl SingleIndexableAccountArgument<()> for SystemProgram {
-    fn owner(&self, indexer: ()) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
-        self.info.owner(indexer)
-    }
-
-    fn key(&self, indexer: ()) -> GeneratorResult<&'static Pubkey> {
-        self.info.key(indexer)
-    }
-}
+delegate_single_indexable!(SystemProgram, (), (info));

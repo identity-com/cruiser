@@ -4,9 +4,9 @@ use std::ops::RangeBounds;
 use std::rc::Rc;
 
 use crate::{
-    AccountArgument, AccountInfoIterator, AllAny, AllAnyRange, FromAccounts, GeneratorError,
-    GeneratorResult, MultiIndexableAccountArgument, Pubkey, SingleIndexableAccountArgument,
-    SystemProgram,
+    AccountArgument, AccountInfo, AccountInfoIterator, AllAny, AllAnyRange, FromAccounts,
+    GeneratorError, GeneratorResult, MultiIndexableAccountArgument, Pubkey,
+    SingleIndexableAccountArgument, SystemProgram,
 };
 
 impl<T> AccountArgument for Vec<T>
@@ -45,7 +45,7 @@ where
     ) -> GeneratorResult<Self> {
         (0..arg)
             .map(|_| T::from_accounts(program_id, infos, ()))
-            .collect::<Result<Vec<_>, _>>()
+            .collect()
     }
 }
 impl<A, T> FromAccounts<Vec<A>> for Vec<T>
@@ -57,11 +57,9 @@ where
         infos: &mut impl AccountInfoIterator,
         arg: Vec<A>,
     ) -> GeneratorResult<Self> {
-        let mut out = Vec::with_capacity(arg.len());
-        for arg in arg {
-            out.push(T::from_accounts(program_id, infos, arg)?);
-        }
-        Ok(out)
+        arg.into_iter()
+            .map(|arg| T::from_accounts(program_id, infos, arg))
+            .collect()
     }
 }
 impl<A, T> FromAccounts<(usize, A)> for Vec<T>
@@ -157,12 +155,8 @@ where
     T: AccountArgument + SingleIndexableAccountArgument<I>,
     I: Debug + Clone,
 {
-    fn owner(&self, indexer: (usize, I)) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
-        self[indexer.0].owner(indexer.1)
-    }
-
-    fn key(&self, indexer: (usize, I)) -> GeneratorResult<&'static Pubkey> {
-        self[indexer.0].key(indexer.1)
+    fn info(&self, indexer: (usize, I)) -> GeneratorResult<&AccountInfo> {
+        self[indexer.0].info(indexer.1)
     }
 }
 impl<T, R, I> MultiIndexableAccountArgument<(AllAnyRange<R>, I)> for Vec<T>

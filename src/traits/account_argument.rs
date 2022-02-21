@@ -26,9 +26,6 @@ use std::rc::Rc;
 /// It's instruction argument is `[T::InstructionArg; N]`.
 /// Each index will be passed its corresponding argument.
 pub trait AccountArgument: Sized {
-    // /// The data passed for this argument to be parsed.
-    // type InstructionArg;
-
     /// Writes the accounts back to the chain.
     /// - `program_id` is the current program's id.
     /// - `system_program` is an option reference to the system program's account info.
@@ -76,6 +73,9 @@ pub trait FromAccounts<A>: Sized + AccountArgument {
         (0, None)
     }
 }
+pub trait ValidateArgument<A>: Sized + AccountArgument {
+    fn validate(&mut self, program_id: &'static Pubkey, arg: A) -> GeneratorResult<()>;
+}
 
 /// A globing trait for an account info iterator
 pub trait AccountInfoIterator:
@@ -106,16 +106,15 @@ pub trait SingleIndexableAccountArgument<I>: MultiIndexableAccountArgument<I>
 where
     I: Debug + Clone,
 {
-    /// Gets the owner of the account at index `indexer`.
-    fn owner(&self, indexer: I) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>>;
-    /// Gets the key of the account at index `indexer`.
-    fn key(&self, indexer: I) -> GeneratorResult<&'static Pubkey>;
+    /// Gets the account info at index `indexer`
+    fn info(&self, indexer: I) -> GeneratorResult<&AccountInfo>;
     /// Turns the account at index `indexer` to a [`SolanaAccountMeta`]
     fn to_solana_account_meta(&self, indexer: I) -> GeneratorResult<SolanaAccountMeta> {
+        let info = self.info(indexer)?;
         Ok(SolanaAccountMeta {
-            pubkey: *self.key(indexer.clone())?,
-            is_signer: self.is_signer(indexer.clone())?,
-            is_writable: self.is_writable(indexer)?,
+            pubkey: *info.key,
+            is_signer: info.is_signer,
+            is_writable: info.is_writable,
         })
     }
 }
@@ -123,35 +122,14 @@ where
 /// Infallible single access functions.
 /// Relies on the infallibility of [`()`] for [`SingleIndexableAccountArgument`] and [`MultiIndexableAccountArgument`].
 pub trait SingleAccountArgument: SingleIndexableAccountArgument<()> {
-    /// True if account is signer
-    fn is_signer(&self) -> bool;
-    /// True if account is writable
-    fn is_writable(&self) -> bool;
-    /// Gets the owner of the account
-    fn owner(&self) -> &Rc<RefCell<&'static mut Pubkey>>;
-    /// Gets the key of the account
-    fn key(&self) -> &'static Pubkey;
+    fn get_info(&self) -> &AccountInfo;
 }
 impl<T> SingleAccountArgument for T
 where
     T: SingleIndexableAccountArgument<()>,
 {
-    fn is_signer(&self) -> bool {
-        self.is_signer(())
-            .expect("`()` is_signer is not infallible!")
-    }
-
-    fn is_writable(&self) -> bool {
-        self.is_writable(())
-            .expect("`()` is_writable is not infallible!")
-    }
-
-    fn owner(&self) -> &Rc<RefCell<&'static mut Pubkey>> {
-        self.owner(()).expect("`()` owner is not infallible!")
-    }
-
-    fn key(&self) -> &'static Pubkey {
-        self.key(()).expect("`()` key is not infallible!")
+    fn get_info(&self) -> &AccountInfo {
+        self.info(()).expect("`()` info is not infallible!")
     }
 }
 
@@ -190,6 +168,27 @@ where
             indexer: format!("{:?}", indexer),
         }
         .into())
+    }
+}
+
+/// Asserts that the account at index `indexer` is a certain key.
+pub fn assert_is_key<I>(
+    argument: &impl SingleIndexableAccountArgument<I>,
+    indexer: I,
+    key: &Pubkey,
+) -> GeneratorResult<()>
+where
+    I: Debug + Clone,
+{
+    let account = argument.info(indexer)?.key;
+    if account != key {
+        Err(GeneratorError::InvalidAccount {
+            account: *account,
+            expected: *key,
+        }
+        .into())
+    } else {
+        Ok(())
     }
 }
 

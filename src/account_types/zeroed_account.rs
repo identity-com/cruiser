@@ -144,12 +144,8 @@ where
     AL: AccountListItem<A>,
     A: BorshSerialize + Default,
 {
-    fn owner(&self, indexer: ()) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
-        self.info.owner(indexer)
-    }
-
-    fn key(&self, indexer: ()) -> GeneratorResult<&'static Pubkey> {
-        self.info.key(indexer)
+    fn info(&self, indexer: ()) -> GeneratorResult<&AccountInfo> {
+        self.info.info(indexer)
     }
 }
 impl<AL, A> Deref for ZeroedAccount<AL, A>
