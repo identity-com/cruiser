@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 
 use borsh::BorshSerialize;
@@ -10,12 +9,11 @@ use crate::solana_program::sysvar::Sysvar;
 use crate::traits::AccountArgument;
 use crate::{
     AccountInfo, AccountInfoIterator, AccountListItem, AllAny, FromAccounts, GeneratorError,
-    GeneratorResult, MultiIndexableAccountArgument, SingleIndexableAccountArgument, SystemProgram,
+    GeneratorResult, MultiIndexable, SingleIndexable, SystemProgram,
 };
 use solana_program::rent::Rent;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::rc::Rc;
 
 /// An account that will be initialized by this program, all data is checked to be zeroed and owner is this program.
 /// Account must be rent exempt.
@@ -105,7 +103,7 @@ where
         AccountInfo::accounts_usage_hint()
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<()> for ZeroedAccount<AL, A>
+impl<AL, A> MultiIndexable<()> for ZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize + Default,
@@ -122,7 +120,7 @@ where
         self.info.is_owner(owner, indexer)
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<AllAny> for ZeroedAccount<AL, A>
+impl<AL, A> MultiIndexable<AllAny> for ZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize + Default,
@@ -139,7 +137,7 @@ where
         self.info.is_owner(owner, indexer)
     }
 }
-impl<AL, A> SingleIndexableAccountArgument<()> for ZeroedAccount<AL, A>
+impl<AL, A> SingleIndexable<()> for ZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize + Default,

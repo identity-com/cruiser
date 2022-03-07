@@ -22,6 +22,7 @@ impl<'a> PDASeedSet<'a> {
     }
 
     /// Creates a new set of seeds from an already boxed seeder
+    #[must_use]
     pub fn from_boxed(seeder: Box<dyn PDASeeder + 'a>, nonce: u8) -> Self {
         PDASeedSet {
             seeder,
@@ -40,7 +41,7 @@ impl<'a> PDASeedSet<'a> {
         instruction: &SolanaInstruction,
         accounts: &[&AccountInfo; N],
     ) -> ProgramResult {
-        let seeds = self.seeds().map(|seed| seed.as_ref()).collect::<Vec<_>>();
+        let seeds = self.seeds().map(AsRef::as_ref).collect::<Vec<_>>();
 
         invoke_signed(instruction, accounts, &[&seeds])
     }
@@ -51,7 +52,7 @@ impl<'a> PDASeedSet<'a> {
         instruction: &SolanaInstruction,
         accounts: &[&AccountInfo],
     ) -> ProgramResult {
-        let seeds = self.seeds().map(|seed| seed.as_ref()).collect::<Vec<_>>();
+        let seeds = self.seeds().map(AsRef::as_ref).collect::<Vec<_>>();
 
         invoke_signed_variable_size(instruction, accounts, &[&seeds])
     }
@@ -64,17 +65,9 @@ impl<'a> PDASeedSet<'a> {
     ) -> ProgramResult {
         let seeds_array = seed_sets
             .iter()
-            .map(|seed_set| {
-                seed_set
-                    .seeds()
-                    .map(|seed| seed.as_ref())
-                    .collect::<Vec<_>>()
-            })
+            .map(|seed_set| seed_set.seeds().map(AsRef::as_ref).collect::<Vec<_>>())
             .collect::<Vec<_>>();
-        let seeds = seeds_array
-            .iter()
-            .map(|seed| seed.as_slice())
-            .collect::<Vec<_>>();
+        let seeds = seeds_array.iter().map(AsRef::as_ref).collect::<Vec<_>>();
 
         invoke_signed(instruction, accounts, seeds.as_slice())
     }
@@ -87,17 +80,9 @@ impl<'a> PDASeedSet<'a> {
     ) -> ProgramResult {
         let seeds_array = seed_sets
             .iter()
-            .map(|seed_set| {
-                seed_set
-                    .seeds()
-                    .map(|seed| seed.as_ref())
-                    .collect::<Vec<_>>()
-            })
+            .map(|seed_set| seed_set.seeds().map(AsRef::as_ref).collect::<Vec<_>>())
             .collect::<Vec<_>>();
-        let seeds = seeds_array
-            .iter()
-            .map(|seed| seed.as_slice())
-            .collect::<Vec<_>>();
+        let seeds = seeds_array.iter().map(AsRef::as_ref).collect::<Vec<_>>();
 
         invoke_signed_variable_size(instruction, accounts, seeds.as_slice())
     }
@@ -220,20 +205,20 @@ where
     'b: 'c,
 {
     type SeedsToBytesIter =
-        Map<Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a>, fn(&dyn PDASeed) -> &[u8]>;
+        Map<Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a>, fn(&'a (dyn PDASeed + 'a)) -> &'a [u8]>;
     type SeedsToBytesWithNonceIter = Chain<
-        Map<Box<dyn Iterator<Item = &'c dyn PDASeed> + 'c>, fn(&dyn PDASeed) -> &[u8]>,
+        Map<Box<dyn Iterator<Item = &'c dyn PDASeed> + 'c>, fn(&'c (dyn PDASeed + 'c)) -> &'c [u8]>,
         Once<&'c [u8]>,
     >;
     type SeedsToStringsIter =
-        Map<Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a>, fn(&dyn PDASeed) -> String>;
+        Map<Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a>, fn(&'a (dyn PDASeed + 'a)) -> String>;
     type SeedsToStringsWithNonceIter = Chain<
-        Map<Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a>, fn(&dyn PDASeed) -> String>,
+        Map<Box<dyn Iterator<Item = &'a dyn PDASeed> + 'a>, fn(&'a (dyn PDASeed + 'a)) -> String>,
         Once<String>,
     >;
 
     fn seeds_to_bytes(&'a self) -> Self::SeedsToBytesIter {
-        self.seeds().map(|seed| seed.as_ref())
+        self.seeds().map(AsRef::as_ref)
     }
 
     fn seeds_to_bytes_with_nonce(&'a self, nonce: &'b [u8; 1]) -> Self::SeedsToBytesWithNonceIter {
@@ -241,7 +226,7 @@ where
     }
 
     fn seeds_to_strings(&'a self) -> Self::SeedsToStringsIter {
-        self.seeds().map(|seed| seed.to_seed_string())
+        self.seeds().map(PDASeed::to_seed_string)
     }
 
     fn seeds_to_strings_with_nonce(&'a self, nonce: u8) -> Self::SeedsToStringsWithNonceIter {

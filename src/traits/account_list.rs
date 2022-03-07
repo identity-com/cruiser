@@ -13,9 +13,11 @@ pub trait AccountList {
 /// Implementor must guarantee that no two discriminates match
 pub unsafe trait AccountListItem<T>: Sized + AccountList {
     /// The discriminant of the account type
+    #[must_use]
     fn discriminant() -> NonZeroU64;
     /// The discriminant of the account type compressed
     #[inline]
+    #[must_use]
     fn compressed_discriminant() -> Self::DiscriminantCompressed {
         Self::DiscriminantCompressed::from_number(Self::discriminant().get())
     }

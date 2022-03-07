@@ -1,12 +1,10 @@
-use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
-use std::rc::Rc;
 
 use crate::{
     AccountArgument, AccountInfo, AllAny, AllAnyRange, GeneratorError, GeneratorResult,
-    MultiIndexableAccountArgument, Pubkey, SingleIndexableAccountArgument, SystemProgram,
+    MultiIndexable, Pubkey, SingleIndexable, SystemProgram,
 };
 
 impl<T> AccountArgument for VecDeque<T>
@@ -35,9 +33,9 @@ where
     }
 }
 
-impl<T, I> MultiIndexableAccountArgument<(AllAny, I)> for VecDeque<T>
+impl<T, I> MultiIndexable<(AllAny, I)> for VecDeque<T>
 where
-    T: AccountArgument + MultiIndexableAccountArgument<I>,
+    T: AccountArgument + MultiIndexable<I>,
     I: Debug + Clone,
 {
     fn is_signer(&self, indexer: (AllAny, I)) -> GeneratorResult<bool> {
@@ -58,9 +56,9 @@ where
             .run_func(self.iter(), |val| val.is_owner(owner, indexer.1.clone()))
     }
 }
-impl<T, I> MultiIndexableAccountArgument<(usize, I)> for VecDeque<T>
+impl<T, I> MultiIndexable<(usize, I)> for VecDeque<T>
 where
-    T: AccountArgument + MultiIndexableAccountArgument<I>,
+    T: AccountArgument + MultiIndexable<I>,
     I: Debug + Clone,
 {
     fn is_signer(&self, indexer: (usize, I)) -> GeneratorResult<bool> {
@@ -96,18 +94,18 @@ where
         )
     }
 }
-impl<T, I> SingleIndexableAccountArgument<(usize, I)> for VecDeque<T>
+impl<T, I> SingleIndexable<(usize, I)> for VecDeque<T>
 where
-    T: AccountArgument + SingleIndexableAccountArgument<I>,
+    T: AccountArgument + SingleIndexable<I>,
     I: Debug + Clone,
 {
     fn info(&self, indexer: (usize, I)) -> GeneratorResult<&AccountInfo> {
         self[indexer.0].info(indexer.1)
     }
 }
-impl<T, R, I> MultiIndexableAccountArgument<(AllAnyRange<R>, I)> for VecDeque<T>
+impl<T, R, I> MultiIndexable<(AllAnyRange<R>, I)> for VecDeque<T>
 where
-    T: AccountArgument + MultiIndexableAccountArgument<I>,
+    T: AccountArgument + MultiIndexable<I>,
     R: RangeBounds<usize> + Clone + Debug,
     I: Debug + Clone,
 {

@@ -1,7 +1,5 @@
-use crate::solana_program::pubkey::Pubkey;
-use crate::{GeneratorResult, MultiIndexableAccountArgument};
+use crate::GeneratorResult;
 use std::fmt::Debug;
-use std::ops::{Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 
 /// An index that checks that all accounts return [`true`], [`true`] on empty.
 /// See [`AllAny`].
@@ -73,6 +71,7 @@ impl AllAny {
     }
 
     /// Returns [`true`] if is [`All`] or [`NotAll`], [`false`] otherwise
+    #[must_use]
     pub const fn is_all(self) -> bool {
         match self {
             Self::All | Self::NotAll => true,
@@ -81,6 +80,7 @@ impl AllAny {
     }
 
     /// Returns [`true`] if is [`Any`] or [`NotAny`], [`false`] otherwise
+    #[must_use]
     pub const fn is_any(self) -> bool {
         match self {
             Self::All | Self::NotAll => false,
@@ -89,6 +89,7 @@ impl AllAny {
     }
 
     /// Returns [`true`] if is [`NotAll`] or [`NotAny`], [`false`] otherwise
+    #[must_use]
     pub const fn is_not(self) -> bool {
         match self {
             Self::All | Self::Any => false,

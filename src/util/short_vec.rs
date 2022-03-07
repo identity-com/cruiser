@@ -14,6 +14,7 @@ pub struct ShortVec<T, const N: usize> {
 }
 impl<T, const N: usize> ShortVec<T, N> {
     /// Creates a 0 length [`ShortVec`]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // TODO: Replace with `MaybeUninit::uninit_array()` when stabilized
@@ -36,13 +37,13 @@ impl<T, const N: usize> ShortVec<T, N> {
     /// Returns the short vec as a slice
     pub fn as_slice(&self) -> &[T] {
         // Safety: Valid because MaybeUninit<T> is transparent to internal T
-        unsafe { &*slice_from_raw_parts(self.values.as_ptr() as *const T, self.length) }
+        unsafe { &*slice_from_raw_parts(self.values.as_ptr().cast::<T>(), self.length) }
     }
 
     /// Returns the short vec as a mutable slice
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         // Safety: Valid because MaybeUninit<T> is transparent to internal T
-        unsafe { &mut *slice_from_raw_parts_mut(self.values.as_mut_ptr() as *mut T, self.length) }
+        unsafe { &mut *slice_from_raw_parts_mut(self.values.as_mut_ptr().cast::<T>(), self.length) }
     }
 
     /// Returns a shared iterator to the short vec
@@ -132,7 +133,7 @@ impl<T, const N: usize> FromIterator<T> for ShortVec<T, N> {
             match iter.next() {
                 Some(val) => {
                     if out.push(val).is_err() {
-                        unreachable!()
+                        unreachable!();
                     }
                 }
                 None => break,
@@ -142,7 +143,7 @@ impl<T, const N: usize> FromIterator<T> for ShortVec<T, N> {
     }
 }
 
-/// IntoIter for [`ShortVec`]
+/// [`IntoIter`] for [`ShortVec`]
 #[derive(Debug)]
 pub struct IntoIter<T, const N: usize> {
     vec: ManuallyDrop<ShortVec<T, N>>,

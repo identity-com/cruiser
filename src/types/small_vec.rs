@@ -16,7 +16,7 @@ macro_rules! small_vec {
             type Error = GeneratorError;
 
             fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
-                if value.len() <= <$ty>::MAX as usize {
+                if <$ty>::try_from(value.len()).is_ok() {
                     Ok(Self(value))
                 } else {
                     Err(GeneratorError::SizeInvalid {

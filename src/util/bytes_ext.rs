@@ -12,7 +12,7 @@ pub trait ReadExt: io::Read {
     fn read_i8(&mut self) -> io::Result<i8> {
         let mut buf = [0; 1];
         self.read_exact(&mut buf)?;
-        Ok(buf[0] as i8)
+        Ok(i8::from_le_bytes(buf))
     }
 
     #[inline]

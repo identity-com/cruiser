@@ -1,6 +1,6 @@
+use crate::get_crate_name;
 use easy_proc::{find_attr, ArgumentList};
 use proc_macro2::{Span, TokenStream};
-use proc_macro_crate::{crate_name, FoundCrate};
 use proc_macro_error::abort;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
@@ -28,14 +28,7 @@ pub struct AccountListDerive {
 }
 impl AccountListDerive {
     pub fn into_token_stream(self) -> TokenStream {
-        let generator_crate = crate_name("cruiser").expect("Could not find `cruiser`");
-        let crate_name = match generator_crate {
-            FoundCrate::Itself => quote! { ::cruiser },
-            FoundCrate::Name(name) => {
-                let ident = Ident::new(&name, Span::call_site());
-                quote! { ::#ident }
-            }
-        };
+        let crate_name = get_crate_name();
 
         let AccountListDerive {
             generics,

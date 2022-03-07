@@ -12,7 +12,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 /// Represents a u64 that is compressed and decompressed on reading/writing from/to bytes
 ///
 /// # Safety
-/// This trait must ensure that
+/// This trait must ensure that all byte sizes are correct
 pub unsafe trait CompressedNumber: Copy + BorshSerialize + BorshDeserialize + Eq {
     /// The number that is represented
     type Num;
@@ -25,22 +25,32 @@ pub unsafe trait CompressedNumber: Copy + BorshSerialize + BorshDeserialize + Eq
     /// The max number of bytes the compressed version will take
     fn max_bytes() -> usize;
 }
-unsafe impl CompressedNumber for u64 {
-    type Num = u64;
 
-    fn from_number(number: Self::Num) -> Self {
-        number
-    }
+macro_rules! impl_compressed_for_prim {
+    (all $($ty:ty),+) => {
+        $(impl_compressed_for_prim!($ty);)+
+    };
+    ($ty:ty) => {
+        unsafe impl CompressedNumber for $ty {
+            type Num = $ty;
 
-    fn into_number(self) -> Self::Num {
-        self
-    }
+            fn from_number(number: Self::Num) -> Self {
+                number
+            }
 
-    fn num_bytes(self) -> usize {
-        size_of::<Self>()
-    }
+            fn into_number(self) -> Self::Num {
+                self
+            }
 
-    fn max_bytes() -> usize {
-        size_of::<Self>()
-    }
+            fn num_bytes(self) -> usize {
+                size_of::<Self>()
+            }
+
+            fn max_bytes() -> usize {
+                size_of::<Self>()
+            }
+        }
+    };
 }
+
+impl_compressed_for_prim!(all u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, ());

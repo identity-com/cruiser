@@ -1,7 +1,6 @@
 use crate::{
-    AccountArgument, AccountInfo, AccountInfoIterator, AllAny, FromAccounts, GeneratorError,
-    GeneratorResult, MultiIndexableAccountArgument, SingleAccountArgument,
-    SingleIndexableAccountArgument, SystemProgram,
+    AccountArgument, AccountInfo, AccountInfoIterator, FromAccounts, GeneratorError,
+    GeneratorResult, MultiIndexable, SingleIndexable, SystemProgram,
 };
 use solana_program::pubkey::Pubkey;
 use solana_program::rent::Rent;
@@ -43,19 +42,19 @@ where
 }
 impl<A> FromAccounts<()> for RentExempt<A>
 where
-    A: FromAccounts<()> + SingleIndexableAccountArgument<()>,
+    A: FromAccounts<()> + SingleIndexable<()>,
 {
     fn from_accounts(
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
-        arg: (),
+        _arg: (),
     ) -> GeneratorResult<Self> {
         Self::from_accounts(program_id, infos, Rent::default())
     }
 }
 impl<A> FromAccounts<Rent> for RentExempt<A>
 where
-    A: FromAccounts<()> + SingleIndexableAccountArgument<()>,
+    A: FromAccounts<()> + SingleIndexable<()>,
 {
     fn from_accounts(
         program_id: &'static Pubkey,
@@ -67,7 +66,7 @@ where
 }
 impl<A, T> FromAccounts<(Rent, T)> for RentExempt<A>
 where
-    A: FromAccounts<T> + SingleIndexableAccountArgument<()>,
+    A: FromAccounts<T> + SingleIndexable<()>,
 {
     fn from_accounts(
         program_id: &'static Pubkey,
@@ -79,7 +78,7 @@ where
 }
 impl<A, T, I> FromAccounts<(Rent, T, I)> for RentExempt<A>
 where
-    A: FromAccounts<T> + SingleIndexableAccountArgument<I>,
+    A: FromAccounts<T> + SingleIndexable<I>,
     I: Debug + Clone,
 {
     fn from_accounts(
@@ -103,10 +102,10 @@ where
         }
     }
 }
-impl<T, A> MultiIndexableAccountArgument<T> for RentExempt<A>
+impl<T, A> MultiIndexable<T> for RentExempt<A>
 where
     T: Debug + Clone,
-    A: MultiIndexableAccountArgument<T>,
+    A: MultiIndexable<T>,
 {
     #[inline]
     fn is_signer(&self, indexer: T) -> GeneratorResult<bool> {
@@ -123,10 +122,10 @@ where
         self.0.is_owner(owner, indexer)
     }
 }
-impl<T, A> SingleIndexableAccountArgument<T> for RentExempt<A>
+impl<T, A> SingleIndexable<T> for RentExempt<A>
 where
     T: Debug + Clone,
-    A: SingleIndexableAccountArgument<T>,
+    A: SingleIndexable<T>,
 {
     #[inline]
     fn info(&self, indexer: T) -> GeneratorResult<&AccountInfo> {

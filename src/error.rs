@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use strum::EnumDiscriminants;
 
 /// General errors issued by the generator.
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Error, EnumDiscriminants)]
 #[error(start = 0)]
 pub enum GeneratorError {

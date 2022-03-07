@@ -16,71 +16,71 @@ macro_rules! build_instruction {
 #[macro_export]
 macro_rules! impl_indexed_for_all_any {
     ($ty:ty $(, <$($impl_gen:ident),*> $(, where $($(for<$($where_for:ty),*>)? $where_ty:ty: $($first_where:ty)?),*)?)? $(,)?) => {
-        impl<$($($impl_gen,)*)?> MultiIndexableAccountArgument<$crate::All> for $ty
+        impl<$($($impl_gen,)*)?> MultiIndexable<$crate::All> for $ty
         where
             $($($(for<$($($where_for,)*)?> $where_ty: $($first_where)?,)*)?)?
         {
             fn is_signer(&self, indexer: $crate::All) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_signer(self, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_signer(self, indexer.into())
             }
 
             fn is_writable(&self, indexer: $crate::All) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_writable(self, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_writable(self, indexer.into())
             }
 
             fn is_owner(&self, owner: &$crate::Pubkey, indexer: $crate::All) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_owner(self, owner, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_owner(self, owner, indexer.into())
             }
         }
 
-        impl<$($($impl_gen,)*)?> MultiIndexableAccountArgument<$crate::NotAll> for $ty
+        impl<$($($impl_gen,)*)?> MultiIndexable<$crate::NotAll> for $ty
         where
             $($($(for<$($($where_for,)*)?> $where_ty: $($first_where)?,)*)?)?
         {
             fn is_signer(&self, indexer: $crate::NotAll) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_signer(self, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_signer(self, indexer.into())
             }
 
             fn is_writable(&self, indexer: $crate::NotAll) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_writable(self, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_writable(self, indexer.into())
             }
 
             fn is_owner(&self, owner: &$crate::Pubkey, indexer: $crate::NotAll) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_owner(self, owner, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_owner(self, owner, indexer.into())
             }
         }
 
-        impl<$($($impl_gen,)*)?> MultiIndexableAccountArgument<$crate::Any> for $ty
+        impl<$($($impl_gen,)*)?> MultiIndexable<$crate::Any> for $ty
         where
             $($($(for<$($($where_for,)*)?> $where_ty: $($first_where)?,)*)?)?
         {
             fn is_signer(&self, indexer: $crate::Any) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_signer(self, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_signer(self, indexer.into())
             }
 
             fn is_writable(&self, indexer: $crate::Any) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_writable(self, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_writable(self, indexer.into())
             }
 
             fn is_owner(&self, owner: &$crate::Pubkey, indexer: $crate::Any) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_owner(self, owner, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_owner(self, owner, indexer.into())
             }
         }
 
-        impl<$($($impl_gen,)*)?> MultiIndexableAccountArgument<$crate::NotAny> for $ty
+        impl<$($($impl_gen,)*)?> MultiIndexable<$crate::NotAny> for $ty
         where
             $($($(for<$($($where_for,)*)?> $where_ty: $($first_where)?,)*)?)?
         {
             fn is_signer(&self, indexer: $crate::NotAny) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_signer(self, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_signer(self, indexer.into())
             }
 
             fn is_writable(&self, indexer: $crate::NotAny) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_writable(self, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_writable(self, indexer.into())
             }
 
             fn is_owner(&self, owner: &$crate::Pubkey, indexer: $crate::NotAny) -> $crate::GeneratorResult<bool> {
-                <$ty as $crate::MultiIndexableAccountArgument<$crate::AllAny>>::is_owner(self, owner, indexer.into())
+                <$ty as $crate::MultiIndexable<$crate::AllAny>>::is_owner(self, owner, indexer.into())
             }
         }
     }
@@ -108,11 +108,11 @@ macro_rules! delegate_account_argument {
         }
     };
 }
-/// Implements [`MultiIndexableAccountArgument`] for a type with a certain accessor.
+/// Implements [`MultiIndexable`] for a type with a certain accessor.
 #[macro_export]
 macro_rules! delegate_multi_indexable {
     ($ty:ty, $indexer:ty, ($accessor:tt)$(, $($where:tt)?)?) => {
-        impl $crate::MultiIndexableAccountArgument<$indexer> for $ty $($($where)?)? {
+        impl $crate::MultiIndexable<$indexer> for $ty $($($where)?)? {
             #[inline]
             fn is_signer(&self, indexer: $indexer) -> $crate::GeneratorResult<bool> {
                 self.$accessor.is_signer(indexer)
@@ -134,11 +134,11 @@ macro_rules! delegate_multi_indexable {
         }
     };
 }
-/// Implements [`SingleIndexableAccountArgument`] for a type with a certain accessor.
+/// Implements [`SingleIndexable`] for a type with a certain accessor.
 #[macro_export]
 macro_rules! delegate_single_indexable {
     ($ty:ty, $indexer:ty, ($accessor:tt)$(, $($where:tt)?)?) => {
-        impl $crate::SingleIndexableAccountArgument<$indexer> for $ty $($($where)?)? {
+        impl $crate::SingleIndexable<$indexer> for $ty $($($where)?)? {
             #[inline]
             fn info(
                 &self,

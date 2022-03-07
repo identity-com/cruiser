@@ -1,6 +1,6 @@
 use crate::{
     AccountArgument, AccountInfoIterator, FromAccounts, GeneratorResult, PDAGenerator, PDASeeder,
-    SingleIndexableAccountArgument, SystemProgram,
+    SingleIndexable, SystemProgram,
 };
 use solana_program::pubkey::Pubkey;
 use std::fmt::Debug;
@@ -104,7 +104,7 @@ impl BumpSeed for Find {
 }
 impl<'a, A, S, B> FromAccounts<(&'a S, B)> for Seeds<A, S>
 where
-    A: FromAccounts<()> + SingleIndexableAccountArgument<()>,
+    A: FromAccounts<()> + SingleIndexable<()>,
     S: PDASeeder,
     B: BumpSeed,
 {
@@ -122,7 +122,7 @@ where
 }
 impl<'a, A, S, B, D> FromAccounts<(&'a S, B, D)> for Seeds<A, S>
 where
-    A: FromAccounts<D> + SingleIndexableAccountArgument<()>,
+    A: FromAccounts<D> + SingleIndexable<()>,
     S: PDASeeder,
     B: BumpSeed,
 {
@@ -141,7 +141,7 @@ where
 
 impl<'a, A, S, B, D, I> FromAccounts<(&'a S, B, D, I)> for Seeds<A, S>
 where
-    A: FromAccounts<D> + SingleIndexableAccountArgument<I>,
+    A: FromAccounts<D> + SingleIndexable<I>,
     S: PDASeeder,
     B: BumpSeed,
     I: Debug + Clone,

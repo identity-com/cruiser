@@ -1,5 +1,5 @@
+use crate::get_crate_name;
 use proc_macro2::{Ident, Span, TokenStream};
-use proc_macro_crate::{crate_name, FoundCrate};
 use proc_macro_error::emit_warning;
 use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
@@ -15,14 +15,7 @@ pub struct ErrorDerive {
 }
 impl ErrorDerive {
     pub fn into_token_stream(self) -> proc_macro2::TokenStream {
-        let generator_crate = crate_name("cruiser").expect("Could not find `cruiser`");
-        let crate_name = match generator_crate {
-            FoundCrate::Itself => quote! { ::cruiser },
-            FoundCrate::Name(name) => {
-                let ident = Ident::new(&name, Span::call_site());
-                quote! { ::#ident }
-            }
-        };
+        let crate_name = get_crate_name();
 
         let ident = self.ident;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();

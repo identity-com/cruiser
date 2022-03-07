@@ -12,7 +12,14 @@
     unused_import_braces,
     unused_imports,
     missing_docs,
-    missing_debug_implementations
+    missing_debug_implementations,
+    clippy::pedantic
+)]
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::module_name_repetitions,
+    clippy::missing_errors_doc,
+    missing_docs
 )]
 //! A generator program that will be able to generate solana program code from a much easier starting place.
 
@@ -30,6 +37,7 @@ pub use traits::*;
 pub use util::*;
 
 pub use borsh;
+pub use cruiser_derive::verify_account_arg_impl;
 pub use solana_program;
 pub use solana_program::msg;
 pub use solana_program::{
@@ -49,9 +57,9 @@ pub mod entrypoint;
 mod error;
 mod impls;
 mod pda_seeds;
+pub mod spl;
 mod traits;
 pub mod types;
-pub mod spl;
 mod util;
 
 /// Invokes another solana program.

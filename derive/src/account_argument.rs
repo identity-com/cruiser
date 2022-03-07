@@ -1,7 +1,7 @@
+use crate::get_crate_name;
 use crate::log_level::LogLevel;
 use easy_proc::{parse_attribute_list, ArgumentList};
 use proc_macro2::{Span, TokenStream};
-use proc_macro_crate::{crate_name, FoundCrate};
 use proc_macro_error::{abort, abort_call_site};
 use quote::quote;
 use std::collections::HashSet;
@@ -170,14 +170,7 @@ impl Parse for AccountArgumentDerive {
 }
 impl AccountArgumentDerive {
     pub fn into_token_stream(mut self) -> TokenStream {
-        let generator_crate = crate_name("cruiser").expect("Could not find `cruiser`");
-        let crate_name = match generator_crate {
-            FoundCrate::Itself => quote! { ::cruiser },
-            FoundCrate::Name(name) => {
-                let ident = Ident::new(&name, Span::call_site());
-                quote! { ::#ident }
-            }
-        };
+        let crate_name = get_crate_name();
 
         let ident = self.ident;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();

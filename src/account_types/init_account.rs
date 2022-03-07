@@ -9,8 +9,8 @@ use solana_program::system_instruction::create_account;
 use crate::traits::AccountArgument;
 use crate::{
     invoke, AccountInfo, AccountInfoIterator, AccountListItem, AllAny, FromAccounts,
-    GeneratorError, GeneratorResult, MultiIndexableAccountArgument, PDASeedSet, ShortVec,
-    SingleIndexableAccountArgument, SystemProgram,
+    GeneratorError, GeneratorResult, MultiIndexable, PDASeedSet, ShortVec, SingleIndexable,
+    SystemProgram,
 };
 
 use super::SYSTEM_PROGRAM_ID;
@@ -148,7 +148,7 @@ where
                     &create_account(funder.key, self.info.key, rent, size, program_id),
                     &[&self.info, &funder, &system_program.info],
                     seeds.as_slice(),
-                )?
+                )?;
             }
         }
 
@@ -207,7 +207,7 @@ where
         AccountInfo::accounts_usage_hint()
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<()> for InitAccount<AL, A>
+impl<AL, A> MultiIndexable<()> for InitAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize + BorshDeserialize + Default,
@@ -224,7 +224,7 @@ where
         self.info.is_owner(owner, indexer)
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<AllAny> for InitAccount<AL, A>
+impl<AL, A> MultiIndexable<AllAny> for InitAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize + Default,
@@ -241,7 +241,7 @@ where
         self.info.is_owner(owner, indexer)
     }
 }
-impl<AL, A> SingleIndexableAccountArgument<()> for InitAccount<AL, A>
+impl<AL, A> SingleIndexable<()> for InitAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize + BorshDeserialize + Default,

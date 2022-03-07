@@ -1,6 +1,6 @@
 use crate::{
-    AccountArgument, AccountInfoIterator, AllAny, FromAccounts, GeneratorResult,
-    MultiIndexableAccountArgument, SingleIndexableAccountArgument, SystemProgram,
+    AccountArgument, AccountInfoIterator, AllAny, FromAccounts, GeneratorResult, MultiIndexable,
+    SingleIndexable, SystemProgram,
 };
 use solana_program::account_info::AccountInfo as SolanaAccountInfo;
 use solana_program::clock::Epoch;
@@ -9,7 +9,6 @@ use solana_program::program_error::ProgramError;
 use solana_program::pubkey::Pubkey;
 use std::cell::RefCell;
 use std::mem::{align_of, size_of, transmute};
-use std::ops::Deref;
 use std::rc::Rc;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
@@ -70,13 +69,11 @@ impl AccountInfo {
                 //padding to u64
                 offset += size_of::<u32>();
                 // Safe because Pubkey is transparent to [u8; 32]
-                let key = transmute::<&'static [u8; 32], &'static Pubkey>(
-                    &*(input.add(offset) as *const [u8; 32]),
-                );
+                let key = &*(input.add(offset) as *const [u8; 32]).cast::<Pubkey>();
                 offset += 32;
-                let owner = Rc::new(RefCell::new(&mut *(input.add(offset) as *mut _)));
+                let owner = Rc::new(RefCell::new(&mut *(input.add(offset).cast())));
                 offset += size_of::<Pubkey>();
-                let lamports = Rc::new(RefCell::new(&mut *(input.add(offset) as *mut _)));
+                let lamports = Rc::new(RefCell::new(&mut *(input.add(offset).cast())));
                 offset += size_of::<u64>();
                 let data_len = Self::read_value::<u64>(input, &mut offset) as usize;
                 let data = Rc::new(RefCell::new(from_raw_parts_mut(
@@ -117,7 +114,8 @@ impl AccountInfo {
     ///
     /// # Safety
     /// The resulting account info has owner as a shared reference that can be modified.
-    /// Only use this when the resulting account info will never be used after another use of self.
+    /// Only use this when the resulting account info will never be used after another use of self or any values stemming from self.
+    #[must_use]
     pub unsafe fn to_solana_account_info<'a>(&'a self) -> SolanaAccountInfo<'a> {
         SolanaAccountInfo {
             key: self.key,
@@ -129,7 +127,7 @@ impl AccountInfo {
             data: transmute::<Rc<RefCell<&'static mut [u8]>>, Rc<RefCell<&'a mut [u8]>>>(
                 self.data.clone(),
             ),
-            owner: &*(self.owner.borrow().deref().deref() as *const solana_program::pubkey::Pubkey),
+            owner: &*(&**self.owner.borrow() as *const solana_program::pubkey::Pubkey),
             executable: self.executable,
             rent_epoch: self.rent_epoch,
         }
@@ -167,7 +165,7 @@ impl FromAccounts<()> for AccountInfo {
         (1, Some(1))
     }
 }
-impl MultiIndexableAccountArgument<()> for AccountInfo {
+impl MultiIndexable<()> for AccountInfo {
     fn is_signer(&self, _indexer: ()) -> GeneratorResult<bool> {
         Ok(self.is_signer)
     }
@@ -180,7 +178,7 @@ impl MultiIndexableAccountArgument<()> for AccountInfo {
         Ok(*self.owner.borrow() == owner)
     }
 }
-impl MultiIndexableAccountArgument<AllAny> for AccountInfo {
+impl MultiIndexable<AllAny> for AccountInfo {
     fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
         Ok(indexer.is_not() ^ self.is_signer(())?)
     }
@@ -194,7 +192,7 @@ impl MultiIndexableAccountArgument<AllAny> for AccountInfo {
     }
 }
 impl_indexed_for_all_any!(AccountInfo);
-impl SingleIndexableAccountArgument<()> for AccountInfo {
+impl SingleIndexable<()> for AccountInfo {
     fn info(&self, _indexer: ()) -> GeneratorResult<&AccountInfo> {
         Ok(self)
     }
@@ -202,10 +200,7 @@ impl SingleIndexableAccountArgument<()> for AccountInfo {
 
 #[cfg(test)]
 pub mod account_info_test {
-    use crate::{
-        AccountInfo, All, Any, MultiIndexableAccountArgument, NotAll, NotAny, Pubkey,
-        SingleAccountArgument,
-    };
+    use crate::{AccountInfo, All, Any, MultiIndexable, NotAll, NotAny, Pubkey, Single};
     use rand::{thread_rng, Rng};
     use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
     use std::cell::RefCell;

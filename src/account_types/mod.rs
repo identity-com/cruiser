@@ -12,8 +12,6 @@ pub use sys_var::*;
 pub use system_program::*;
 pub use zeroed_account::*;
 
-use crate::*;
-
 #[cfg(feature = "nightly")]
 mod in_place_account;
 mod init_account;

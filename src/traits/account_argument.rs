@@ -1,12 +1,10 @@
 use solana_program::pubkey::Pubkey;
-use std::cell::RefCell;
 
 pub use cruiser_derive::AccountArgument;
 
 use crate::{AccountInfo, GeneratorError, GeneratorResult, SolanaAccountMeta, SystemProgram};
 use std::fmt::Debug;
 use std::iter::FusedIterator;
-use std::rc::Rc;
 
 /// A set of accounts that can be derived from an iterator over [`AccountInfo`]s and instruction data
 ///
@@ -69,6 +67,7 @@ pub trait FromAccounts<A>: Sized + AccountArgument {
     /// The default return of `(0, None)` is valid for all although may not be as accurate as possible.
     // TODO: Make this const once const trait functions are stabilized
     // TODO: Figure out how to make this derivable
+    #[must_use]
     fn accounts_usage_hint() -> (usize, Option<usize>) {
         (0, None)
     }
@@ -89,10 +88,7 @@ impl<T> AccountInfoIterator for T where
 
 /// An account set that can be indexed by 0+ accounts at time with index `I`.
 /// All should be infallible if `I` is [`()`].
-pub trait MultiIndexableAccountArgument<I>: AccountArgument
-where
-    I: Debug + Clone,
-{
+pub trait MultiIndexable<I>: AccountArgument {
     /// Returns whether the account at index `indexer` is a signer.
     fn is_signer(&self, indexer: I) -> GeneratorResult<bool>;
     /// Returns whether the account at index `indexer` is writable.
@@ -102,10 +98,7 @@ where
 }
 /// An account set that can be indexed to a single account at a time with index `I`.
 /// All should be infallible if `I` is [`()`].
-pub trait SingleIndexableAccountArgument<I>: MultiIndexableAccountArgument<I>
-where
-    I: Debug + Clone,
-{
+pub trait SingleIndexable<I>: MultiIndexable<I> {
     /// Gets the account info at index `indexer`
     fn info(&self, indexer: I) -> GeneratorResult<&AccountInfo>;
     /// Turns the account at index `indexer` to a [`SolanaAccountMeta`]
@@ -121,12 +114,12 @@ where
 
 /// Infallible single access functions.
 /// Relies on the infallibility of [`()`] for [`SingleIndexableAccountArgument`] and [`MultiIndexableAccountArgument`].
-pub trait SingleAccountArgument: SingleIndexableAccountArgument<()> {
+pub trait Single: SingleIndexable<()> {
     fn get_info(&self) -> &AccountInfo;
 }
-impl<T> SingleAccountArgument for T
+impl<T> Single for T
 where
-    T: SingleIndexableAccountArgument<()>,
+    T: SingleIndexable<()>,
 {
     fn get_info(&self) -> &AccountInfo {
         self.info(()).expect("`()` info is not infallible!")
@@ -134,10 +127,7 @@ where
 }
 
 /// Asserts that the account at index `indexer` is a signer.
-pub fn assert_is_signer<I>(
-    argument: &impl MultiIndexableAccountArgument<I>,
-    indexer: I,
-) -> GeneratorResult<()>
+pub fn assert_is_signer<I>(argument: &impl MultiIndexable<I>, indexer: I) -> GeneratorResult<()>
 where
     I: Debug + Clone,
 {
@@ -153,10 +143,7 @@ where
 }
 
 /// Asserts that the account at index `indexer` is writable.
-pub fn assert_is_writable<I>(
-    argument: &impl MultiIndexableAccountArgument<I>,
-    indexer: I,
-) -> GeneratorResult<()>
+pub fn assert_is_writable<I>(argument: &impl MultiIndexable<I>, indexer: I) -> GeneratorResult<()>
 where
     I: Debug + Clone,
 {
@@ -173,7 +160,7 @@ where
 
 /// Asserts that the account at index `indexer` is a certain key.
 pub fn assert_is_key<I>(
-    argument: &impl SingleIndexableAccountArgument<I>,
+    argument: &impl SingleIndexable<I>,
     indexer: I,
     key: &Pubkey,
 ) -> GeneratorResult<()>
@@ -181,20 +168,20 @@ where
     I: Debug + Clone,
 {
     let account = argument.info(indexer)?.key;
-    if account != key {
+    if account == key {
+        Ok(())
+    } else {
         Err(GeneratorError::InvalidAccount {
             account: *account,
             expected: *key,
         }
         .into())
-    } else {
-        Ok(())
     }
 }
 
 /// Asserts that the account at index `indexer`'s owner is `owner`.
 pub fn assert_is_owner<I>(
-    argument: &impl MultiIndexableAccountArgument<I>,
+    argument: &impl MultiIndexable<I>,
     owner: &Pubkey,
     indexer: I,
 ) -> GeneratorResult<()>
@@ -210,31 +197,5 @@ where
             owner: *owner,
         }
         .into())
-    }
-}
-
-impl AccountArgument for () {
-    fn write_back(
-        self,
-        _program_id: &'static Pubkey,
-        _system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
-        Ok(())
-    }
-
-    fn add_keys(
-        &self,
-        _add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
-        Ok(())
-    }
-}
-impl FromAccounts<()> for () {
-    fn from_accounts(
-        _program_id: &'static Pubkey,
-        _infos: &mut impl AccountInfoIterator,
-        _arg: (),
-    ) -> GeneratorResult<Self> {
-        Ok(())
     }
 }

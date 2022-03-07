@@ -1,12 +1,10 @@
-use std::cell::RefCell;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
-use std::rc::Rc;
 
 use crate::{
     AccountArgument, AccountInfo, AccountInfoIterator, AllAny, AllAnyRange, FromAccounts,
-    GeneratorError, GeneratorResult, MultiIndexableAccountArgument, Pubkey,
-    SingleIndexableAccountArgument, SystemProgram,
+    GeneratorError, GeneratorResult, MultiIndexable, Pubkey,
+    SingleIndexable, SystemProgram,
 };
 
 impl<T> AccountArgument for Vec<T>
@@ -28,10 +26,7 @@ where
         &self,
         mut add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
     ) -> GeneratorResult<()> {
-        self.iter()
-            .map(|inner| inner.add_keys(&mut add))
-            .find(|res| res.is_err())
-            .unwrap_or(Ok(()))
+        self.iter().try_for_each(|inner| inner.add_keys(&mut add))
     }
 }
 impl<T> FromAccounts<usize> for Vec<T>
@@ -112,9 +107,9 @@ where
         Ok(IntoIterator::into_iter(<[T; N]>::from_accounts(program_id, infos, arg)?).collect())
     }
 }
-impl<T, I> MultiIndexableAccountArgument<(usize, I)> for Vec<T>
+impl<T, I> MultiIndexable<(usize, I)> for Vec<T>
 where
-    T: AccountArgument + MultiIndexableAccountArgument<I>,
+    T: AccountArgument + MultiIndexable<I>,
     I: Debug + Clone,
 {
     fn is_signer(&self, indexer: (usize, I)) -> GeneratorResult<bool> {
@@ -150,18 +145,18 @@ where
         )
     }
 }
-impl<T, I> SingleIndexableAccountArgument<(usize, I)> for Vec<T>
+impl<T, I> SingleIndexable<(usize, I)> for Vec<T>
 where
-    T: AccountArgument + SingleIndexableAccountArgument<I>,
+    T: AccountArgument + SingleIndexable<I>,
     I: Debug + Clone,
 {
     fn info(&self, indexer: (usize, I)) -> GeneratorResult<&AccountInfo> {
         self[indexer.0].info(indexer.1)
     }
 }
-impl<T, R, I> MultiIndexableAccountArgument<(AllAnyRange<R>, I)> for Vec<T>
+impl<T, R, I> MultiIndexable<(AllAnyRange<R>, I)> for Vec<T>
 where
-    T: AccountArgument + MultiIndexableAccountArgument<I>,
+    T: AccountArgument + MultiIndexable<I>,
     R: RangeBounds<usize> + Clone + Debug,
     I: Debug + Clone,
 {
@@ -195,9 +190,9 @@ where
             })
     }
 }
-impl<T, I> MultiIndexableAccountArgument<(AllAny, I)> for Vec<T>
+impl<T, I> MultiIndexable<(AllAny, I)> for Vec<T>
 where
-    T: AccountArgument + MultiIndexableAccountArgument<I>,
+    T: AccountArgument + MultiIndexable<I>,
     I: Debug + Clone,
 {
     fn is_signer(&self, indexer: (AllAny, I)) -> GeneratorResult<bool> {

@@ -52,7 +52,7 @@ unsafe impl CompressedNumber for ByteCount<u64> {
 }
 impl BorshSerialize for ByteCount<u64> {
     fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        if self.0 > !Self::COUNT_BIT as u64 {
+        if self.0 > u64::from(!Self::COUNT_BIT) {
             let count = size_of::<u64>() - self.0.leading_zeros() as usize / 8;
             let bytes = self.0.to_le_bytes();
             writer.write_u8(count as u8 | Self::COUNT_BIT)?;
@@ -76,7 +76,7 @@ impl BorshDeserialize for ByteCount<u64> {
             *buf = &buf[count as usize..];
             u64::from_le_bytes(bytes)
         } else {
-            first as u64
+            u64::from(first)
         }))
     }
 }

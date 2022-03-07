@@ -2,9 +2,8 @@ use super::SYSTEM_PROGRAM_ID;
 use crate::solana_program::program_error::ProgramError;
 use crate::{
     combine_hints_branch, AccountArgument, AccountInfo, AccountInfoIterator, AccountListItem,
-    AllAny, FromAccounts, GeneratorError, GeneratorResult, InitAccount, InitSize,
-    MultiIndexableAccountArgument, PDASeedSet, Pubkey, SingleIndexableAccountArgument,
-    SystemProgram, ZeroedAccount,
+    AllAny, FromAccounts, GeneratorError, GeneratorResult, InitAccount, InitSize, MultiIndexable,
+    PDASeedSet, Pubkey, SingleIndexable, SystemProgram, ZeroedAccount,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::iter::once;
@@ -70,8 +69,8 @@ where
 
     fn deref(&self) -> &Self::Target {
         match self {
-            InitOrZeroedAccount::Init(init) => init.deref(),
-            InitOrZeroedAccount::Zeroed(zeroed) => zeroed.deref(),
+            InitOrZeroedAccount::Init(init) => &*init,
+            InitOrZeroedAccount::Zeroed(zeroed) => &*zeroed,
         }
     }
 }
@@ -81,8 +80,8 @@ where
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
-            InitOrZeroedAccount::Init(init) => init.deref_mut(),
-            InitOrZeroedAccount::Zeroed(zeroed) => zeroed.deref_mut(),
+            InitOrZeroedAccount::Init(init) => &mut *init,
+            InitOrZeroedAccount::Zeroed(zeroed) => &mut *zeroed,
         }
     }
 }
@@ -157,7 +156,7 @@ where
         ]))
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<()> for InitOrZeroedAccount<AL, A>
+impl<AL, A> MultiIndexable<()> for InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize,
@@ -174,7 +173,7 @@ where
         self.info().is_owner(owner, indexer)
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<AllAny> for InitOrZeroedAccount<AL, A>
+impl<AL, A> MultiIndexable<AllAny> for InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize,
@@ -191,7 +190,7 @@ where
         self.info().is_owner(owner, indexer)
     }
 }
-impl<AL, A> SingleIndexableAccountArgument<()> for InitOrZeroedAccount<AL, A>
+impl<AL, A> SingleIndexable<()> for InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize,

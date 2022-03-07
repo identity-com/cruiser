@@ -1,10 +1,10 @@
 use crate::compressed_numbers::CompressedNumber;
 use crate::{
     AccountInfo, AccountInfoIterator, FromAccounts, GeneratorError, GeneratorResult,
-    InPlaceBuilder, MultiIndexableAccountArgument, SystemProgram,
+    InPlaceBuilder, MultiIndexable, SystemProgram,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::{AccountArgument, AccountListItem, AllAny, SingleIndexableAccountArgument};
+use cruiser::{AccountArgument, AccountListItem, AllAny, SingleIndexable};
 use solana_program::pubkey::Pubkey;
 use std::cell::{RefCell, RefMut};
 use std::marker::PhantomData;
@@ -90,7 +90,7 @@ where
         })
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<AllAny> for InPlaceProgramAccount<AL, A>
+impl<AL, A> MultiIndexable<AllAny> for InPlaceProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
@@ -107,7 +107,7 @@ where
         self.account.is_owner(owner, indexer)
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<()> for InPlaceProgramAccount<AL, A>
+impl<AL, A> MultiIndexable<()> for InPlaceProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
@@ -124,7 +124,7 @@ where
         self.account.is_owner(owner, indexer)
     }
 }
-impl<AL, A> SingleIndexableAccountArgument<()> for InPlaceProgramAccount<AL, A>
+impl<AL, A> SingleIndexable<()> for InPlaceProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
@@ -240,7 +240,7 @@ where
         })
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<AllAny> for InPlaceZeroed<AL, A>
+impl<AL, A> MultiIndexable<AllAny> for InPlaceZeroed<AL, A>
 where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
@@ -257,7 +257,7 @@ where
         self.account.is_owner(owner, indexer)
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<()> for InPlaceZeroed<AL, A>
+impl<AL, A> MultiIndexable<()> for InPlaceZeroed<AL, A>
 where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
@@ -274,7 +274,7 @@ where
         self.account.is_owner(owner, indexer)
     }
 }
-impl<AL, A> SingleIndexableAccountArgument<()> for InPlaceZeroed<AL, A>
+impl<AL, A> SingleIndexable<()> for InPlaceZeroed<AL, A>
 where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,

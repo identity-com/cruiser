@@ -1,7 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::{
-    AccountArgument, AccountList, InitAccount, ProgramAccount, SingleAccountArgument, ZeroedAccount,
-};
+use cruiser::{AccountArgument, AccountList, InitAccount, ProgramAccount, Single, ZeroedAccount};
 use solana_program::pubkey::Pubkey;
 
 #[derive(AccountArgument)]

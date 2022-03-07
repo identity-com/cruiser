@@ -61,16 +61,16 @@ where
         _arg: (),
     ) -> GeneratorResult<Self> {
         let account = AccountInfo::from_accounts(program_id, infos, ())?;
-        if !T::check_id(account.key) {
-            Err(GeneratorError::InvalidSysVar {
-                actual: account.key,
-            }
-            .into())
-        } else {
+        if T::check_id(account.key) {
             Ok(Self {
                 0: account,
                 1: PhantomData,
             })
+        } else {
+            Err(GeneratorError::InvalidSysVar {
+                actual: account.key,
+            }
+            .into())
         }
     }
 }

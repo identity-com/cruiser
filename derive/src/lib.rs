@@ -10,13 +10,15 @@ mod error;
 mod in_place;
 mod instruction_list;
 mod log_level;
+mod verify_account_arg_impl;
 
 use crate::account_argument::AccountArgumentDerive;
 use crate::error::ErrorDerive;
 use crate::instruction_list::InstructionListDerive;
-// use crate::instruction_list_processor::InstructionListProcessorDerive;
+use crate::verify_account_arg_impl::VerifyAccountArgs;
 use proc_macro::TokenStream;
 use proc_macro_error::proc_macro_error;
+use quote::{format_ident, quote};
 use syn::parse_macro_input;
 
 /// If no start specified starts at `300`
@@ -116,6 +118,26 @@ pub fn derive_account_list(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
+/// Verifies a given type implements the proper traits
+#[proc_macro_error]
+#[proc_macro]
+pub fn verify_account_arg_impl(tokens: TokenStream) -> TokenStream {
+    let stream = parse_macro_input!(tokens as VerifyAccountArgs).into_token_stream();
+    println!("{}", stream);
+    stream.into()
+}
+
+fn get_crate_name() -> proc_macro2::TokenStream {
+    let generator_crate = crate_name("cruiser").expect("Could not find `cruiser`");
+    match generator_crate {
+        FoundCrate::Itself => quote! { ::cruiser },
+        FoundCrate::Name(name) => {
+            let ident = format_ident!("{}", name);
+            quote! { ::#ident }
+        }
+    }
+}
+
 // /// Sets up an in-place struct
 // #[cfg(feature = "nightly")]
 // #[proc_macro_error]
@@ -180,6 +202,7 @@ use crate::account_list::AccountListDerive;
 use easy_proc::ArgumentList;
 #[cfg(feature = "easy_proc_test")]
 use proc_macro2::Span;
+use proc_macro_crate::{crate_name, FoundCrate};
 #[cfg(feature = "easy_proc_test")]
 use syn::parse::{Parse, ParseStream};
 #[cfg(feature = "easy_proc_test")]

@@ -8,7 +8,7 @@ use crate::compressed_numbers::CompressedNumber;
 use crate::traits::AccountArgument;
 use crate::{
     AccountInfo, AccountInfoIterator, AccountListItem, AllAny, FromAccounts, GeneratorError,
-    GeneratorResult, MultiIndexableAccountArgument, SingleIndexableAccountArgument,
+    GeneratorResult, MultiIndexable, SingleIndexable,
 };
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -105,7 +105,7 @@ where
         AccountInfo::accounts_usage_hint()
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<()> for ProgramAccount<AL, A>
+impl<AL, A> MultiIndexable<()> for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize,
@@ -122,7 +122,7 @@ where
         self.info.is_owner(owner, indexer)
     }
 }
-impl<AL, A> MultiIndexableAccountArgument<AllAny> for ProgramAccount<AL, A>
+impl<AL, A> MultiIndexable<AllAny> for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize,
@@ -139,7 +139,7 @@ where
         self.info.is_owner(owner, indexer)
     }
 }
-impl<AL, A> SingleIndexableAccountArgument<()> for ProgramAccount<AL, A>
+impl<AL, A> SingleIndexable<()> for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
     A: BorshSerialize,

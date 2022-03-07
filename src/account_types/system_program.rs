@@ -1,15 +1,13 @@
 use solana_program::pubkey::Pubkey;
-use std::cell::RefCell;
 
 use crate::traits::AccountArgument;
 use crate::{
     AccountInfo, AccountInfoIterator, AllAny, FromAccounts, GeneratorError, GeneratorResult,
-    MultiIndexableAccountArgument, SingleIndexableAccountArgument,
+    MultiIndexable,
 };
 
 use super::SYSTEM_PROGRAM_ID;
 use std::fmt::Debug;
-use std::rc::Rc;
 
 /// The system program, will be checked that it actually is.
 #[derive(Debug, Clone)]
@@ -66,7 +64,7 @@ where
         AccountInfo::accounts_usage_hint()
     }
 }
-impl MultiIndexableAccountArgument<()> for SystemProgram {
+impl MultiIndexable<()> for SystemProgram {
     fn is_signer(&self, indexer: ()) -> GeneratorResult<bool> {
         self.info.is_signer(indexer)
     }
@@ -79,7 +77,7 @@ impl MultiIndexableAccountArgument<()> for SystemProgram {
         self.info.is_owner(owner, indexer)
     }
 }
-impl MultiIndexableAccountArgument<AllAny> for SystemProgram {
+impl MultiIndexable<AllAny> for SystemProgram {
     fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
         self.info.is_signer(indexer)
     }

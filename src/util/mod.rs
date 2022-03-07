@@ -74,22 +74,33 @@ pub fn combine_hints_branch(
 pub fn combine_hints_chain(
     mut hints: impl Iterator<Item = (usize, Option<usize>)>,
 ) -> (usize, Option<usize>) {
-    let (mut lower, mut upper) = match hints.next() {
+    let mut sum = match hints.next() {
         None => return (0, None),
         Some(hint) => hint,
     };
-    for (hint_lower, hint_upper) in hints {
-        lower += hint_lower;
-        upper = match (upper, hint_upper) {
-            (Some(upper), Some(hint_upper)) => upper.checked_add(hint_upper),
-            _ => None,
-        }
+    for hint in hints {
+        sum = add_size_hint(sum, hint);
     }
-    (lower, upper)
+    sum
+}
+
+#[must_use]
+pub const fn add_size_hint(
+    hint1: (usize, Option<usize>),
+    hint2: (usize, Option<usize>),
+) -> (usize, Option<usize>) {
+    (
+        hint1.0 + hint2.0,
+        match (hint1.1, hint2.1) {
+            (Some(upper1), Some(upper2)) => upper1.checked_add(upper2),
+            _ => None,
+        },
+    )
 }
 
 /// Helper function to multiply a size hint by a number
-pub fn mul_size_hint(hint: (usize, Option<usize>), mul: usize) -> (usize, Option<usize>) {
+#[must_use]
+pub const fn mul_size_hint(hint: (usize, Option<usize>), mul: usize) -> (usize, Option<usize>) {
     (
         hint.0 * mul,
         match hint.1 {
@@ -227,7 +238,7 @@ impl<'a, 'b, T, const N: usize> AdvanceArray<'a, N> for &'b mut [T] {
         // Safe conversion because returned array will always be same size as value passed in (`N`)
         &mut *(
             // Safety: Same requirements as this function
-            self.advance_unchecked(N) as *mut [T] as *mut [T; N]
+            self.advance_unchecked(N).as_mut_ptr().cast::<[T; N]>()
         )
     }
 }
