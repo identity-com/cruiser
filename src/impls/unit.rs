@@ -40,6 +40,10 @@ impl FromAccounts<()> for () {
     ) -> GeneratorResult<Self> {
         Ok(())
     }
+
+    fn accounts_usage_hint(_arg: &()) -> (usize, Option<usize>) {
+        (0, Some(0))
+    }
 }
 impl ValidateArgument<()> for () {
     fn validate(&mut self, _program_id: &'static Pubkey, _arg: ()) -> GeneratorResult<()> {

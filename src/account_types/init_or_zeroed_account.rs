@@ -149,10 +149,10 @@ where
         }
     }
 
-    fn accounts_usage_hint() -> (usize, Option<usize>) {
+    fn accounts_usage_hint(arg: &Arg) -> (usize, Option<usize>) {
         combine_hints_branch(IntoIterator::into_iter([
-            <InitAccount<AL, A> as FromAccounts<Arg>>::accounts_usage_hint(),
-            <ZeroedAccount<AL, A> as FromAccounts<Arg>>::accounts_usage_hint(),
+            <InitAccount<AL, A> as FromAccounts<Arg>>::accounts_usage_hint(arg),
+            <ZeroedAccount<AL, A> as FromAccounts<Arg>>::accounts_usage_hint(arg),
         ]))
     }
 }

@@ -71,7 +71,7 @@ pub fn combine_hints_branch(
 }
 
 /// Helper function to combine multiple size hints with a chain strategy, where the sum of lower and upper bounds are returned
-pub fn combine_hints_chain(
+pub fn sum_size_hints(
     mut hints: impl Iterator<Item = (usize, Option<usize>)>,
 ) -> (usize, Option<usize>) {
     let mut sum = match hints.next() {

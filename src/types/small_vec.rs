@@ -159,7 +159,7 @@ mod test {
         let mut rand = thread_rng();
         for len in u8::MIN..u8::MAX {
             let mut vec = vec![0u8; len as usize];
-            for val in vec.iter_mut() {
+            for val in &mut vec {
                 *val = rand.gen();
             }
             let small_vec: Vec8<_> = vec
@@ -178,7 +178,7 @@ mod test {
         let mut rand = thread_rng();
         for len in (u16::MIN..u16::MAX).step_by(u16::MAX as usize / 157) {
             let mut vec = vec![0u8; len as usize];
-            for val in vec.iter_mut() {
+            for val in &mut vec {
                 *val = rand.gen();
             }
             let small_vec: Vec16<_> = vec

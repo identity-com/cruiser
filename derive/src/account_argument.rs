@@ -292,6 +292,23 @@ impl AccountArgumentDerive {
                     <#ty as #crate_name::FromAccounts<_>>::from_accounts(program_id, infos__, #from_data)?
                 }
             }).collect());
+            let size_hint: Vec<_> = field_types
+                .iter()
+                .zip(field_attrs.iter())
+                .map(|(ty, field_attr)| {
+                    let from_data = field_attr
+                        .from_data
+                        .as_ref()
+                        .cloned()
+                        .unwrap_or_else(|| syn::parse_str("()").unwrap());
+                    quote! {
+                        <#ty as #crate_name::FromAccounts<_>>::accounts_usage_hint(&#from_data)
+                    }
+                })
+                .collect();
+            let size_hint = quote! {
+                #(#size_hint,)*
+            };
 
             let verifications: Vec<_> = field_attrs
                 .iter()
@@ -342,20 +359,29 @@ impl AccountArgumentDerive {
             };
 
             quote! {
-                #(#[automatically_derived]
-                impl #impl_generics #crate_name::FromAccounts<#impl_types> for #ident #ty_generics #where_clause{
-                    fn from_accounts(
-                        program_id: &'static #crate_name::solana_program::pubkey::Pubkey,
-                        infos__: &mut impl #crate_name::AccountInfoIterator,
-                        arg__: #impl_types,
-                    ) -> #crate_name::GeneratorResult<Self>{
-                        #logging
-                        #impl_create
-                        let accounts = Self #creation;
-                        #verifications
-                        Ok(accounts)
+                #(
+                    #[automatically_derived]
+                    impl #impl_generics #crate_name::FromAccounts<#impl_types> for #ident #ty_generics #where_clause{
+                        fn from_accounts(
+                            program_id: &'static #crate_name::solana_program::pubkey::Pubkey,
+                            infos__: &mut impl #crate_name::AccountInfoIterator,
+                            arg__: #impl_types,
+                        ) -> #crate_name::GeneratorResult<Self>{
+                            #logging
+                            #impl_create
+                            let accounts = Self #creation;
+                            #verifications
+                            Ok(accounts)
+                        }
+
+                        fn accounts_usage_hint(arg: &#impl_types) -> (usize, Option<usize>) {
+                            #impl_create
+                            #crate_name::util::sum_size_hints([
+                                #size_hint
+                            ].into_iter())
+                        }
                     }
-                })*
+                )*
             }
         };
 
@@ -513,16 +539,13 @@ pub trait DefaultIndex: Sized {
 pub struct AllDefault;
 impl DefaultIndex for AllDefault {
     fn default_index() -> Indexes<Self> {
-        Indexes::All(
-            Ident::new(Indexes::<Self>::ALL_IDENT, Span::call_site()),
-            PhantomData,
-        )
+        Indexes::All(kw::all::default())
     }
 }
 pub struct UnitDefault;
 impl DefaultIndex for UnitDefault {
     fn default_index() -> Indexes<Self> {
-        Indexes::Expr(syn::parse_str("()").unwrap())
+        Indexes::Expr(syn::parse_str("()").unwrap(), PhantomData)
     }
 }
 
@@ -547,27 +570,30 @@ where
     }
 }
 
+mod kw {
+    use syn::custom_keyword;
+    custom_keyword!(all);
+    custom_keyword!(not_all);
+    custom_keyword!(any);
+    custom_keyword!(not_any);
+}
+
 #[derive(Clone)]
 pub enum Indexes<D: DefaultIndex = AllDefault> {
-    All(Ident, PhantomData<fn() -> D>),
-    NotAll(Ident),
-    Any(Ident),
-    NotAny(Ident),
-    Expr(Box<Expr>),
+    All(kw::all),
+    NotAll(kw::not_all),
+    Any(kw::any),
+    NotAny(kw::not_any),
+    Expr(Box<Expr>, PhantomData<fn() -> D>),
 }
 impl<D: DefaultIndex> Indexes<D> {
-    pub const ALL_IDENT: &'static str = "all";
-    pub const NOT_ALL_IDENT: &'static str = "not_all";
-    pub const ANY_IDENT: &'static str = "any";
-    pub const NOT_ANY_IDENT: &'static str = "not_any";
-
     fn to_tokens(&self, crate_name: &TokenStream) -> TokenStream {
         match self {
-            Indexes::All(_, _) => quote! { #crate_name::All },
-            Indexes::NotAll(_) => quote! { #crate_name::NotAll },
-            Indexes::Any(_) => quote! { #crate_name::Any },
-            Indexes::NotAny(_) => quote! { #crate_name::NotAny },
-            Indexes::Expr(expr) => quote! { #expr },
+            Indexes::All(_) => quote! { #crate_name::AllAny::from(#crate_name::All) },
+            Indexes::NotAll(_) => quote! { #crate_name::AllAny::from(#crate_name::NotAll) },
+            Indexes::Any(_) => quote! { #crate_name::AllAny::from(#crate_name::Any) },
+            Indexes::NotAny(_) => quote! { #crate_name::AllAny::from(#crate_name::NotAny) },
+            Indexes::Expr(expr, _) => quote! { #expr },
         }
     }
 }
@@ -578,22 +604,16 @@ impl<D: DefaultIndex> Parse for Indexes<D> {
             let content;
             parenthesized!(content in input);
             let lookahead = content.lookahead1();
-            if lookahead.peek(Ident) {
-                let fork = content.fork();
-                let ident: Ident = fork.parse()?;
-                if ident == Self::ALL_IDENT {
-                    Ok(Self::All(content.parse()?, PhantomData))
-                } else if ident == Self::NOT_ALL_IDENT {
-                    Ok(Self::NotAll(content.parse()?))
-                } else if ident == Self::ANY_IDENT {
-                    Ok(Self::Any(content.parse()?))
-                } else if ident == Self::NOT_ANY_IDENT {
-                    Ok(Self::NotAny(content.parse()?))
-                } else {
-                    Ok(Self::Expr(Box::new(content.parse()?)))
-                }
+            if lookahead.peek(kw::all) {
+                Ok(Self::All(content.parse()?))
+            } else if lookahead.peek(kw::not_all) {
+                Ok(Self::NotAll(content.parse()?))
+            } else if lookahead.peek(kw::any) {
+                Ok(Self::Any(content.parse()?))
+            } else if lookahead.peek(kw::not_any) {
+                Ok(Self::NotAny(content.parse()?))
             } else {
-                Ok(Self::Expr(Box::new(content.parse()?)))
+                Ok(Self::Expr(Box::new(content.parse()?), PhantomData))
             }
         } else {
             Ok(D::default_index())

@@ -123,7 +123,6 @@ pub fn derive_account_list(ts: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn verify_account_arg_impl(tokens: TokenStream) -> TokenStream {
     let stream = parse_macro_input!(tokens as VerifyAccountArgs).into_token_stream();
-    println!("{}", stream);
     stream.into()
 }
 

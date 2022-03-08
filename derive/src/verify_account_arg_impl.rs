@@ -82,6 +82,8 @@ mod kw {
     custom_keyword!(validate);
     custom_keyword!(multi);
     custom_keyword!(single);
+    custom_keyword!(all_any);
+    custom_keyword!(all_any_range);
 }
 
 pub struct VerifyAccountArg {
@@ -345,5 +347,6 @@ impl ToTokens for TypeListItem {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         self.generics.to_tokens(tokens);
         self.ty.to_tokens(tokens);
+        self.where_clause.to_tokens(tokens);
     }
 }

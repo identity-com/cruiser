@@ -60,8 +60,8 @@ where
         Ok(Self { info })
     }
 
-    fn accounts_usage_hint() -> (usize, Option<usize>) {
-        AccountInfo::accounts_usage_hint()
+    fn accounts_usage_hint(arg: &A) -> (usize, Option<usize>) {
+        AccountInfo::accounts_usage_hint(arg)
     }
 }
 impl MultiIndexable<()> for SystemProgram {

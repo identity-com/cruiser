@@ -2,10 +2,35 @@ use std::fmt::Debug;
 use std::ops::RangeBounds;
 
 use crate::{
-    AccountArgument, AccountInfo, AccountInfoIterator, AllAny, AllAnyRange, FromAccounts,
-    GeneratorError, GeneratorResult, MultiIndexable, Pubkey,
-    SingleIndexable, SystemProgram,
+    mul_size_hint, sum_size_hints, verify_account_arg_impl, AccountArgument, AccountInfo,
+    AccountInfoIterator, AllAny, AllAnyRange, FromAccounts, GeneratorError, GeneratorResult,
+    MultiIndexable, Pubkey, SingleIndexable, SystemProgram,
 };
+
+verify_account_arg_impl! {
+    mod vec_checks{
+        <T> Vec<T>
+        where
+            T: AccountArgument{
+            from: [
+                usize where T: FromAccounts<()>;
+                <A> (usize, (A,)) where T: FromAccounts<A>, A: Clone;
+                <A, F> (usize, F, ()) where T: FromAccounts<A>, F: FnMut(usize) -> A;
+                <A, const N: usize> [A; N] where T: FromAccounts<A>;
+                <A> Vec<A> where T: FromAccounts<A>;
+            ];
+            validate: [
+
+            ];
+            multi: [
+
+            ];
+            single: [
+
+            ];
+        }
+    }
+}
 
 impl<T> AccountArgument for Vec<T>
 where
@@ -42,6 +67,10 @@ where
             .map(|_| T::from_accounts(program_id, infos, ()))
             .collect()
     }
+
+    fn accounts_usage_hint(arg: &usize) -> (usize, Option<usize>) {
+        mul_size_hint(T::accounts_usage_hint(&()), *arg)
+    }
 }
 impl<A, T> FromAccounts<Vec<A>> for Vec<T>
 where
@@ -56,8 +85,12 @@ where
             .map(|arg| T::from_accounts(program_id, infos, arg))
             .collect()
     }
+
+    fn accounts_usage_hint(arg: &Vec<A>) -> (usize, Option<usize>) {
+        sum_size_hints(arg.iter().map(|arg| T::accounts_usage_hint(arg)))
+    }
 }
-impl<A, T> FromAccounts<(usize, A)> for Vec<T>
+impl<A, T> FromAccounts<(usize, (A,))> for Vec<T>
 where
     T: FromAccounts<A>,
     A: Clone,
@@ -65,16 +98,20 @@ where
     fn from_accounts(
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
-        arg: (usize, A),
+        arg: (usize, (A,)),
     ) -> GeneratorResult<Self> {
         let mut out = Vec::with_capacity(arg.0);
         if arg.0 != 0 {
             for _ in 0..arg.0 - 1 {
-                out.push(T::from_accounts(program_id, infos, arg.1.clone())?);
+                out.push(T::from_accounts(program_id, infos, arg.1 .0.clone())?);
             }
-            out.push(T::from_accounts(program_id, infos, arg.1)?);
+            out.push(T::from_accounts(program_id, infos, arg.1 .0)?);
         }
         Ok(out)
+    }
+
+    fn accounts_usage_hint(arg: &(usize, (A,))) -> (usize, Option<usize>) {
+        mul_size_hint(T::accounts_usage_hint(&arg.1 .0), arg.0)
     }
 }
 impl<A, T, F> FromAccounts<(usize, F, ())> for Vec<T>
@@ -93,6 +130,10 @@ where
         }
         Ok(out)
     }
+
+    fn accounts_usage_hint(_arg: &(usize, F, ())) -> (usize, Option<usize>) {
+        (0, None)
+    }
 }
 
 impl<A, T, const N: usize> FromAccounts<[A; N]> for Vec<T>
@@ -105,6 +146,10 @@ where
         arg: [A; N],
     ) -> GeneratorResult<Self> {
         Ok(IntoIterator::into_iter(<[T; N]>::from_accounts(program_id, infos, arg)?).collect())
+    }
+
+    fn accounts_usage_hint(arg: &[A; N]) -> (usize, Option<usize>) {
+        sum_size_hints(arg.iter().map(|arg| T::accounts_usage_hint(arg)))
     }
 }
 impl<T, I> MultiIndexable<(usize, I)> for Vec<T>

@@ -64,13 +64,11 @@ pub trait FromAccounts<A>: Sized + AccountArgument {
     ///
     /// Should only be used as an optimization hint, not relied on.
     ///
-    /// The default return of `(0, None)` is valid for all although may not be as accurate as possible.
+    /// A default return of `(0, None)` is valid for all although may not be as accurate as possible.
     // TODO: Make this const once const trait functions are stabilized
     // TODO: Figure out how to make this derivable
     #[must_use]
-    fn accounts_usage_hint() -> (usize, Option<usize>) {
-        (0, None)
-    }
+    fn accounts_usage_hint(_arg: &A) -> (usize, Option<usize>);
 }
 pub trait ValidateArgument<A>: Sized + AccountArgument {
     fn validate(&mut self, program_id: &'static Pubkey, arg: A) -> GeneratorResult<()>;

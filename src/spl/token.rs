@@ -65,8 +65,8 @@ impl FromAccounts<()> for TokenAccount {
         Ok(Self { data, account })
     }
 
-    fn accounts_usage_hint() -> (usize, Option<usize>) {
-        TokenProgramAccount::accounts_usage_hint()
+    fn accounts_usage_hint(arg: &()) -> (usize, Option<usize>) {
+        TokenProgramAccount::accounts_usage_hint(arg)
     }
 }
 delegate_multi_indexable!(TokenAccount, AllAny, (account));
@@ -99,8 +99,8 @@ impl FromAccounts<()> for MintAccount {
         Ok(Self { data, account })
     }
 
-    fn accounts_usage_hint() -> (usize, Option<usize>) {
-        TokenProgramAccount::accounts_usage_hint()
+    fn accounts_usage_hint(arg: &()) -> (usize, Option<usize>) {
+        TokenProgramAccount::accounts_usage_hint(arg)
     }
 }
 delegate_multi_indexable!(MintAccount, AllAny, (account));

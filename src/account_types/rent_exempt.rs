@@ -51,6 +51,10 @@ where
     ) -> GeneratorResult<Self> {
         Self::from_accounts(program_id, infos, Rent::default())
     }
+
+    fn accounts_usage_hint(arg: &()) -> (usize, Option<usize>) {
+        A::accounts_usage_hint(arg)
+    }
 }
 impl<A> FromAccounts<Rent> for RentExempt<A>
 where
@@ -63,6 +67,10 @@ where
     ) -> GeneratorResult<Self> {
         Self::from_accounts(program_id, infos, (arg, (), ()))
     }
+
+    fn accounts_usage_hint(_arg: &Rent) -> (usize, Option<usize>) {
+        A::accounts_usage_hint(&())
+    }
 }
 impl<A, T> FromAccounts<(Rent, T)> for RentExempt<A>
 where
@@ -74,6 +82,10 @@ where
         arg: (Rent, T),
     ) -> GeneratorResult<Self> {
         Self::from_accounts(program_id, infos, (arg.0, arg.1, ()))
+    }
+
+    fn accounts_usage_hint(arg: &(Rent, T)) -> (usize, Option<usize>) {
+        A::accounts_usage_hint(&arg.1)
     }
 }
 impl<A, T, I> FromAccounts<(Rent, T, I)> for RentExempt<A>
@@ -100,6 +112,10 @@ where
         } else {
             Ok(RentExempt(account))
         }
+    }
+
+    fn accounts_usage_hint(arg: &(Rent, T, I)) -> (usize, Option<usize>) {
+        A::accounts_usage_hint(&arg.1)
     }
 }
 impl<T, A> MultiIndexable<T> for RentExempt<A>

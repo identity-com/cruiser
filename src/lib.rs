@@ -19,6 +19,7 @@
     clippy::cast_possible_truncation,
     clippy::module_name_repetitions,
     clippy::missing_errors_doc,
+    clippy::too_many_lines,
     missing_docs
 )]
 //! A generator program that will be able to generate solana program code from a much easier starting place.
@@ -60,7 +61,7 @@ mod pda_seeds;
 pub mod spl;
 mod traits;
 pub mod types;
-mod util;
+pub mod util;
 
 /// Invokes another solana program.
 /// Equivalent to [`solana_program::program::invoke`] but with custom [`AccountInfo`].

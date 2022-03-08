@@ -161,7 +161,7 @@ impl FromAccounts<()> for AccountInfo {
         }
     }
 
-    fn accounts_usage_hint() -> (usize, Option<usize>) {
+    fn accounts_usage_hint(_arg: &()) -> (usize, Option<usize>) {
         (1, Some(1))
     }
 }
@@ -231,9 +231,9 @@ pub mod account_info_test {
         rent_epoch: u64,
     ) {
         data.push(u8::MAX);
-        data.push(is_signer as u8);
-        data.push(is_writable as u8);
-        data.push(is_executable as u8);
+        data.push(u8::from(is_signer));
+        data.push(u8::from(is_writable));
+        data.push(u8::from(is_executable));
         add(data, 0u32.to_ne_bytes());
         add(data, key.to_bytes());
         add(data, owner.to_bytes());
@@ -260,7 +260,7 @@ pub mod account_info_test {
             &mut data, true, true, false, key1, owner1, 100, [32; 10], 1828,
         );
         add_account(
-            &mut data, false, false, true, key2, owner2, 100000, [56; 1000], 567,
+            &mut data, false, false, true, key2, owner2, 100_000, [56; 1000], 567,
         );
         data.push(0);
         add(&mut data, [9; 7]);
@@ -290,7 +290,7 @@ pub mod account_info_test {
         assert!(solana_accounts[1].executable);
         assert_eq!(solana_accounts[1].key, &key2);
         assert_eq!(solana_accounts[1].owner, &owner2);
-        assert_eq!(**solana_accounts[1].lamports.borrow(), 100000);
+        assert_eq!(**solana_accounts[1].lamports.borrow(), 100_000);
         assert_eq!(solana_accounts[1].data.borrow().len(), 1000);
         assert!(solana_accounts[1]
             .data
@@ -336,7 +336,7 @@ pub mod account_info_test {
         assert!(generator_accounts[1].executable);
         assert_eq!(generator_accounts[1].key, &key2);
         assert_eq!(**generator_accounts[1].owner.borrow(), owner2);
-        assert_eq!(**generator_accounts[1].lamports.borrow(), 100000);
+        assert_eq!(**generator_accounts[1].lamports.borrow(), 100_000);
         assert_eq!(generator_accounts[1].data.borrow().len(), 1000);
         assert!(generator_accounts[1]
             .data
@@ -405,6 +405,7 @@ pub mod account_info_test {
             rent_epoch: rng.gen(),
         }
     }
+    #[must_use]
     pub fn account_info_eq(first: &AccountInfo, second: &AccountInfo) -> bool {
         first.key == second.key
             && first.is_signer == second.is_signer

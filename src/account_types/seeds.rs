@@ -116,8 +116,8 @@ where
         Self::from_accounts(program_id, infos, (arg.0, arg.1, ()))
     }
 
-    fn accounts_usage_hint() -> (usize, Option<usize>) {
-        A::accounts_usage_hint()
+    fn accounts_usage_hint(_arg: &(&'a S, B)) -> (usize, Option<usize>) {
+        A::accounts_usage_hint(&())
     }
 }
 impl<'a, A, S, B, D> FromAccounts<(&'a S, B, D)> for Seeds<A, S>
@@ -134,8 +134,8 @@ where
         Self::from_accounts(program_id, infos, (arg.0, arg.1, arg.2, ()))
     }
 
-    fn accounts_usage_hint() -> (usize, Option<usize>) {
-        A::accounts_usage_hint()
+    fn accounts_usage_hint(arg: &(&'a S, B, D)) -> (usize, Option<usize>) {
+        A::accounts_usage_hint(&arg.2)
     }
 }
 
@@ -161,7 +161,7 @@ where
         })
     }
 
-    fn accounts_usage_hint() -> (usize, Option<usize>) {
-        A::accounts_usage_hint()
+    fn accounts_usage_hint(arg: &(&'a S, B, D, I)) -> (usize, Option<usize>) {
+        A::accounts_usage_hint(&arg.2)
     }
 }

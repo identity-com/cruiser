@@ -101,8 +101,8 @@ where
         })
     }
 
-    fn accounts_usage_hint() -> (usize, Option<usize>) {
-        AccountInfo::accounts_usage_hint()
+    fn accounts_usage_hint(arg: &Arg) -> (usize, Option<usize>) {
+        AccountInfo::accounts_usage_hint(arg)
     }
 }
 impl<AL, A> MultiIndexable<()> for ProgramAccount<AL, A>

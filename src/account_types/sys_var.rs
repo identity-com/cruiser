@@ -62,15 +62,16 @@ where
     ) -> GeneratorResult<Self> {
         let account = AccountInfo::from_accounts(program_id, infos, ())?;
         if T::check_id(account.key) {
-            Ok(Self {
-                0: account,
-                1: PhantomData,
-            })
+            Ok(Self(account, PhantomData))
         } else {
             Err(GeneratorError::InvalidSysVar {
                 actual: account.key,
             }
             .into())
         }
+    }
+
+    fn accounts_usage_hint(arg: &()) -> (usize, Option<usize>) {
+        AccountInfo::accounts_usage_hint(arg)
     }
 }
