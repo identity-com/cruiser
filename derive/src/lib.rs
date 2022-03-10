@@ -12,10 +12,10 @@ use proc_macro_crate::{crate_name, FoundCrate};
 use proc_macro_error::proc_macro_error;
 use quote::{format_ident, quote};
 #[cfg(feature = "easy_proc_test")]
-use syn::{Ident, LitInt, LitStr};
-#[cfg(feature = "easy_proc_test")]
 use syn::parse::{Parse, ParseStream};
 use syn::parse_macro_input;
+#[cfg(feature = "easy_proc_test")]
+use syn::{Ident, LitInt, LitStr};
 
 #[cfg(feature = "easy_proc_test")]
 use easy_proc::ArgumentList;
