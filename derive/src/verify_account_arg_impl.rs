@@ -1,13 +1,14 @@
-use crate::get_crate_name;
 use proc_macro2::TokenStream;
 use proc_macro_error::abort;
 use quote::{format_ident, quote, ToTokens};
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
 use syn::{
-    braced, bracketed, custom_keyword, token, GenericParam, Generics, Ident, Token, Type,
+    braced, bracketed, custom_keyword, GenericParam, Generics, Ident, token, Token, Type,
     Visibility, WhereClause,
 };
+use syn::parse::{Parse, ParseStream};
+use syn::punctuated::Punctuated;
+
+use crate::get_crate_name;
 
 pub struct VerifyAccountArgs {
     vis: Visibility,
@@ -78,6 +79,7 @@ impl ToTokens for VerifyAccountArgs {
 
 mod kw {
     use super::*;
+
     custom_keyword!(from);
     custom_keyword!(validate);
     custom_keyword!(multi);
@@ -153,12 +155,12 @@ impl VerifyAccountArg {
 }
 impl Parse for VerifyAccountArg {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        println!("input: {}", input);
+        // println!("input: {}", input);
         let type_generics = input.parse()?;
-        println!("type_generics: {}", input);
+        // println!("type_generics: {}", input);
         let ty: Type = input.parse()?;
         let where_clause = input.parse()?;
-        println!("where_clause: {}", input);
+        // println!("where_clause: {}", input);
         let content;
         let brace = braced!(content in input);
         let mut from: Option<TypeList<kw::from>> = None;

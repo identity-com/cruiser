@@ -1,10 +1,12 @@
-use crate::{GeneratorError, GeneratorResult};
-pub use short_vec::ShortVec;
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::num::NonZeroU64;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::ptr::slice_from_raw_parts_mut;
+
+pub use short_vec::ShortVec;
+
+use crate::{GeneratorError, GeneratorResult};
 
 pub(crate) mod bytes_ext;
 pub mod short_vec;
@@ -54,8 +56,9 @@ pub fn convert_range(
 
 /// Helper function to combine multiple size hints with a branch strategy, where the minimum lower bound and maximum upper bound are returned
 pub fn combine_hints_branch(
-    mut hints: impl Iterator<Item = (usize, Option<usize>)>,
+    hints: impl IntoIterator<Item = (usize, Option<usize>)>,
 ) -> (usize, Option<usize>) {
+    let mut hints = hints.into_iter();
     let (mut lower, mut upper) = match hints.next() {
         None => return (0, None),
         Some(hint) => hint,

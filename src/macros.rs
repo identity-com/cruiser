@@ -94,9 +94,8 @@ macro_rules! delegate_account_argument {
             fn write_back(
                 self,
                 program_id: &'static $crate::Pubkey,
-                system_program: Option<&$crate::SystemProgram>,
             ) -> $crate::GeneratorResult<()> {
-                self.$accessor.write_back(program_id, system_program)
+                self.$accessor.write_back(program_id)
             }
 
             fn add_keys(

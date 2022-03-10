@@ -41,7 +41,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --tests --examples -- --deny=warnings
+          args: --workspace --tests --examples -- --deny=warnings
 
   program-unit-test:
     name: Test cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}

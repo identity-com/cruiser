@@ -4,6 +4,28 @@
 
 extern crate proc_macro;
 
+use proc_macro::TokenStream;
+
+#[cfg(feature = "easy_proc_test")]
+use proc_macro2::Span;
+use proc_macro_crate::{crate_name, FoundCrate};
+use proc_macro_error::proc_macro_error;
+use quote::{format_ident, quote};
+#[cfg(feature = "easy_proc_test")]
+use syn::{Ident, LitInt, LitStr};
+#[cfg(feature = "easy_proc_test")]
+use syn::parse::{Parse, ParseStream};
+use syn::parse_macro_input;
+
+#[cfg(feature = "easy_proc_test")]
+use easy_proc::ArgumentList;
+
+use crate::account_argument::AccountArgumentDerive;
+use crate::account_list::AccountListDerive;
+use crate::error::ErrorDerive;
+use crate::instruction_list::InstructionListDerive;
+use crate::verify_account_arg_impl::VerifyAccountArgs;
+
 mod account_argument;
 mod account_list;
 mod error;
@@ -11,15 +33,6 @@ mod in_place;
 mod instruction_list;
 mod log_level;
 mod verify_account_arg_impl;
-
-use crate::account_argument::AccountArgumentDerive;
-use crate::error::ErrorDerive;
-use crate::instruction_list::InstructionListDerive;
-use crate::verify_account_arg_impl::VerifyAccountArgs;
-use proc_macro::TokenStream;
-use proc_macro_error::proc_macro_error;
-use quote::{format_ident, quote};
-use syn::parse_macro_input;
 
 /// If no start specified starts at `300`
 #[proc_macro_error]
@@ -81,7 +94,7 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 /// This is optional and allows the setting of the [`InstructionArg`](AccountArgument::InstructionArg) passed to this field.
 /// If not used calls [`Default::default`] instead.
 #[proc_macro_error]
-#[proc_macro_derive(AccountArgument, attributes(from, account_argument))]
+#[proc_macro_derive(AccountArgument, attributes(from, account_argument, validate))]
 pub fn derive_account_argument(ts: TokenStream) -> TokenStream {
     let stream = parse_macro_input!(ts as AccountArgumentDerive).into_token_stream();
     #[cfg(feature = "debug_account_argument")]
@@ -195,17 +208,6 @@ impl Parse for TestStruct {
         Ok(Self { cool })
     }
 }
-
-use crate::account_list::AccountListDerive;
-#[cfg(feature = "easy_proc_test")]
-use easy_proc::ArgumentList;
-#[cfg(feature = "easy_proc_test")]
-use proc_macro2::Span;
-use proc_macro_crate::{crate_name, FoundCrate};
-#[cfg(feature = "easy_proc_test")]
-use syn::parse::{Parse, ParseStream};
-#[cfg(feature = "easy_proc_test")]
-use syn::{Ident, LitInt, LitStr};
 
 #[cfg(feature = "easy_proc_test")]
 #[derive(ArgumentList)]

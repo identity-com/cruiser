@@ -1,9 +1,10 @@
-use crate::{
-    AccountArgument, AccountInfoIterator, FromAccounts, GeneratorResult, SystemProgram,
-    ValidateArgument,
-};
-use cruiser_derive::verify_account_arg_impl;
 use solana_program::pubkey::Pubkey;
+
+use cruiser_derive::verify_account_arg_impl;
+
+use crate::{
+    AccountArgument, AccountInfoIterator, FromAccounts, GeneratorResult, ValidateArgument,
+};
 
 verify_account_arg_impl! {
     mod unit_checks {
@@ -17,11 +18,7 @@ verify_account_arg_impl! {
 }
 
 impl AccountArgument for () {
-    fn write_back(
-        self,
-        _program_id: &'static Pubkey,
-        _system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
+    fn write_back(self, _program_id: &'static Pubkey) -> GeneratorResult<()> {
         Ok(())
     }
 

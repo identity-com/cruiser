@@ -1,11 +1,13 @@
-use crate::get_crate_name;
-use crate::log_level::LogLevel;
-use easy_proc::{find_attr, ArgumentList};
 use proc_macro2::{Span, TokenStream};
 use proc_macro_error::{abort, abort_call_site};
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::{Data, DeriveInput, Expr, Fields, Generics, Ident, LitStr, Type, Variant};
+
+use easy_proc::{find_attr, ArgumentList};
+
+use crate::get_crate_name;
+use crate::log_level::LogLevel;
 
 #[derive(ArgumentList)]
 pub struct InstructionListAttribute {
@@ -144,12 +146,12 @@ impl InstructionListDerive {
                             let mut data = <<#variant_instruction_type as #crate_name::Instruction>::Data as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
                             let from_data = <#variant_instruction_type as #crate_name::Instruction>::data_to_instruction_arg(&mut data)?;
                             let mut accounts = <<#variant_instruction_type as #crate_name::Instruction>::Accounts as #crate_name::FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
-                            let system_program = <#variant_processors as #crate_name::InstructionProcessor<#variant_instruction_type>>::process(
+                            <#variant_processors as #crate_name::InstructionProcessor<#variant_instruction_type>>::process(
                                 program_id,
                                 data,
                                 &mut accounts,
                             )?;
-                            <<#variant_instruction_type as #crate_name::Instruction>::Accounts as #crate_name::AccountArgument>::write_back(accounts, program_id, system_program.as_ref())?;
+                            <<#variant_instruction_type as #crate_name::Instruction>::Accounts as #crate_name::AccountArgument>::write_back(accounts, program_id)?;
                             Ok(())
                         })* else{
                             todo!();

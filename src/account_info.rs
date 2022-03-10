@@ -1,16 +1,29 @@
-use crate::{
-    AccountArgument, AccountInfoIterator, AllAny, FromAccounts, GeneratorResult, MultiIndexable,
-    SingleIndexable, SystemProgram,
-};
+use std::cell::RefCell;
+use std::mem::{align_of, size_of, transmute};
+use std::rc::Rc;
+use std::slice::{from_raw_parts, from_raw_parts_mut};
+
 use solana_program::account_info::AccountInfo as SolanaAccountInfo;
 use solana_program::clock::Epoch;
 use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
 use solana_program::program_error::ProgramError;
 use solana_program::pubkey::Pubkey;
-use std::cell::RefCell;
-use std::mem::{align_of, size_of, transmute};
-use std::rc::Rc;
-use std::slice::{from_raw_parts, from_raw_parts_mut};
+
+use crate::{
+    verify_account_arg_impl, AccountArgument, AccountInfoIterator, AllAny, FromAccounts,
+    GeneratorResult, MultiIndexable, SingleIndexable, ValidateArgument,
+};
+
+verify_account_arg_impl! {
+    mod account_info_check{
+        AccountInfo{
+            from: [()];
+            validate: [()];
+            multi: [(); AllAny];
+            single: [()];
+        }
+    }
+}
 
 /// A custom version of [`solana_program::account_info::AccountInfo`] that allows for owner changes.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -134,11 +147,7 @@ impl AccountInfo {
     }
 }
 impl AccountArgument for AccountInfo {
-    fn write_back(
-        self,
-        _program_id: &Pubkey,
-        _system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
+    fn write_back(self, _program_id: &Pubkey) -> GeneratorResult<()> {
         Ok(())
     }
 
@@ -163,6 +172,11 @@ impl FromAccounts<()> for AccountInfo {
 
     fn accounts_usage_hint(_arg: &()) -> (usize, Option<usize>) {
         (1, Some(1))
+    }
+}
+impl ValidateArgument<()> for AccountInfo {
+    fn validate(&mut self, _program_id: &'static Pubkey, _arg: ()) -> GeneratorResult<()> {
+        Ok(())
     }
 }
 impl MultiIndexable<()> for AccountInfo {
@@ -191,7 +205,6 @@ impl MultiIndexable<AllAny> for AccountInfo {
         Ok(indexer.is_not() ^ self.is_owner(owner, ())?)
     }
 }
-impl_indexed_for_all_any!(AccountInfo);
 impl SingleIndexable<()> for AccountInfo {
     fn info(&self, _indexer: ()) -> GeneratorResult<&AccountInfo> {
         Ok(self)
@@ -200,12 +213,16 @@ impl SingleIndexable<()> for AccountInfo {
 
 #[cfg(test)]
 pub mod account_info_test {
-    use crate::{AccountInfo, All, Any, MultiIndexable, NotAll, NotAny, Pubkey, Single};
-    use rand::{thread_rng, Rng};
-    use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
     use std::cell::RefCell;
     use std::mem::align_of;
     use std::rc::Rc;
+
+    use rand::{thread_rng, Rng};
+    use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
+
+    use cruiser::AllAny;
+
+    use crate::{AccountInfo, MultiIndexable, Pubkey, Single};
 
     fn add<const N: usize>(data: &mut Vec<u8>, add: [u8; N]) {
         for item in IntoIterator::into_iter(add) {
@@ -422,27 +439,39 @@ pub mod account_info_test {
         let mut rng = thread_rng();
         let mut account_info = random_account_info(&mut rng);
         assert_eq!(account_info.is_signer, account_info.is_signer(()).unwrap());
-        assert_eq!(account_info.is_signer, account_info.is_signer(All).unwrap());
-        assert_eq!(account_info.is_signer, account_info.is_signer(Any).unwrap());
         assert_eq!(
-            !account_info.is_signer,
-            account_info.is_signer(NotAll).unwrap()
+            account_info.is_signer,
+            account_info.is_signer(AllAny::All).unwrap()
+        );
+        assert_eq!(
+            account_info.is_signer,
+            account_info.is_signer(AllAny::Any).unwrap()
         );
         assert_eq!(
             !account_info.is_signer,
-            account_info.is_signer(NotAny).unwrap()
+            account_info.is_signer(AllAny::NotAll).unwrap()
+        );
+        assert_eq!(
+            !account_info.is_signer,
+            account_info.is_signer(AllAny::NotAny).unwrap()
         );
         account_info.is_signer = !account_info.is_signer;
         assert_eq!(account_info.is_signer, account_info.is_signer(()).unwrap());
-        assert_eq!(account_info.is_signer, account_info.is_signer(All).unwrap());
-        assert_eq!(account_info.is_signer, account_info.is_signer(Any).unwrap());
         assert_eq!(
-            !account_info.is_signer,
-            account_info.is_signer(NotAll).unwrap()
+            account_info.is_signer,
+            account_info.is_signer(AllAny::All).unwrap()
+        );
+        assert_eq!(
+            account_info.is_signer,
+            account_info.is_signer(AllAny::Any).unwrap()
         );
         assert_eq!(
             !account_info.is_signer,
-            account_info.is_signer(NotAny).unwrap()
+            account_info.is_signer(AllAny::NotAll).unwrap()
+        );
+        assert_eq!(
+            !account_info.is_signer,
+            account_info.is_signer(AllAny::NotAny).unwrap()
         );
     }
 
@@ -456,19 +485,19 @@ pub mod account_info_test {
         );
         assert_eq!(
             account_info.is_writable,
-            account_info.is_writable(All).unwrap()
+            account_info.is_writable(AllAny::All).unwrap()
         );
         assert_eq!(
             account_info.is_writable,
-            account_info.is_writable(Any).unwrap()
+            account_info.is_writable(AllAny::Any).unwrap()
         );
         assert_eq!(
             !account_info.is_writable,
-            account_info.is_writable(NotAll).unwrap()
+            account_info.is_writable(AllAny::NotAll).unwrap()
         );
         assert_eq!(
             !account_info.is_writable,
-            account_info.is_writable(NotAny).unwrap()
+            account_info.is_writable(AllAny::NotAny).unwrap()
         );
         account_info.is_signer = !account_info.is_signer;
         assert_eq!(
@@ -477,19 +506,19 @@ pub mod account_info_test {
         );
         assert_eq!(
             account_info.is_writable,
-            account_info.is_writable(All).unwrap()
+            account_info.is_writable(AllAny::All).unwrap()
         );
         assert_eq!(
             account_info.is_writable,
-            account_info.is_writable(Any).unwrap()
+            account_info.is_writable(AllAny::Any).unwrap()
         );
         assert_eq!(
             !account_info.is_writable,
-            account_info.is_writable(NotAll).unwrap()
+            account_info.is_writable(AllAny::NotAll).unwrap()
         );
         assert_eq!(
             !account_info.is_writable,
-            account_info.is_writable(NotAny).unwrap()
+            account_info.is_writable(AllAny::NotAny).unwrap()
         );
     }
 
@@ -501,31 +530,31 @@ pub mod account_info_test {
             .is_owner(*account_info.owner.borrow(), ())
             .unwrap());
         assert!(account_info
-            .is_owner(*account_info.owner.borrow(), All)
+            .is_owner(*account_info.owner.borrow(), AllAny::All)
             .unwrap());
         assert!(account_info
-            .is_owner(*account_info.owner.borrow(), Any)
+            .is_owner(*account_info.owner.borrow(), AllAny::Any)
             .unwrap());
         assert!(!account_info
-            .is_owner(*account_info.owner.borrow(), NotAll)
+            .is_owner(*account_info.owner.borrow(), AllAny::NotAll)
             .unwrap());
         assert!(!account_info
-            .is_owner(*account_info.owner.borrow(), NotAny)
+            .is_owner(*account_info.owner.borrow(), AllAny::NotAny)
             .unwrap());
         assert!(!account_info
             .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), ())
             .unwrap());
         assert!(!account_info
-            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), All)
+            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::All)
             .unwrap());
         assert!(!account_info
-            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), Any)
+            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::Any)
             .unwrap());
         assert!(account_info
-            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), NotAll)
+            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::NotAll)
             .unwrap());
         assert!(account_info
-            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), NotAny)
+            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::NotAny)
             .unwrap());
     }
 

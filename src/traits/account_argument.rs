@@ -1,10 +1,11 @@
+use std::fmt::Debug;
+use std::iter::FusedIterator;
+
 use solana_program::pubkey::Pubkey;
 
 pub use cruiser_derive::AccountArgument;
 
-use crate::{AccountInfo, GeneratorError, GeneratorResult, SolanaAccountMeta, SystemProgram};
-use std::fmt::Debug;
-use std::iter::FusedIterator;
+use crate::{AccountInfo, GeneratorError, GeneratorResult, SolanaAccountMeta};
 
 /// A set of accounts that can be derived from an iterator over [`AccountInfo`]s and instruction data
 ///
@@ -15,11 +16,7 @@ use std::iter::FusedIterator;
 /// The indexes of the tuple are:
 /// 0. The size of the vector (`0` is acceptable)
 /// 1. The instruction argument that will be copied to all indices
-///
-/// ## [`VecDeque`]:
-/// Same as `Vec` implementation
-///
-/// ## `[T; N]`:
+/// ## [`[T; N]`](array):
 /// [`AccountArgument`] is implemented for all arrays `[T; N]` where `T` implements [`AccountArgument`].
 /// It's instruction argument is `[T::InstructionArg; N]`.
 /// Each index will be passed its corresponding argument.
@@ -27,11 +24,7 @@ pub trait AccountArgument: Sized {
     /// Writes the accounts back to the chain.
     /// - `program_id` is the current program's id.
     /// - `system_program` is an option reference to the system program's account info.
-    fn write_back(
-        self,
-        program_id: &'static Pubkey,
-        system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()>;
+    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()>;
     /// Adds all keys from this account to a given function.
     fn add_keys(
         &self,
@@ -68,7 +61,7 @@ pub trait FromAccounts<A>: Sized + AccountArgument {
     // TODO: Make this const once const trait functions are stabilized
     // TODO: Figure out how to make this derivable
     #[must_use]
-    fn accounts_usage_hint(_arg: &A) -> (usize, Option<usize>);
+    fn accounts_usage_hint(arg: &A) -> (usize, Option<usize>);
 }
 pub trait ValidateArgument<A>: Sized + AccountArgument {
     fn validate(&mut self, program_id: &'static Pubkey, arg: A) -> GeneratorResult<()>;
@@ -159,8 +152,8 @@ where
 /// Asserts that the account at index `indexer` is a certain key.
 pub fn assert_is_key<I>(
     argument: &impl SingleIndexable<I>,
-    indexer: I,
     key: &Pubkey,
+    indexer: I,
 ) -> GeneratorResult<()>
 where
     I: Debug + Clone,

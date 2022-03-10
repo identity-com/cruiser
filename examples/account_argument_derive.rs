@@ -1,6 +1,39 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::{AccountArgument, AccountList, InitAccount, ProgramAccount, ZeroedAccount};
 use solana_program::pubkey::Pubkey;
+
+use cruiser::{
+    verify_account_arg_impl, AccountArgument, AccountList, InitAccount, ProgramAccount,
+    ZeroedAccount,
+};
+
+verify_account_arg_impl! {
+    mod empty_checks{
+        EmptyStruct {
+            from: [(u8, usize)];
+            validate: [];
+            multi: [];
+            single: [];
+        };
+        EmptyTupple {
+            from: [();];
+            validate: [];
+            multi: [];
+            single: [];
+        };
+        FullStruct {
+            from: [u64; (u64,)];
+            validate: [];
+            multi: [];
+            single: [];
+        };
+        FullStruct2 {
+            from: [u64; (u64,)];
+            validate: [];
+            multi: [];
+            single: [];
+        };
+    }
+}
 
 #[derive(AccountArgument)]
 #[from(data = (cool: u8, hi: usize), log_level = trace)]
@@ -22,9 +55,10 @@ pub enum TestAccountList {
 #[from(data = (init_size: u64))]
 pub struct FullStruct {
     data_account: ProgramAccount<TestAccountList, CoolAccount>,
-    #[account_argument(signer, writable, owner(0) = &get_pubkey(), from_data = init_size as usize)]
+    #[from(data = init_size as usize)]
+    #[validate(signer, writable, owner(0) = &get_pubkey())]
     init_accounts: Vec<InitAccount<TestAccountList, CoolAccount>>,
-    #[account_argument(signer, writable(3), owner(0..4) = &get_pubkey(), owner(7) = accounts.data_account.key())]
+    #[validate(signer, writable(3), owner(0..4) = &get_pubkey(), owner(7) = accounts.data_account.key())]
     other_accounts: [ZeroedAccount<TestAccountList, i8>; 8],
 }
 
@@ -32,9 +66,9 @@ pub struct FullStruct {
 #[from(data = (init_size: u64))]
 pub struct FullStruct2 {
     data_account: ProgramAccount<TestAccountList, CoolAccount>,
-    #[account_argument(from_data = vec![(); init_size as usize])]
+    #[from(data = vec![(); init_size as usize])]
     init_accounts: Vec<InitAccount<TestAccountList, CoolAccount>>,
-    #[account_argument(signer, writable(3), owner(0..4) = &get_pubkey())]
+    #[validate(signer, writable(3), owner(0..4) = &get_pubkey())]
     other_accounts: [ZeroedAccount<TestAccountList, i8>; 8],
 }
 

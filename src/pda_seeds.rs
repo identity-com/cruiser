@@ -1,11 +1,12 @@
-use crate::solana_program::entrypoint::ProgramResult;
-use crate::solana_program::pubkey::PubkeyError;
+use std::fmt::Debug;
+use std::iter::{Chain, Map, once, Once};
+
 use crate::{
-    invoke_signed, invoke_signed_variable_size, AccountInfo, GeneratorError, GeneratorResult,
+    AccountInfo, GeneratorError, GeneratorResult, invoke_signed, invoke_signed_variable_size,
     Pubkey, SolanaInstruction,
 };
-use std::fmt::Debug;
-use std::iter::{once, Chain, Map, Once};
+use crate::solana_program::entrypoint::ProgramResult;
+use crate::solana_program::pubkey::PubkeyError;
 
 /// A set of seeds for a pda
 #[derive(Debug)]
@@ -19,6 +20,12 @@ impl<'a> PDASeedSet<'a> {
     /// Creates a new set of seeds
     pub fn new(seeder: impl PDASeeder + 'a, nonce: u8) -> Self {
         Self::from_boxed(Box::new(seeder), nonce)
+    }
+
+    /// Finds a set of pda seeds
+    pub fn find(seeder: impl PDASeeder + 'a, program_id: &'static Pubkey) -> (Pubkey, Self){
+        let (key, bump) = seeder.find_address(program_id);
+        (key, Self::from_boxed(Box::new(seeder), bump))
     }
 
     /// Creates a new set of seeds from an already boxed seeder

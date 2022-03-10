@@ -2,12 +2,13 @@ use std::ops::RangeBounds;
 
 use array_init::try_array_init;
 
+use cruiser_derive::verify_account_arg_impl;
+
 use crate::{
     mul_size_hint, sum_size_hints, AccountArgument, AccountInfo, AccountInfoIterator, AllAny,
     AllAnyRange, FromAccounts, GeneratorError, GeneratorResult, MultiIndexable, Pubkey,
-    SingleIndexable, SystemProgram, ValidateArgument,
+    SingleIndexable, ValidateArgument,
 };
-use cruiser_derive::verify_account_arg_impl;
 
 verify_account_arg_impl! {
     mod array_checks{
@@ -54,13 +55,9 @@ impl<T, const N: usize> AccountArgument for [T; N]
 where
     T: AccountArgument,
 {
-    fn write_back(
-        self,
-        program_id: &'static Pubkey,
-        system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
+    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
         self.into_iter()
-            .try_for_each(|item| item.write_back(program_id, system_program))
+            .try_for_each(|item| item.write_back(program_id))
     }
 
     fn add_keys(

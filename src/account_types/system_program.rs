@@ -1,20 +1,34 @@
-use solana_program::pubkey::Pubkey;
-
-use crate::traits::AccountArgument;
-use crate::{
-    AccountInfo, AccountInfoIterator, AllAny, FromAccounts, GeneratorError, GeneratorResult,
-    MultiIndexable,
-};
-
-use super::SYSTEM_PROGRAM_ID;
 use std::fmt::Debug;
 
+use solana_program::entrypoint::ProgramResult;
+use solana_program::pubkey::Pubkey;
+use solana_program::system_instruction::create_account;
+
+use cruiser_derive::verify_account_arg_impl;
+
+use crate::{
+    AccountInfo, AllAny, GeneratorResult, invoke, MultiIndexable, PDASeedSet, SingleIndexable,
+};
+use crate::traits::AccountArgument;
+
+verify_account_arg_impl! {
+    mod init_account_check{
+        SystemProgram{
+            from: [()];
+            validate: [()];
+            multi: [(); AllAny];
+            single: [()];
+        }
+    }
+}
+
 /// The system program, will be checked that it actually is.
-#[derive(Debug, Clone)]
+#[derive(AccountArgument, Debug, Clone)]
 pub struct SystemProgram {
     /// The system program's [`account info`].
     ///
     /// If `is_signer` or `is_writable` is ever [`true`] you probably just got a big bug bounty from Solana!
+    #[validate(key = &Self::KEY)]
     pub info: AccountInfo,
 }
 impl SystemProgram {
@@ -23,71 +37,57 @@ impl SystemProgram {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0,
     ]);
-}
-impl AccountArgument for SystemProgram {
-    fn write_back(
-        self,
-        _program_id: &'static Pubkey,
-        _system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
-        Ok(())
-    }
 
-    fn add_keys(
+    pub fn invoke_create_account(
         &self,
-        add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
-        self.info.add_keys(add)
+        funder: &AccountInfo,
+        account: &AccountInfo,
+        lamports: u64,
+        space: u64,
+        owner: &Pubkey,
+    ) -> ProgramResult {
+        invoke(
+            &create_account(funder.key, account.key, lamports, space, owner),
+            &[&self.info, funder, account],
+        )
+    }
+
+    pub fn invoke_signed_create_account(
+        &self,
+        seeds: &PDASeedSet,
+        funder: &AccountInfo,
+        account: &AccountInfo,
+        lamports: u64,
+        space: u64,
+        owner: &Pubkey,
+    ) -> ProgramResult {
+        seeds.invoke_signed(
+            &create_account(funder.key, account.key, lamports, space, owner),
+            &[&self.info, funder, account],
+        )
     }
 }
-impl<A> FromAccounts<A> for SystemProgram
+impl<T> MultiIndexable<T> for SystemProgram
 where
-    AccountInfo: FromAccounts<A>,
+    AccountInfo: MultiIndexable<T>,
 {
-    fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        arg: A,
-    ) -> GeneratorResult<Self> {
-        let info = AccountInfo::from_accounts(program_id, infos, arg)?;
-        if info.key != &SYSTEM_PROGRAM_ID {
-            return Err(GeneratorError::InvalidAccount {
-                account: *info.key,
-                expected: SYSTEM_PROGRAM_ID,
-            }
-            .into());
-        }
-        Ok(Self { info })
-    }
-
-    fn accounts_usage_hint(arg: &A) -> (usize, Option<usize>) {
-        AccountInfo::accounts_usage_hint(arg)
-    }
-}
-impl MultiIndexable<()> for SystemProgram {
-    fn is_signer(&self, indexer: ()) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: T) -> GeneratorResult<bool> {
         self.info.is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: ()) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: T) -> GeneratorResult<bool> {
         self.info.is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: ()) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: T) -> GeneratorResult<bool> {
         self.info.is_owner(owner, indexer)
     }
 }
-impl MultiIndexable<AllAny> for SystemProgram {
-    fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        self.info.is_signer(indexer)
-    }
-
-    fn is_writable(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        self.info.is_writable(indexer)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
-        self.info.is_owner(owner, indexer)
+impl<T> SingleIndexable<T> for SystemProgram
+where
+    AccountInfo: SingleIndexable<T>,
+{
+    fn info(&self, indexer: T) -> GeneratorResult<&AccountInfo> {
+        self.info.info(indexer)
     }
 }
-delegate_single_indexable!(SystemProgram, (), (info));

@@ -1,10 +1,12 @@
+// TODO: Update this
+
 use std::fmt::Debug;
 use std::ops::RangeBounds;
 
 use crate::{
-    mul_size_hint, sum_size_hints, verify_account_arg_impl, AccountArgument, AccountInfo,
-    AccountInfoIterator, AllAny, AllAnyRange, FromAccounts, GeneratorError, GeneratorResult,
-    MultiIndexable, Pubkey, SingleIndexable, SystemProgram,
+    AccountArgument, AccountInfo, AccountInfoIterator, AllAny, AllAnyRange,
+    FromAccounts, GeneratorError, GeneratorResult, mul_size_hint, MultiIndexable, Pubkey,
+    SingleIndexable, sum_size_hints, verify_account_arg_impl,
 };
 
 verify_account_arg_impl! {
@@ -36,13 +38,9 @@ impl<T> AccountArgument for Vec<T>
 where
     T: AccountArgument,
 {
-    fn write_back(
-        self,
-        program_id: &'static Pubkey,
-        system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
+    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
         for item in self {
-            item.write_back(program_id, system_program)?;
+            item.write_back(program_id)?;
         }
         Ok(())
     }

@@ -1,11 +1,35 @@
-use crate::{
-    AccountArgument, AccountInfo, AccountInfoIterator, FromAccounts, GeneratorError,
-    GeneratorResult, MultiIndexable, SingleIndexable, SystemProgram,
-};
-use solana_program::pubkey::Pubkey;
-use solana_program::rent::Rent;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
+
+use solana_program::pubkey::Pubkey;
+use solana_program::rent::Rent;
+use solana_program::sysvar::Sysvar;
+
+use cruiser_derive::verify_account_arg_impl;
+
+use crate::{
+    AccountArgument, AccountInfo, AccountInfoIterator, FromAccounts, GeneratorError,
+    GeneratorResult, MultiIndexable, SingleIndexable, ValidateArgument,
+};
+
+verify_account_arg_impl! {
+    mod rent_exempt_check{
+        <A> RentExempt<A> where A: AccountArgument{
+            from: [
+                <T> T where A: FromAccounts<T>;
+            ];
+            validate: [
+                () where A: ValidateArgument<()> + SingleIndexable<()>;
+                Rent where A: ValidateArgument<()> + SingleIndexable<()>;
+                <T> (T,) where A: ValidateArgument<T> + SingleIndexable<()>;
+                <T, I> (T, I) where A: ValidateArgument<T> + SingleIndexable<I>;
+                <T, I> (T, I, Rent) where A: ValidateArgument<T> + SingleIndexable<I>;
+            ];
+            multi: [<I> I where A: MultiIndexable<I>];
+            single: [<I> I where A: SingleIndexable<I>];
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct RentExempt<A>(pub A);
@@ -25,12 +49,8 @@ impl<A> AccountArgument for RentExempt<A>
 where
     A: AccountArgument,
 {
-    fn write_back(
-        self,
-        program_id: &'static Pubkey,
-        system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
-        self.0.write_back(program_id, system_program)
+    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
+        self.0.write_back(program_id)
     }
 
     fn add_keys(
@@ -40,68 +60,63 @@ where
         self.0.add_keys(add)
     }
 }
-impl<A> FromAccounts<()> for RentExempt<A>
+impl<A, T> FromAccounts<T> for RentExempt<A>
 where
-    A: FromAccounts<()> + SingleIndexable<()>,
+    A: FromAccounts<T>,
 {
     fn from_accounts(
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
-        _arg: (),
+        arg: T,
     ) -> GeneratorResult<Self> {
-        Self::from_accounts(program_id, infos, Rent::default())
+        Ok(Self(A::from_accounts(program_id, infos, arg)?))
     }
 
-    fn accounts_usage_hint(arg: &()) -> (usize, Option<usize>) {
+    fn accounts_usage_hint(arg: &T) -> (usize, Option<usize>) {
         A::accounts_usage_hint(arg)
     }
 }
-impl<A> FromAccounts<Rent> for RentExempt<A>
+impl<A> ValidateArgument<()> for RentExempt<A>
 where
-    A: FromAccounts<()> + SingleIndexable<()>,
+    A: ValidateArgument<()> + SingleIndexable<()>,
 {
-    fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        arg: Rent,
-    ) -> GeneratorResult<Self> {
-        Self::from_accounts(program_id, infos, (arg, (), ()))
-    }
-
-    fn accounts_usage_hint(_arg: &Rent) -> (usize, Option<usize>) {
-        A::accounts_usage_hint(&())
+    fn validate(&mut self, program_id: &'static Pubkey, _arg: ()) -> GeneratorResult<()> {
+        self.validate(program_id, Rent::get()?)
     }
 }
-impl<A, T> FromAccounts<(Rent, T)> for RentExempt<A>
+impl<A> ValidateArgument<Rent> for RentExempt<A>
 where
-    A: FromAccounts<T> + SingleIndexable<()>,
+    A: ValidateArgument<()> + SingleIndexable<()>,
 {
-    fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        arg: (Rent, T),
-    ) -> GeneratorResult<Self> {
-        Self::from_accounts(program_id, infos, (arg.0, arg.1, ()))
-    }
-
-    fn accounts_usage_hint(arg: &(Rent, T)) -> (usize, Option<usize>) {
-        A::accounts_usage_hint(&arg.1)
+    fn validate(&mut self, program_id: &'static Pubkey, arg: Rent) -> GeneratorResult<()> {
+        self.validate(program_id, ((), (), arg))
     }
 }
-impl<A, T, I> FromAccounts<(Rent, T, I)> for RentExempt<A>
+impl<A, T> ValidateArgument<(T,)> for RentExempt<A>
 where
-    A: FromAccounts<T> + SingleIndexable<I>,
-    I: Debug + Clone,
+    A: ValidateArgument<T> + SingleIndexable<()>,
 {
-    fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        arg: (Rent, T, I),
-    ) -> GeneratorResult<Self> {
-        let account = A::from_accounts(program_id, infos, arg.1)?;
-        let info = account.info(arg.2)?;
+    fn validate(&mut self, program_id: &'static Pubkey, arg: (T,)) -> GeneratorResult<()> {
+        self.validate(program_id, (arg.0, (), Rent::get()?))
+    }
+}
+impl<A, T, I> ValidateArgument<(T, I)> for RentExempt<A>
+where
+    A: ValidateArgument<T> + SingleIndexable<I>,
+{
+    fn validate(&mut self, program_id: &'static Pubkey, arg: (T, I)) -> GeneratorResult<()> {
+        self.validate(program_id, (arg.0, arg.1, Rent::get()?))
+    }
+}
+impl<A, T, I> ValidateArgument<(T, I, Rent)> for RentExempt<A>
+where
+    A: ValidateArgument<T> + SingleIndexable<I>,
+{
+    fn validate(&mut self, program_id: &'static Pubkey, arg: (T, I, Rent)) -> GeneratorResult<()> {
+        self.0.validate(program_id, arg.0)?;
+        let info = self.0.info(arg.1)?;
         let lamports = **info.lamports.borrow();
-        let needed_lamports = arg.0.minimum_balance(info.data.borrow().len());
+        let needed_lamports = arg.2.minimum_balance(info.data.borrow().len());
         if lamports < needed_lamports {
             Err(GeneratorError::NotEnoughLamports {
                 account: info.key,
@@ -110,17 +125,12 @@ where
             }
             .into())
         } else {
-            Ok(RentExempt(account))
+            Ok(())
         }
-    }
-
-    fn accounts_usage_hint(arg: &(Rent, T, I)) -> (usize, Option<usize>) {
-        A::accounts_usage_hint(&arg.1)
     }
 }
 impl<T, A> MultiIndexable<T> for RentExempt<A>
 where
-    T: Debug + Clone,
     A: MultiIndexable<T>,
 {
     #[inline]
@@ -140,7 +150,6 @@ where
 }
 impl<T, A> SingleIndexable<T> for RentExempt<A>
 where
-    T: Debug + Clone,
     A: SingleIndexable<T>,
 {
     #[inline]

@@ -20,6 +20,7 @@
     clippy::module_name_repetitions,
     clippy::missing_errors_doc,
     clippy::too_many_lines,
+    clippy::mut_mut,
     missing_docs
 )]
 //! A generator program that will be able to generate solana program code from a much easier starting place.
@@ -27,26 +28,25 @@
 extern crate self as cruiser;
 
 use array_init::array_init;
-use solana_program::entrypoint::ProgramResult;
-use solana_program::program::{invoke as solana_invoke, invoke_signed as solana_invoke_signed};
-
-pub use account_info::*;
-pub use account_types::*;
-pub use error::*;
-pub use pda_seeds::*;
-pub use traits::*;
-pub use util::*;
-
 pub use borsh;
-pub use cruiser_derive::verify_account_arg_impl;
 pub use solana_program;
-pub use solana_program::msg;
 pub use solana_program::{
     clock::UnixTimestamp,
     instruction::{AccountMeta as SolanaAccountMeta, Instruction as SolanaInstruction},
     pubkey::Pubkey,
 };
+use solana_program::entrypoint::ProgramResult;
+pub use solana_program::msg;
+use solana_program::program::{invoke as solana_invoke, invoke_signed as solana_invoke_signed};
 pub use static_assertions;
+
+pub use account_info::*;
+pub use account_types::*;
+pub use cruiser_derive::verify_account_arg_impl;
+pub use error::*;
+pub use pda_seeds::*;
+pub use traits::*;
+pub use util::*;
 
 #[macro_use]
 mod macros;

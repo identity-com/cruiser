@@ -1,7 +1,10 @@
-use crate::traits::Error;
-use solana_program::pubkey::Pubkey;
 use std::fmt::Debug;
+use std::num::NonZeroU64;
+
+use solana_program::pubkey::Pubkey;
 use strum::EnumDiscriminants;
+
+use crate::traits::Error;
 
 /// General errors issued by the generator.
 #[allow(clippy::module_name_repetitions)]
@@ -33,7 +36,7 @@ pub enum GeneratorError {
         /// The discriminant of the account
         received: u64,
         /// The discriminant that was expected
-        expected: u64,
+        expected: NonZeroU64,
     },
     /// Accounts are either writable when should not be or not writable when should be depending on the indexer
     #[error_msg(

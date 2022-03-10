@@ -1,5 +1,5 @@
-use solana_program::system_program::ID as SYSTEM_PROGRAM_ID;
-
+pub use close_account::*;
+pub use discriminant_account::*;
 #[cfg(feature = "nightly")]
 pub use in_place_account::*;
 pub use init_account::*;
@@ -12,6 +12,8 @@ pub use sys_var::*;
 pub use system_program::*;
 pub use zeroed_account::*;
 
+mod close_account;
+mod discriminant_account;
 #[cfg(feature = "nightly")]
 mod in_place_account;
 mod init_account;

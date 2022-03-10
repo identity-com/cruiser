@@ -1,103 +1,79 @@
-use super::SYSTEM_PROGRAM_ID;
-use crate::solana_program::program_error::ProgramError;
-use crate::{
-    combine_hints_branch, AccountArgument, AccountInfo, AccountInfoIterator, AccountListItem,
-    AllAny, FromAccounts, GeneratorError, GeneratorResult, InitAccount, InitSize, MultiIndexable,
-    PDASeedSet, Pubkey, SingleIndexable, SystemProgram, ZeroedAccount,
-};
-use borsh::{BorshDeserialize, BorshSerialize};
 use std::iter::once;
 use std::ops::{Deref, DerefMut};
 
+use borsh::{BorshDeserialize, BorshSerialize};
+
+use cruiser_derive::verify_account_arg_impl;
+
+use crate::{
+    AccountArgument, AccountInfo, AccountInfoIterator, AccountListItem, AllAny, CheckAll,
+    DiscriminantAccount, FromAccounts, GeneratorResult, InitAccount, InitArgs, MultiIndexable,
+    Pubkey, SingleIndexable, ValidateArgument, ZeroedAccount,
+};
+
+verify_account_arg_impl! {
+    mod init_account_check{
+        <AL, A> InitOrZeroedAccount<AL, A>
+        where
+            AL: AccountListItem<A>,
+            A: BorshSerialize + BorshDeserialize{
+            from: [A];
+            validate: [<'a> InitArgs<'a>; <'a> (InitArgs<'a>, CheckAll)];
+            multi: [(); AllAny];
+            single: [()];
+        }
+    }
+}
+
 /// A combination of [`InitAccount`] and [`ZeroedAccount`] accepting either based on owner.
-/// Should call [`InitOrZeroedAccount::set_funder`] unless guaranteed not [`InitAccount`]
-#[derive(Debug)]
+// TODO: impl Debug for this
+#[allow(missing_debug_implementations)]
+// TODO: use AccountArgument trait for impl when enums supported
 pub enum InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
+    A: BorshSerialize + BorshDeserialize,
 {
     /// Is an [`InitAccount`]
     Init(InitAccount<AL, A>),
-    /// Is an [`ZeroedAccount`]
+    /// Is a [`ZeroedAccount`]
     Zeroed(ZeroedAccount<AL, A>),
-}
-impl<AL, A> InitOrZeroedAccount<AL, A>
-where
-    AL: AccountListItem<A>,
-{
-    /// Sets the init size, no-op if zeroed
-    pub fn set_init_size(&mut self, init_size: InitSize) {
-        if let Self::Init(init) = self {
-            init.init_size = init_size;
-        }
-    }
-
-    /// Sets the funder, no-op if zeroed
-    pub fn set_funder(&mut self, funder: AccountInfo) {
-        if let Self::Init(init) = self {
-            init.funder = Some(funder);
-        }
-    }
-
-    /// Sets the account seeds if init, no-op if zeroed
-    pub fn set_account_seeds(&mut self, account_seeds: PDASeedSet<'static>) {
-        if let Self::Init(init) = self {
-            init.account_seeds = Some(account_seeds);
-        }
-    }
-
-    /// Sets the funder seeds if init, no-op if zeroed
-    pub fn set_funder_seeds(&mut self, funder_seeds: PDASeedSet<'static>) {
-        if let Self::Init(init) = self {
-            init.funder_seeds = Some(funder_seeds);
-        }
-    }
-
-    /// Gets the account info
-    pub fn info(&self) -> &AccountInfo {
-        match self {
-            InitOrZeroedAccount::Init(init) => &init.info,
-            InitOrZeroedAccount::Zeroed(zeroed) => &zeroed.info,
-        }
-    }
 }
 impl<AL, A> Deref for InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
+    A: BorshSerialize + BorshDeserialize,
 {
-    type Target = A;
+    type Target = DiscriminantAccount<AL, A>;
 
     fn deref(&self) -> &Self::Target {
         match self {
-            InitOrZeroedAccount::Init(init) => &*init,
-            InitOrZeroedAccount::Zeroed(zeroed) => &*zeroed,
+            InitOrZeroedAccount::Init(init) => init,
+            InitOrZeroedAccount::Zeroed(zeroed) => zeroed,
         }
     }
 }
 impl<AL, A> DerefMut for InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
+    A: BorshSerialize + BorshDeserialize,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
-            InitOrZeroedAccount::Init(init) => &mut *init,
-            InitOrZeroedAccount::Zeroed(zeroed) => &mut *zeroed,
+            InitOrZeroedAccount::Init(init) => init,
+            InitOrZeroedAccount::Zeroed(zeroed) => zeroed,
         }
     }
 }
 impl<AL, A> AccountArgument for InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: BorshSerialize,
+    A: BorshSerialize + BorshDeserialize,
 {
-    fn write_back(
-        self,
-        program_id: &'static Pubkey,
-        system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
+    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
         match self {
-            InitOrZeroedAccount::Init(init) => init.write_back(program_id, system_program),
-            InitOrZeroedAccount::Zeroed(zeroed) => zeroed.write_back(program_id, system_program),
+            InitOrZeroedAccount::Init(init) => init.write_back(program_id),
+            InitOrZeroedAccount::Zeroed(zeroed) => zeroed.write_back(program_id),
         }
     }
 
@@ -111,91 +87,89 @@ where
         }
     }
 }
-impl<AL, A, Arg> FromAccounts<Arg> for InitOrZeroedAccount<AL, A>
+impl<'a, AL, A> FromAccounts<A> for InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize + Default,
-    InitAccount<AL, A>: FromAccounts<Arg>,
-    ZeroedAccount<AL, A>: FromAccounts<Arg>,
+    A: BorshSerialize + BorshDeserialize,
 {
     fn from_accounts(
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
-        arg: Arg,
+        arg: A,
     ) -> GeneratorResult<Self> {
-        let info = infos.next().ok_or(ProgramError::NotEnoughAccountKeys)?;
-        let owner = info.owner.borrow();
-        if *owner == program_id {
-            drop(owner);
+        let info = AccountInfo::from_accounts(program_id, infos, ())?;
+        if *info.owner.borrow() == program_id {
             Ok(Self::Zeroed(ZeroedAccount::from_accounts(
                 program_id,
                 &mut once(info),
                 arg,
             )?))
-        } else if *owner == &SYSTEM_PROGRAM_ID {
-            drop(owner);
+        } else {
             Ok(Self::Init(InitAccount::from_accounts(
                 program_id,
                 &mut once(info),
                 arg,
             )?))
-        } else {
-            Err(GeneratorError::AccountOwnerNotEqual {
-                account: info.key,
-                owner: **owner,
-                expected_owner: vec![*program_id, SYSTEM_PROGRAM_ID],
-            }
-            .into())
         }
     }
 
-    fn accounts_usage_hint(arg: &Arg) -> (usize, Option<usize>) {
-        combine_hints_branch(IntoIterator::into_iter([
-            <InitAccount<AL, A> as FromAccounts<Arg>>::accounts_usage_hint(arg),
-            <ZeroedAccount<AL, A> as FromAccounts<Arg>>::accounts_usage_hint(arg),
-        ]))
+    fn accounts_usage_hint(_arg: &A) -> (usize, Option<usize>) {
+        AccountInfo::accounts_usage_hint(&())
     }
 }
-impl<AL, A> MultiIndexable<()> for InitOrZeroedAccount<AL, A>
+impl<'a, AL, A> ValidateArgument<InitArgs<'a>> for InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: BorshSerialize,
+    A: BorshSerialize + BorshDeserialize,
 {
-    fn is_signer(&self, indexer: ()) -> GeneratorResult<bool> {
-        self.info().is_signer(indexer)
-    }
-
-    fn is_writable(&self, indexer: ()) -> GeneratorResult<bool> {
-        self.info().is_writable(indexer)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: ()) -> GeneratorResult<bool> {
-        self.info().is_owner(owner, indexer)
+    fn validate(&mut self, program_id: &'static Pubkey, arg: InitArgs<'a>) -> GeneratorResult<()> {
+        match self {
+            InitOrZeroedAccount::Init(init) => init.validate(program_id, arg),
+            InitOrZeroedAccount::Zeroed(zeroed) => zeroed.validate(program_id, ()),
+        }
     }
 }
-impl<AL, A> MultiIndexable<AllAny> for InitOrZeroedAccount<AL, A>
+impl<'a, AL, A> ValidateArgument<(InitArgs<'a>, CheckAll)> for InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: BorshSerialize,
+    A: BorshSerialize + BorshDeserialize,
 {
-    fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        self.info().is_signer(indexer)
-    }
-
-    fn is_writable(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        self.info().is_writable(indexer)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
-        self.info().is_owner(owner, indexer)
+    fn validate(
+        &mut self,
+        program_id: &'static Pubkey,
+        arg: (InitArgs<'a>, CheckAll),
+    ) -> GeneratorResult<()> {
+        match self {
+            InitOrZeroedAccount::Init(init) => init.validate(program_id, arg.0),
+            InitOrZeroedAccount::Zeroed(zeroed) => zeroed.validate(program_id, arg.1),
+        }
     }
 }
-impl<AL, A> SingleIndexable<()> for InitOrZeroedAccount<AL, A>
+impl<AL, A, T> MultiIndexable<T> for InitOrZeroedAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: BorshSerialize,
+    A: BorshSerialize + BorshDeserialize,
+    AccountInfo: MultiIndexable<T>,
 {
-    fn info(&self, indexer: ()) -> GeneratorResult<&AccountInfo> {
-        self.info().info(indexer)
+    fn is_signer(&self, indexer: T) -> GeneratorResult<bool> {
+        self.info.is_signer(indexer)
+    }
+
+    fn is_writable(&self, indexer: T) -> GeneratorResult<bool> {
+        self.info.is_writable(indexer)
+    }
+
+    fn is_owner(&self, owner: &Pubkey, indexer: T) -> GeneratorResult<bool> {
+        self.info.is_owner(owner, indexer)
+    }
+}
+impl<AL, A, T> SingleIndexable<T> for InitOrZeroedAccount<AL, A>
+where
+    AL: AccountListItem<A>,
+    A: BorshSerialize + BorshDeserialize,
+    AccountInfo: SingleIndexable<T>,
+{
+    fn info(&self, indexer: T) -> GeneratorResult<&AccountInfo> {
+        self.info.info(indexer)
     }
 }

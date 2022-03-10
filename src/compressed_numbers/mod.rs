@@ -1,13 +1,18 @@
 //! Numbers that can be decompressed/compressed on read/write
 
-mod byte_count;
-mod zero_count;
-
-pub use byte_count::*;
 use std::mem::size_of;
-pub use zero_count::*;
+use std::num::{
+    NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
+    NonZeroU32, NonZeroU64, NonZeroU8,
+};
 
 use borsh::{BorshDeserialize, BorshSerialize};
+
+pub use byte_count::*;
+pub use zero_count::*;
+
+mod byte_count;
+mod zero_count;
 
 /// Represents a u64 that is compressed and decompressed on reading/writing from/to bytes
 ///
@@ -27,7 +32,7 @@ pub unsafe trait CompressedNumber: Copy + BorshSerialize + BorshDeserialize + Eq
 }
 
 macro_rules! impl_compressed_for_prim {
-    (all $($ty:ty),+) => {
+    (all: $($ty:ty),+ $(,)?) => {
         $(impl_compressed_for_prim!($ty);)+
     };
     ($ty:ty) => {
@@ -53,4 +58,26 @@ macro_rules! impl_compressed_for_prim {
     };
 }
 
-impl_compressed_for_prim!(all u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, ());
+impl_compressed_for_prim!(
+    all: u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    (),
+    NonZeroU8,
+    NonZeroU16,
+    NonZeroU32,
+    NonZeroU64,
+    NonZeroU128,
+    NonZeroI8,
+    NonZeroI16,
+    NonZeroI32,
+    NonZeroI64,
+    NonZeroI128,
+);

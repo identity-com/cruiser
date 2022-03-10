@@ -1,12 +1,14 @@
-use crate::{
-    AccountArgument, AccountInfoIterator, FromAccounts, GeneratorError, GeneratorResult,
-    SystemProgram,
-};
-use cruiser::AccountInfo;
-use solana_program::pubkey::Pubkey;
-use solana_program::sysvar::Sysvar;
+// TODO: Update this
+
 use std::marker::PhantomData;
 use std::ops::Deref;
+
+use solana_program::pubkey::Pubkey;
+use solana_program::sysvar::Sysvar;
+
+use cruiser::AccountInfo;
+
+use crate::{AccountArgument, AccountInfoIterator, FromAccounts, GeneratorError, GeneratorResult};
 
 /// A sysvar, checks the address is the same.
 #[derive(Debug)]
@@ -36,12 +38,8 @@ impl<T> AccountArgument for SysVar<T>
 where
     T: Sysvar,
 {
-    fn write_back(
-        self,
-        program_id: &'static Pubkey,
-        system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
-        self.0.write_back(program_id, system_program)
+    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
+        self.0.write_back(program_id)
     }
 
     fn add_keys(

@@ -1,8 +1,9 @@
-use crate::{
-    AccountArgument, AccountInfoIterator, FromAccounts, GeneratorResult, Pubkey, SystemProgram,
-};
+// TODO: Update this
+
 use std::iter::once;
 use std::ops::Deref;
+
+use crate::{AccountArgument, AccountInfoIterator, FromAccounts, GeneratorResult, Pubkey};
 
 /// An account argument that takes the rest of the accounts as type `T`
 #[derive(Debug)]
@@ -11,12 +12,8 @@ impl<T> AccountArgument for Rest<T>
 where
     T: AccountArgument,
 {
-    fn write_back(
-        self,
-        program_id: &'static Pubkey,
-        system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
-        self.0.write_back(program_id, system_program)
+    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
+        self.0.write_back(program_id)
     }
 
     fn add_keys(

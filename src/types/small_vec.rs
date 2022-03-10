@@ -1,11 +1,14 @@
 //! Small size vectors for additional space savings than the
 
-use crate::{AccountArgument, GeneratorError, GeneratorResult, Pubkey, SystemProgram};
-use borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::bytes_ext::{ReadExt, WriteExt};
 use std::convert::TryFrom;
 use std::io::Write;
 use std::ops::{Deref, Index, IndexMut};
+
+use borsh::{BorshDeserialize, BorshSerialize};
+
+use cruiser::bytes_ext::{ReadExt, WriteExt};
+
+use crate::{AccountArgument, GeneratorError, GeneratorResult, Pubkey};
 
 macro_rules! small_vec {
     ($ident:ident, $ty:ty, $write:ident, $read:ident, $docs:expr) => {
@@ -80,13 +83,9 @@ macro_rules! small_vec {
         where
             T: AccountArgument,
         {
-            fn write_back(
-                self,
-                program_id: &'static Pubkey,
-                system_program: Option<&SystemProgram>,
-            ) -> GeneratorResult<()> {
+            fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
                 for val in self.0 {
-                    val.write_back(program_id, system_program)?;
+                    val.write_back(program_id)?;
                 }
                 Ok(())
             }
@@ -150,9 +149,11 @@ small_vec!(
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use rand::{thread_rng, Rng};
     use std::convert::TryInto;
+
+    use rand::{Rng, thread_rng};
+
+    use super::*;
 
     #[test]
     fn vec8_test() {

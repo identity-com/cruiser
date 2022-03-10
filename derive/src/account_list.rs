@@ -1,10 +1,12 @@
-use crate::get_crate_name;
-use easy_proc::{find_attr, ArgumentList};
 use proc_macro2::{Span, TokenStream};
 use proc_macro_error::abort;
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
 use syn::{Data, DataStruct, DataUnion, DeriveInput, Fields, Generics, Ident, Type};
+use syn::parse::{Parse, ParseStream};
+
+use easy_proc::{ArgumentList, find_attr};
+
+use crate::get_crate_name;
 
 #[derive(ArgumentList)]
 pub struct AccountListAttribute {
@@ -14,7 +16,7 @@ pub struct AccountListAttribute {
 impl Default for AccountListAttribute {
     fn default() -> Self {
         Self {
-            discriminant_type: syn::parse_str("u64").unwrap(),
+            discriminant_type: syn::parse_str("::std::num::NonZeroU64").unwrap(),
         }
     }
 }

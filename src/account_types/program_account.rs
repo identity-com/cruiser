@@ -1,168 +1,98 @@
+use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 
-use crate::account_types::system_program::SystemProgram;
-use crate::compressed_numbers::CompressedNumber;
+use cruiser_derive::verify_account_arg_impl;
+
 use crate::traits::AccountArgument;
 use crate::{
-    AccountInfo, AccountInfoIterator, AccountListItem, AllAny, FromAccounts, GeneratorError,
-    GeneratorResult, MultiIndexable, SingleIndexable,
+    AccountInfo, AccountListItem, DiscriminantAccount, GeneratorResult, MultiIndexable,
+    SingleIndexable,
 };
-use std::fmt::Debug;
-use std::marker::PhantomData;
 
-/// A data account owned by this program. Checks that is owned by this program.
-#[derive(Debug)]
+verify_account_arg_impl! {
+    mod program_account_check{
+        <AL, A> ProgramAccount<AL, A>
+        where
+            AL: AccountListItem<A>,
+            A: BorshSerialize + BorshDeserialize,
+        {
+            from: [()];
+            validate: [()];
+            multi: [<T> T where DiscriminantAccount<AL, A>: MultiIndexable<T>];
+            single: [<T> T where DiscriminantAccount<AL, A>: SingleIndexable<T>];
+        }
+    }
+}
+
+#[derive(AccountArgument)]
 pub struct ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
-{
-    /// The [`AccountInfo`] for this, data field will be overwritten on write back.
-    pub info: AccountInfo,
-    data: A,
-    phantom_list: PhantomData<fn() -> AL>,
-}
-impl<AL, A> AccountArgument for ProgramAccount<AL, A>
-where
-    AL: AccountListItem<A>,
-    A: BorshSerialize,
-{
-    fn write_back(
-        self,
-        _program_id: &'static Pubkey,
-        _system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
-        let mut account_data_ref = self.info.data.borrow_mut();
-        let mut account_data = &mut **account_data_ref.deref_mut();
-
-        AL::compressed_discriminant().serialize(&mut account_data)?;
-        self.data.serialize(&mut account_data)?;
-        Ok(())
-    }
-
-    fn add_keys(
-        &self,
-        add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
-        self.info.add_keys(add)
-    }
-}
-impl<AL, A, Arg> FromAccounts<Arg> for ProgramAccount<AL, A>
-where
-    AccountInfo: FromAccounts<Arg>,
-    AL: AccountListItem<A>,
     A: BorshSerialize + BorshDeserialize,
 {
-    fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        arg: Arg,
-    ) -> GeneratorResult<Self> {
-        let info = AccountInfo::from_accounts(program_id, infos, arg)?;
-
-        if *info.owner.borrow() != program_id {
-            return Err(GeneratorError::AccountOwnerNotEqual {
-                account: info.key,
-                owner: **info.owner.borrow(),
-                expected_owner: vec![*program_id],
-            }
-            .into());
-        }
-        let account_data_ref = info.data.borrow();
-        let mut account_data = &**account_data_ref.deref();
-
-        let in_discriminant =
-            AL::DiscriminantCompressed::deserialize(&mut account_data)?.into_number();
-        if in_discriminant != AL::discriminant().get() {
-            return Err(GeneratorError::MismatchedDiscriminant {
-                account: info.key,
-                received: in_discriminant,
-                expected: AL::discriminant().get(),
-            }
-            .into());
-        }
-
-        let data = match A::deserialize(&mut account_data) {
-            Ok(data) => data,
-            Err(_) => {
-                return Err(GeneratorError::CouldNotDeserialize {
-                    what: format!("account: `{}`", info.key),
-                }
-                .into())
-            }
-        };
-        drop(account_data_ref);
-        Ok(Self {
-            info,
-            data,
-            phantom_list: PhantomData,
-        })
-    }
-
-    fn accounts_usage_hint(arg: &Arg) -> (usize, Option<usize>) {
-        AccountInfo::accounts_usage_hint(arg)
-    }
+    #[validate(owner = program_id)]
+    account: DiscriminantAccount<AL, A>,
 }
-impl<AL, A> MultiIndexable<()> for ProgramAccount<AL, A>
+impl<AL, A> Debug for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
-    A: BorshSerialize,
+    A: BorshSerialize + BorshDeserialize,
+    DiscriminantAccount<AL, A>: Debug,
 {
-    fn is_signer(&self, indexer: ()) -> GeneratorResult<bool> {
-        self.info.is_signer(indexer)
-    }
-
-    fn is_writable(&self, indexer: ()) -> GeneratorResult<bool> {
-        self.info.is_writable(indexer)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: ()) -> GeneratorResult<bool> {
-        self.info.is_owner(owner, indexer)
-    }
-}
-impl<AL, A> MultiIndexable<AllAny> for ProgramAccount<AL, A>
-where
-    AL: AccountListItem<A>,
-    A: BorshSerialize,
-{
-    fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        self.info.is_signer(indexer)
-    }
-
-    fn is_writable(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        self.info.is_writable(indexer)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
-        self.info.is_owner(owner, indexer)
-    }
-}
-impl<AL, A> SingleIndexable<()> for ProgramAccount<AL, A>
-where
-    AL: AccountListItem<A>,
-    A: BorshSerialize,
-{
-    fn info(&self, indexer: ()) -> GeneratorResult<&AccountInfo> {
-        self.info.info(indexer)
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProgramAccount")
+            .field("account", &self.account)
+            .finish()
     }
 }
 impl<AL, A> Deref for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
+    A: BorshSerialize + BorshDeserialize,
 {
-    type Target = A;
+    type Target = DiscriminantAccount<AL, A>;
 
     fn deref(&self) -> &Self::Target {
-        &self.data
+        &self.account
     }
 }
 impl<AL, A> DerefMut for ProgramAccount<AL, A>
 where
     AL: AccountListItem<A>,
+    A: BorshSerialize + BorshDeserialize,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
+        &mut self.account
+    }
+}
+impl<AL, A, T> MultiIndexable<T> for ProgramAccount<AL, A>
+where
+    AL: AccountListItem<A>,
+    A: BorshSerialize + BorshDeserialize,
+    DiscriminantAccount<AL, A>: MultiIndexable<T>,
+{
+    fn is_signer(&self, indexer: T) -> GeneratorResult<bool> {
+        self.account.is_signer(indexer)
+    }
+
+    fn is_writable(&self, indexer: T) -> GeneratorResult<bool> {
+        self.account.is_writable(indexer)
+    }
+
+    fn is_owner(&self, owner: &Pubkey, indexer: T) -> GeneratorResult<bool> {
+        self.account.is_owner(owner, indexer)
+    }
+}
+impl<AL, A, T> SingleIndexable<T> for ProgramAccount<AL, A>
+where
+    AL: AccountListItem<A>,
+    A: BorshSerialize + BorshDeserialize,
+    DiscriminantAccount<AL, A>: SingleIndexable<T>,
+{
+    fn info(&self, indexer: T) -> GeneratorResult<&AccountInfo> {
+        self.account.info(indexer)
     }
 }
