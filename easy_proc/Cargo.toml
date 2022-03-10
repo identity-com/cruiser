@@ -1,9 +1,10 @@
 [package]
 name = "easy_proc"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Brett Etter <buzzec@buzzec.net>"]
 edition = "2021"
 description = "Helper macros for making proc macros"
+documentation = "https://docs.rs/easy_proc/latest/easy_proc/"
 repository = "https://github.com/identity-com/cruiser"
 license = "Apache-2.0"
 

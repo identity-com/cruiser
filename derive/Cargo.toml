@@ -1,9 +1,10 @@
 [package]
 name = "cruiser_derive"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Brett Etter <buzzec@buzzec.net>"]
 edition = "2021"
 description = "Derive macros for `cruiser`"
+documentation = "https://docs.rs/cruiser_derive/latest/cruiser_derive/"
 repository = "https://github.com/identity-com/cruiser"
 license = "Apache-2.0"
 

@@ -1,9 +1,10 @@
 [package]
 name = "easy_proc_derive"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Brett Etter <buzzec@buzzec.net>"]
 edition = "2021"
 description = "Derive macros for `easy_proc`"
+documentation = "https://docs.rs/easy_proc_derive/latest/easy_proc_derive/"
 repository = "https://github.com/identity-com/cruiser"
 license = "Apache-2.0"
 

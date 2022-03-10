@@ -1,9 +1,10 @@
 [package]
 name = "cruiser"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Brett Etter <buzzec@buzzec.net>"]
 edition = "2021"
 description = "Solana code generation"
+documentation = "https://docs.rs/cruiser/latest/cruiser/"
 repository = "https://github.com/identity-com/cruiser"
 license = "Apache-2.0"
 
