@@ -1,4 +1,9 @@
-#![warn(unused_import_braces, unused_imports, missing_docs)]
+#![warn(
+    missing_docs,
+    unused_import_braces,
+    clippy::pedantic,
+    missing_debug_implementations
+)]
 
 //! Helpers for creating proc macro crates
 
@@ -269,10 +274,10 @@ impl ArgEnumVariant {
                 abort!(attr.tokens, "Error encountered parsing args: {}", error);
             }
         }
-        if presence.is_some() as u8
-            + default.is_some() as u8
-            + custom.is_some() as u8
-            + attr_ident.is_some() as u8
+        if u8::from(presence.is_some())
+            + u8::from(default.is_some())
+            + u8::from(custom.is_some())
+            + u8::from(attr_ident.is_some())
             > 1
         {
             abort!(field.ident.unwrap(), "Field has incompatible arguments");
@@ -280,10 +285,10 @@ impl ArgEnumVariant {
         if let Some(ident) = attr_ident {
             Self::AttrIdent(ident)
         } else if let Some(presence) = presence {
-            if !is_bool(&field.ty) {
-                abort!(presence, "Presence type must be `bool`")
-            } else {
+            if is_bool(&field.ty) {
                 Self::Presence
+            } else {
+                abort!(presence, "Presence type must be `bool`")
             }
         } else if let Some((_, _, default_expr)) = default {
             Self::Default(field.ty, default_expr)
@@ -300,7 +305,7 @@ impl ArgEnumVariant {
         }
     }
 
-    /// Must not pass Self::AttrIdent
+    /// Must not pass `Self::AttrIdent`
     fn to_init(&self, variable_ident: &Ident) -> proc_macro2::TokenStream {
         match self {
             Self::Required(ty)
@@ -320,7 +325,7 @@ impl ArgEnumVariant {
         }
     }
 
-    /// Must not pass Self::AttrIdent
+    /// Must not pass `Self::AttrIdent`
     fn to_read(
         &self,
         input_ident: &Ident,
@@ -377,7 +382,7 @@ impl ArgEnumVariant {
         }
     }
 
-    /// Must not pass Self::AttrIdent
+    /// Must not pass `Self::AttrIdent`
     fn to_verify(
         &self,
         variable_ident: &Ident,
@@ -431,8 +436,7 @@ fn is_type<'a>(ty: &'a Type, name: &str) -> Option<&'a Type> {
         }) if path
             .segments
             .first()
-            .map(|segment| segment.ident.to_string().as_str() == name)
-            .unwrap_or(false) =>
+            .map_or(false, |segment| segment.ident.to_string().as_str() == name) =>
         {
             if let Some(PathSegment {
                 arguments: PathArguments::AngleBracketed(args),

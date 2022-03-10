@@ -1,4 +1,9 @@
-#![warn(missing_docs, unused_import_braces)]
+#![warn(
+    missing_docs,
+    unused_import_braces,
+    clippy::pedantic,
+    missing_debug_implementations
+)]
 
 //! Helpers for making proc macro crates
 

@@ -1,13 +1,17 @@
 [package]
 name = "easy_proc_derive"
 version = "0.1.0"
-edition = "2018"
+authors = ["Brett Etter <buzzec@buzzec.net>"]
+edition = "2021"
+description = "Derive macros for `easy_proc`"
+repository = "https://github.com/identity-com/cruiser"
+license = "Apache-2.0"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-easy_proc_common = { path = "../common" }
+easy_proc_common = { version = "0.1.0", path = "../common" }
 proc-macro2 = "1.0.27"
 syn = { version = "1.0.73", features = ["full", "extra-traits"] }
 quote = "1.0.9"
