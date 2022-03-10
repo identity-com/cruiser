@@ -1,14 +1,11 @@
-use std::ops::RangeBounds;
-
-use array_init::try_array_init;
-
-use cruiser_derive::verify_account_arg_impl;
-
 use crate::{
-    mul_size_hint, sum_size_hints, AccountArgument, AccountInfo, AccountInfoIterator, AllAny,
-    AllAnyRange, FromAccounts, GeneratorError, GeneratorResult, MultiIndexable, Pubkey,
-    SingleIndexable, ValidateArgument,
+    convert_range, mul_size_hint, sum_size_hints, AccountArgument, AccountInfo,
+    AccountInfoIterator, AllAny, FromAccounts, GeneratorError, GeneratorResult, MultiIndexable,
+    Pubkey, SingleIndexable, ValidateArgument,
 };
+use array_init::try_array_init;
+use cruiser_derive::verify_account_arg_impl;
+use std::ops::RangeBounds;
 
 verify_account_arg_impl! {
     mod array_checks{
@@ -27,20 +24,18 @@ verify_account_arg_impl! {
             ];
             multi: [
                 usize where T: MultiIndexable<()>;
-                <I> (usize, (I,)) where T: MultiIndexable<I>;
+                <I> (usize, I) where T: MultiIndexable<I>;
                 AllAny where T: MultiIndexable<()>;
-                <I> (AllAny, (I,)) where T: MultiIndexable<I>, I: Clone;
-                <R> AllAnyRange<R> where T: MultiIndexable<()>, R: RangeBounds<usize>;
-                <R, I> (AllAnyRange<R>, (I,)) where T: MultiIndexable<I>, R: RangeBounds<usize>, I: Clone;
+                <I> (AllAny, I) where T: MultiIndexable<I>, I: Clone;
+                <R, I> (R, AllAny, I) where T: MultiIndexable<I>, R: RangeBounds<usize>, I: Clone;
             ];
             single: [
                 usize where T: SingleIndexable<()>;
-                <I> (usize, (I,)) where T: SingleIndexable<I>;
+                <I> (usize, I) where T: SingleIndexable<I>;
             ];
         }
     }
 }
-
 fn get_index<T, const N: usize>(array: &[T; N], index: usize) -> GeneratorResult<&T> {
     array.get(index).ok_or_else(|| {
         GeneratorError::IndexOutOfRange {
@@ -151,31 +146,31 @@ where
     T: MultiIndexable<()>,
 {
     fn is_signer(&self, indexer: usize) -> GeneratorResult<bool> {
-        get_index(self, indexer)?.is_signer(())
+        self.is_signer((indexer, ()))
     }
 
     fn is_writable(&self, indexer: usize) -> GeneratorResult<bool> {
-        get_index(self, indexer)?.is_writable(())
+        self.is_writable((indexer, ()))
     }
 
     fn is_owner(&self, owner: &Pubkey, indexer: usize) -> GeneratorResult<bool> {
-        get_index(self, indexer)?.is_owner(owner, ())
+        self.is_owner(owner, (indexer, ()))
     }
 }
-impl<T, I, const N: usize> MultiIndexable<(usize, (I,))> for [T; N]
+impl<T, I, const N: usize> MultiIndexable<(usize, I)> for [T; N]
 where
-    T: AccountArgument + MultiIndexable<I>,
+    T: MultiIndexable<I>,
 {
-    fn is_signer(&self, indexer: (usize, (I,))) -> GeneratorResult<bool> {
-        get_index(self, indexer.0)?.is_signer(indexer.1 .0)
+    fn is_signer(&self, indexer: (usize, I)) -> GeneratorResult<bool> {
+        self[indexer.0].is_signer(indexer.1)
     }
 
-    fn is_writable(&self, indexer: (usize, (I,))) -> GeneratorResult<bool> {
-        get_index(self, indexer.0)?.is_writable(indexer.1 .0)
+    fn is_writable(&self, indexer: (usize, I)) -> GeneratorResult<bool> {
+        self[indexer.0].is_writable(indexer.1)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: (usize, (I,))) -> GeneratorResult<bool> {
-        get_index(self, indexer.0)?.is_owner(owner, indexer.1 .0)
+    fn is_owner(&self, owner: &Pubkey, indexer: (usize, I)) -> GeneratorResult<bool> {
+        self[indexer.0].is_owner(owner, indexer.1)
     }
 }
 impl<T, const N: usize> MultiIndexable<AllAny> for [T; N]
@@ -183,121 +178,80 @@ where
     T: MultiIndexable<()>,
 {
     fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        indexer.run_func(self.iter(), |val| val.is_signer(()))
+        self.is_signer((indexer, ()))
     }
 
     fn is_writable(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        indexer.run_func(self.iter(), |val| val.is_writable(()))
+        self.is_writable((indexer, ()))
     }
 
     fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
-        indexer.run_func(self.iter(), |val| val.is_owner(owner, ()))
+        self.is_owner(owner, (indexer, ()))
     }
 }
-impl<T, I, const N: usize> MultiIndexable<(AllAny, (I,))> for [T; N]
+impl<T, I, const N: usize> MultiIndexable<(AllAny, I)> for [T; N]
 where
     T: AccountArgument + MultiIndexable<I>,
     I: Clone,
 {
-    fn is_signer(&self, indexer: (AllAny, (I,))) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: (AllAny, I)) -> GeneratorResult<bool> {
         indexer
             .0
-            .run_func(self.iter(), |val| val.is_signer(indexer.1 .0.clone()))
+            .run_func(self.iter(), |val| val.is_signer(indexer.1.clone()))
     }
 
-    fn is_writable(&self, indexer: (AllAny, (I,))) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: (AllAny, I)) -> GeneratorResult<bool> {
         indexer
             .0
-            .run_func(self.iter(), |val| val.is_writable(indexer.1 .0.clone()))
+            .run_func(self.iter(), |val| val.is_writable(indexer.1.clone()))
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: (AllAny, (I,))) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (AllAny, I)) -> GeneratorResult<bool> {
         indexer
             .0
-            .run_func(self.iter(), |val| val.is_owner(owner, indexer.1 .0.clone()))
+            .run_func(self.iter(), |val| val.is_owner(owner, indexer.1.clone()))
     }
 }
-impl<R, T, const N: usize> MultiIndexable<AllAnyRange<R>> for [T; N]
-where
-    T: MultiIndexable<()>,
-    R: RangeBounds<usize>,
-{
-    fn is_signer(&self, indexer: AllAnyRange<R>) -> GeneratorResult<bool> {
-        let (start, end) = crate::convert_range(&indexer.range, self.len())?;
-        indexer
-            .all_any
-            .run_func(self.iter().skip(start).take(end - start + 1), |val| {
-                val.is_signer(())
-            })
-    }
-
-    fn is_writable(&self, indexer: AllAnyRange<R>) -> GeneratorResult<bool> {
-        let (start, end) = crate::convert_range(&indexer.range, self.len())?;
-        indexer
-            .all_any
-            .run_func(self.iter().skip(start).take(end - start + 1), |val| {
-                val.is_writable(())
-            })
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: AllAnyRange<R>) -> GeneratorResult<bool> {
-        let (start, end) = crate::convert_range(&indexer.range, self.len())?;
-        indexer
-            .all_any
-            .run_func(self.iter().skip(start).take(end - start + 1), |val| {
-                val.is_owner(owner, ())
-            })
-    }
-}
-impl<T, R, I, const N: usize> MultiIndexable<(AllAnyRange<R>, (I,))> for [T; N]
+impl<T, R, I, const N: usize> MultiIndexable<(R, AllAny, I)> for [T; N]
 where
     T: AccountArgument + MultiIndexable<I>,
     R: RangeBounds<usize>,
     I: Clone,
 {
-    fn is_signer(&self, indexer: (AllAnyRange<R>, (I,))) -> GeneratorResult<bool> {
-        let (start, end) = crate::convert_range(&indexer.0.range, self.len())?;
+    fn is_signer(&self, indexer: (R, AllAny, I)) -> GeneratorResult<bool> {
+        let (start, end) = convert_range(&indexer.0, self.len())?;
         indexer
-            .0
-            .all_any
-            .run_func(self.iter().skip(start).take(end - start + 1), |val| {
-                val.is_signer(indexer.1 .0.clone())
-            })
+            .1
+            .run_func(&self[start..=end], |val| val.is_signer(indexer.2.clone()))
     }
 
-    fn is_writable(&self, indexer: (AllAnyRange<R>, (I,))) -> GeneratorResult<bool> {
-        let (start, end) = crate::convert_range(&indexer.0.range, self.len())?;
+    fn is_writable(&self, indexer: (R, AllAny, I)) -> GeneratorResult<bool> {
+        let (start, end) = convert_range(&indexer.0, self.len())?;
         indexer
-            .0
-            .all_any
-            .run_func(self.iter().skip(start).take(end - start + 1), |val| {
-                val.is_writable(indexer.1 .0.clone())
-            })
+            .1
+            .run_func(&self[start..=end], |val| val.is_writable(indexer.2.clone()))
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: (AllAnyRange<R>, (I,))) -> GeneratorResult<bool> {
-        let (start, end) = crate::convert_range(&indexer.0.range, self.len())?;
-        indexer
-            .0
-            .all_any
-            .run_func(self.iter().skip(start).take(end - start + 1), |val| {
-                val.is_owner(owner, indexer.1 .0.clone())
-            })
+    fn is_owner(&self, owner: &Pubkey, indexer: (R, AllAny, I)) -> GeneratorResult<bool> {
+        let (start, end) = convert_range(&indexer.0, self.len())?;
+        indexer.1.run_func(&self[start..=end], |val| {
+            val.is_owner(owner, indexer.2.clone())
+        })
     }
 }
 impl<T, const N: usize> SingleIndexable<usize> for [T; N]
 where
-    T: AccountArgument + SingleIndexable<()>,
+    T: SingleIndexable<()>,
 {
     fn info(&self, indexer: usize) -> GeneratorResult<&AccountInfo> {
         get_index(self, indexer)?.info(())
     }
 }
-impl<T, I, const N: usize> SingleIndexable<(usize, (I,))> for [T; N]
+impl<T, I, const N: usize> SingleIndexable<(usize, I)> for [T; N]
 where
-    T: AccountArgument + SingleIndexable<I>,
+    T: SingleIndexable<I>,
 {
-    fn info(&self, indexer: (usize, (I,))) -> GeneratorResult<&AccountInfo> {
-        get_index(self, indexer.0)?.info(indexer.1 .0)
+    fn info(&self, indexer: (usize, I)) -> GeneratorResult<&AccountInfo> {
+        get_index(self, indexer.0)?.info(indexer.1)
     }
 }

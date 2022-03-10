@@ -137,13 +137,3 @@ impl From<NotAny> for AllAny {
         Self::NotAny
     }
 }
-
-/// A range that is that can be executed with [`AllAny`].
-/// Also implements `MultiIndexableAccountArgument<(Range, I)>`  and other [std range](std::ops::RangeBounds) types with default [`All`] strategy when implemented for `MultiIndexableAccountArgument<(AllAnyRange<R>, I)>`.
-#[derive(Copy, Clone, Debug)]
-pub struct AllAnyRange<R> {
-    /// The range, should usually implement [`RangeBounds`](std::ops::RangeBounds)
-    pub range: R,
-    /// The execution strategy for this range.
-    pub all_any: AllAny,
-}

@@ -1,6 +1,4 @@
-use cruiser::{
-    AccountList, GeneratorResult, Instruction, InstructionList, InstructionProcessor, SystemProgram,
-};
+use cruiser::{AccountList, GeneratorResult, Instruction, InstructionList, InstructionProcessor};
 use solana_program::pubkey::Pubkey;
 
 #[derive(AccountList)]
@@ -34,7 +32,7 @@ impl InstructionProcessor<TestInstruction1> for TestInstruction1 {
         _program_id: &'static Pubkey,
         _data: <TestInstruction1 as Instruction>::Data,
         _accounts: &mut <TestInstruction1 as Instruction>::Accounts,
-    ) -> GeneratorResult<Option<SystemProgram>> {
-        todo!()
+    ) -> GeneratorResult<()> {
+        panic!("This is never called")
     }
 }

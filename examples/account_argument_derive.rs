@@ -2,8 +2,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 
 use cruiser::{
-    verify_account_arg_impl, AccountArgument, AccountList, InitAccount, ProgramAccount,
-    ZeroedAccount,
+    verify_account_arg_impl, AccountArgument, AccountList, AllAny, ProgramAccount, Single,
 };
 
 verify_account_arg_impl! {
@@ -57,9 +56,9 @@ pub struct FullStruct {
     data_account: ProgramAccount<TestAccountList, CoolAccount>,
     #[from(data = init_size as usize)]
     #[validate(signer, writable, owner(0) = &get_pubkey())]
-    init_accounts: Vec<InitAccount<TestAccountList, CoolAccount>>,
-    #[validate(signer, writable(3), owner(0..4) = &get_pubkey(), owner(7) = accounts.data_account.key())]
-    other_accounts: [ZeroedAccount<TestAccountList, i8>; 8],
+    init_accounts: Vec<ProgramAccount<TestAccountList, CoolAccount>>,
+    #[validate(signer, writable(3), owner((0..4, AllAny::All, ())) = &get_pubkey(), owner(7) = self.data_account.get_info().key)]
+    other_accounts: [ProgramAccount<TestAccountList, i8>; 8],
 }
 
 #[derive(AccountArgument)]
@@ -67,9 +66,9 @@ pub struct FullStruct {
 pub struct FullStruct2 {
     data_account: ProgramAccount<TestAccountList, CoolAccount>,
     #[from(data = vec![(); init_size as usize])]
-    init_accounts: Vec<InitAccount<TestAccountList, CoolAccount>>,
-    #[validate(signer, writable(3), owner(0..4) = &get_pubkey())]
-    other_accounts: [ZeroedAccount<TestAccountList, i8>; 8],
+    init_accounts: Vec<ProgramAccount<TestAccountList, CoolAccount>>,
+    #[validate(signer, writable(3), owner((0..4, AllAny::Any, ())) = &get_pubkey())]
+    other_accounts: [ProgramAccount<TestAccountList, i8>; 8],
 }
 
 #[derive(Default, BorshSerialize, BorshDeserialize)]
