@@ -2,11 +2,11 @@ use std::ops::Deref;
 
 use solana_program::program_pack::Pack;
 
-use crate::{
-    AccountInfo, AccountInfoIterator, FromAccounts, GeneratorError, GeneratorResult,
-    MultiIndexable, Pubkey, SingleIndexable, ValidateArgument, verify_account_arg_impl,
-};
 use crate::spl::token::TokenProgramAccount;
+use crate::{
+    verify_account_arg_impl, AccountInfo, AccountInfoIterator, FromAccounts, GeneratorError,
+    GeneratorResult, MultiIndexable, Pubkey, SingleIndexable, ValidateArgument,
+};
 
 verify_account_arg_impl! {
     mod token_account_check{

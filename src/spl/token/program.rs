@@ -4,11 +4,11 @@ use spl_token::instruction::AuthorityType;
 
 use cruiser_derive::verify_account_arg_impl;
 
+use crate::spl::token::TokenAccount;
 use crate::{
-    AccountArgument, AccountInfo, AllAny, GeneratorResult, invoke, MultiIndexable, PDASeedSet,
+    invoke, AccountArgument, AccountInfo, AllAny, GeneratorResult, MultiIndexable, PDASeedSet,
     Single, SingleIndexable,
 };
-use crate::spl::token::TokenAccount;
 
 verify_account_arg_impl! {
     mod token_program_check{

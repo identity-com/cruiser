@@ -30,14 +30,14 @@ extern crate self as cruiser;
 use array_init::array_init;
 pub use borsh;
 pub use solana_program;
+use solana_program::entrypoint::ProgramResult;
+pub use solana_program::msg;
+use solana_program::program::{invoke as solana_invoke, invoke_signed as solana_invoke_signed};
 pub use solana_program::{
     clock::UnixTimestamp,
     instruction::{AccountMeta as SolanaAccountMeta, Instruction as SolanaInstruction},
     pubkey::Pubkey,
 };
-use solana_program::entrypoint::ProgramResult;
-pub use solana_program::msg;
-use solana_program::program::{invoke as solana_invoke, invoke_signed as solana_invoke_signed};
 pub use static_assertions;
 
 pub use account_info::*;

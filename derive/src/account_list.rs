@@ -1,10 +1,10 @@
 use proc_macro2::{Span, TokenStream};
 use proc_macro_error::abort;
 use quote::quote;
-use syn::{Data, DataStruct, DataUnion, DeriveInput, Fields, Generics, Ident, Type};
 use syn::parse::{Parse, ParseStream};
+use syn::{Data, DataStruct, DataUnion, DeriveInput, Fields, Generics, Ident, Type};
 
-use easy_proc::{ArgumentList, find_attr};
+use easy_proc::{find_attr, ArgumentList};
 
 use crate::get_crate_name;
 

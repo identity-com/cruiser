@@ -1,11 +1,13 @@
-use cruiser::{
-    AccountArgument, AccountInfo, AccountList, CloseAccount, entrypoint_list, Find, GeneratorError,
-    GeneratorResult, InitArgs, InitOrZeroedAccount, Instruction, InstructionList, InstructionProcessor,
-    msg, OnChainSize, PDAGenerator, PDASeed, PDASeeder, ProgramAccount, Pubkey,
-    RentExempt, Seeds, Single, SystemProgram,
-};
+//! The escrow program from the paulx blog
+
 use cruiser::borsh::{BorshDeserialize, BorshSerialize};
 use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
+use cruiser::{
+    entrypoint_list, msg, AccountArgument, AccountInfo, AccountList, CloseAccount, Find,
+    GeneratorError, GeneratorResult, InitArgs, InitOrZeroedAccount, Instruction, InstructionList,
+    InstructionProcessor, OnChainSize, PDAGenerator, PDASeed, PDASeeder, ProgramAccount, Pubkey,
+    RentExempt, Seeds, Single, SystemProgram,
+};
 
 entrypoint_list!(EscrowInstructions, EscrowInstructions);
 

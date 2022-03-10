@@ -1,12 +1,12 @@
 use proc_macro2::TokenStream;
 use proc_macro_error::abort;
 use quote::{format_ident, quote, ToTokens};
-use syn::{
-    braced, bracketed, custom_keyword, GenericParam, Generics, Ident, token, Token, Type,
-    Visibility, WhereClause,
-};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
+use syn::{
+    braced, bracketed, custom_keyword, token, GenericParam, Generics, Ident, Token, Type,
+    Visibility, WhereClause,
+};
 
 use crate::get_crate_name;
 

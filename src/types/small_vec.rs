@@ -151,7 +151,7 @@ small_vec!(
 mod test {
     use std::convert::TryInto;
 
-    use rand::{Rng, thread_rng};
+    use rand::{thread_rng, Rng};
 
     use super::*;
 

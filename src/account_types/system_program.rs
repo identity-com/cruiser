@@ -6,10 +6,10 @@ use solana_program::system_instruction::create_account;
 
 use cruiser_derive::verify_account_arg_impl;
 
-use crate::{
-    AccountInfo, AllAny, GeneratorResult, invoke, MultiIndexable, PDASeedSet, SingleIndexable,
-};
 use crate::traits::AccountArgument;
+use crate::{
+    invoke, AccountInfo, AllAny, GeneratorResult, MultiIndexable, PDASeedSet, SingleIndexable,
+};
 
 verify_account_arg_impl! {
     mod init_account_check{

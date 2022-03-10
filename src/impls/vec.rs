@@ -4,9 +4,9 @@ use std::fmt::Debug;
 use std::ops::RangeBounds;
 
 use crate::{
-    AccountArgument, AccountInfo, AccountInfoIterator, AllAny, AllAnyRange,
-    FromAccounts, GeneratorError, GeneratorResult, mul_size_hint, MultiIndexable, Pubkey,
-    SingleIndexable, sum_size_hints, verify_account_arg_impl,
+    mul_size_hint, sum_size_hints, verify_account_arg_impl, AccountArgument, AccountInfo,
+    AccountInfoIterator, AllAny, AllAnyRange, FromAccounts, GeneratorError, GeneratorResult,
+    MultiIndexable, Pubkey, SingleIndexable,
 };
 
 verify_account_arg_impl! {

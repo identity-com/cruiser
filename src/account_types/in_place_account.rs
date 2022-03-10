@@ -10,11 +10,11 @@ use solana_program::pubkey::Pubkey;
 
 use cruiser::{AccountArgument, AccountListItem, AllAny, SingleIndexable};
 
+use crate::compressed_numbers::CompressedNumber;
 use crate::{
     AccountInfo, AccountInfoIterator, FromAccounts, GeneratorError, GeneratorResult,
     InPlaceBuilder, MultiIndexable, SystemProgram,
 };
-use crate::compressed_numbers::CompressedNumber;
 
 /// Access a given account in-place
 #[derive(Debug)]

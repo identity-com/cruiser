@@ -7,11 +7,11 @@ use solana_program::pubkey::Pubkey;
 use cruiser::AccountInfo;
 use cruiser_derive::verify_account_arg_impl;
 
+use crate::compressed_numbers::CompressedNumber;
 use crate::{
     AccountArgument, AccountInfoIterator, AccountListItem, AllAny, FromAccounts, GeneratorError,
     GeneratorResult, MultiIndexable, SingleIndexable, ValidateArgument,
 };
-use crate::compressed_numbers::CompressedNumber;
 
 verify_account_arg_impl! {
     mod discriminant_account_check{
