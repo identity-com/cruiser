@@ -1,6 +1,6 @@
 #![warn(unused_import_braces, unused_imports, missing_docs)]
 
-//! The proc macros of [`cruiser`]
+//! The proc macros of [`cruiser`](https://docs.rs/cruiser/latest/cruiser/)
 
 extern crate proc_macro;
 
@@ -47,52 +47,9 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
-/// The derive macro is implemented for structs only. Each field must implement [`AccountArgument`].
+/// The derive macro is implemented for structs only. Each field must implement `AccountArgument`.
 ///
-/// ## Struct Macros
-/// The struct macro is `account_argument` and contains a comma seperated list of arguments.
-/// ex:
-/// ```
-/// use cruiser::AccountArgument;
-/// #[derive(AccountArgument)]
-/// #[account_argument(instruction_data = (size: usize))]
-///  pub struct ArgumentAccounts{}
-/// ```
-/// ### `instruction_data`
-/// format: `instruction_data = ($($name:ident: $ty:ty,)*)`
-///
-/// This is the types (`$ty`) that the [`InstructionArg`](AccountArgument::InstructionArg) tuple will be created from and the names (`$name`) that can be used to access them.
-///
-/// ## Field Macros
-/// The field macro is `account_argument` and contains a comma seperated list of arguments.
-/// These arguments can access the top level `instruction_data` by name.
-/// ex:
-/// ```
-/// use cruiser::{AccountInfo, AccountArgument};
-/// #[derive(AccountArgument)]
-///  pub struct ArgumentAccounts{
-///      #[account_argument(signer, writable)]
-///      account: AccountInfo,
-///  }
-/// ```
-///
-/// ### `signer`, `writable`, and `owner`
-/// format: `$(signer|writable|owner)$(($optional_index:expr))? $(= $owner:expr)?
-///
-/// Requires the argument implement [`MultiIndexableAccountArgument`].
-/// These allow restrictions to be added to the arguments they are added to.
-/// `signer` verifies that the index is a signer
-/// `writable` verifies that the index is writable
-/// `owner` verifies that the index's owner is `$owner`. This is the only valid argument with `$owner`
-///
-/// `$optional_index` is an optional index (type `T`) where the argument must implement [`MultiIndexableAccountArgument<T>`].
-/// Defaults to [`All`](crate::All)
-///
-/// ### `instruction_data`
-/// format: `instruction_data = $data:expr`
-///
-/// This is optional and allows the setting of the [`InstructionArg`](AccountArgument::InstructionArg) passed to this field.
-/// If not used calls [`Default::default`] instead.
+/// TODO: Write docs for this
 #[proc_macro_error]
 #[proc_macro_derive(AccountArgument, attributes(from, account_argument, validate))]
 pub fn derive_account_argument(ts: TokenStream) -> TokenStream {
@@ -105,7 +62,9 @@ pub fn derive_account_argument(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
-/// Derives the [`InstructionList`] trait.
+/// Derives the `InstructionList` trait.
+///
+/// TODO: Write docs for this
 #[proc_macro_error]
 #[proc_macro_derive(InstructionList, attributes(instruction_list, instruction))]
 pub fn derive_instruction_list(ts: TokenStream) -> TokenStream {
@@ -118,7 +77,9 @@ pub fn derive_instruction_list(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
-/// Derives the [`AccountList`] trait
+/// Derives the `AccountList` trait
+///
+/// TODO: Write docs for this
 #[proc_macro_error]
 #[proc_macro_derive(AccountList)]
 pub fn derive_account_list(ts: TokenStream) -> TokenStream {
@@ -132,6 +93,8 @@ pub fn derive_account_list(ts: TokenStream) -> TokenStream {
 }
 
 /// Verifies a given type implements the proper traits
+///
+/// TODO: Write docs for this
 #[proc_macro_error]
 #[proc_macro]
 pub fn verify_account_arg_impl(tokens: TokenStream) -> TokenStream {
@@ -167,7 +130,7 @@ fn get_crate_name() -> proc_macro2::TokenStream {
 #[cfg(feature = "easy_proc_test")]
 #[proc_macro_error]
 #[proc_macro_attribute]
-pub fn test_easy_proc(args: TokenStream, tokens: TokenStream) -> TokenStream {
+fn test_easy_proc(args: TokenStream, tokens: TokenStream) -> TokenStream {
     println!("ts1: {}", args);
     println!("ts2: {}", tokens);
 

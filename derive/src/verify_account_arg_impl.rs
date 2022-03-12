@@ -4,8 +4,8 @@ use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{
-    braced, bracketed, custom_keyword, token, GenericParam, Generics, Ident, Token, Type,
-    Visibility, WhereClause,
+    braced, bracketed, custom_keyword, token, Attribute, GenericParam, Generics, Ident, Token,
+    Type, Visibility, WhereClause,
 };
 
 use crate::get_crate_name;
@@ -109,39 +109,35 @@ impl VerifyAccountArg {
         }
         let ty = self.ty;
         let from = self.from.into_token_stream(
-            crate_name,
             "From",
             &ty,
             &generics,
-            &format_ident!("FromAccounts"),
+            &quote! { #crate_name::account_argument::FromAccounts },
         );
         let validate = self.validate.into_token_stream(
-            crate_name,
             "Validate",
             &ty,
             &generics,
-            &format_ident!("ValidateArgument"),
+            &quote! { #crate_name::account_argument::ValidateArgument },
         );
         let multi = self.multi.into_token_stream(
-            crate_name,
             "Multi",
             &ty,
             &generics,
-            &format_ident!("MultiIndexable"),
+            &quote! { #crate_name::account_argument::MultiIndexable },
         );
         let single = self.single.into_token_stream(
-            crate_name,
             "Single",
             &ty,
             &generics,
-            &format_ident!("SingleIndexable"),
+            &quote! { #crate_name::account_argument::SingleIndexable },
         );
 
         let (impl_gen, ty_gen, where_clause) = generics.split_for_impl();
         quote! {
             #[automatically_derived]
             #[allow(clippy::type_repetition_in_bounds)]
-            trait AccountArgumentTest #impl_gen: #crate_name::AccountArgument #where_clause {}
+            trait AccountArgumentTest #impl_gen: #crate_name::account_argument::AccountArgument #where_clause {}
             #[automatically_derived]
             #[allow(clippy::type_repetition_in_bounds)]
             impl #impl_gen AccountArgumentTest #ty_gen for #ty #where_clause {}
@@ -225,11 +221,10 @@ pub struct TypeList<T> {
 impl<T> TypeList<T> {
     fn into_token_stream(
         self,
-        crate_name: &TokenStream,
         trait_prefix: &str,
         ty: &Type,
         generics: &Generics,
-        impl_type: &Ident,
+        impl_type: &TokenStream,
     ) -> TokenStream
     where
         T: ToTokens,
@@ -240,7 +235,6 @@ impl<T> TypeList<T> {
             .enumerate()
             .map(|(index, item)| {
                 item.into_token_stream(
-                    crate_name,
                     format_ident!("{}{}", trait_prefix, index),
                     ty,
                     generics,
@@ -288,6 +282,7 @@ where
 }
 
 pub struct TypeListItem {
+    attributes: Vec<Attribute>,
     generics: Generics,
     ty: Type,
     where_clause: Option<WhereClause>,
@@ -295,11 +290,10 @@ pub struct TypeListItem {
 impl TypeListItem {
     fn into_token_stream(
         self,
-        crate_name: &TokenStream,
         trait_ident: Ident,
         ty: &Type,
         generics: &Generics,
-        impl_type: &Ident,
+        impl_type: &TokenStream,
     ) -> TokenStream {
         let mut generics = generics.clone();
         generics.params.extend(self.generics.params.into_iter());
@@ -326,7 +320,7 @@ impl TypeListItem {
         quote! {
             #[automatically_derived]
             #[allow(clippy::type_repetition_in_bounds)]
-            trait #trait_ident #impl_gen: #crate_name::#impl_type<#self_ty> #where_clause {}
+            trait #trait_ident #impl_gen: #impl_type<#self_ty> #where_clause {}
             #[automatically_derived]
             #[allow(clippy::type_repetition_in_bounds)]
             impl #impl_gen #trait_ident #ty_gen for #ty #where_clause {}
@@ -335,10 +329,12 @@ impl TypeListItem {
 }
 impl Parse for TypeListItem {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let attributes = input.call(Attribute::parse_outer)?;
         let generics = input.parse()?;
         let ty = input.parse()?;
         let where_clause = input.parse()?;
         Ok(Self {
+            attributes,
             generics,
             ty,
             where_clause,
@@ -347,6 +343,9 @@ impl Parse for TypeListItem {
 }
 impl ToTokens for TypeListItem {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.attributes
+            .iter()
+            .for_each(|attr| attr.to_tokens(tokens));
         self.generics.to_tokens(tokens);
         self.ty.to_tokens(tokens);
         self.where_clause.to_tokens(tokens);

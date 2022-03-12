@@ -1,15 +1,22 @@
+//! Accepts both forms of initialize-able account
+
 use std::iter::once;
 use std::ops::{Deref, DerefMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::pubkey::Pubkey;
 
-use cruiser_derive::verify_account_arg_impl;
-
-use crate::{
-    AccountArgument, AccountInfo, AccountInfoIterator, AccountListItem, AllAny, CheckAll,
-    DiscriminantAccount, FromAccounts, GeneratorResult, InitAccount, InitArgs, MultiIndexable,
-    Pubkey, SingleIndexable, ValidateArgument, ZeroedAccount,
+use crate::account_argument::{
+    AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
+    ValidateArgument,
 };
+use crate::account_list::AccountListItem;
+use crate::account_types::discriminant_account::DiscriminantAccount;
+use crate::account_types::init_account::{InitAccount, InitArgs};
+use crate::account_types::zeroed_account::{CheckAll, ZeroedAccount};
+use crate::AllAny;
+use crate::{AccountInfo, CruiserResult};
+use cruiser_derive::verify_account_arg_impl;
 
 verify_account_arg_impl! {
     mod init_account_check{
@@ -17,8 +24,14 @@ verify_account_arg_impl! {
         where
             AL: AccountListItem<A>,
             A: BorshSerialize + BorshDeserialize{
-            from: [A];
-            validate: [<'a> InitArgs<'a>; <'a> (InitArgs<'a>, CheckAll)];
+            from: [
+                /// The initial value of this account
+                A;
+            ];
+            validate: [
+                <'a> InitArgs<'a>;
+                <'a> (InitArgs<'a>, CheckAll);
+            ];
             multi: [(); AllAny];
             single: [()];
         }
@@ -70,17 +83,14 @@ where
     AL: AccountListItem<A>,
     A: BorshSerialize + BorshDeserialize,
 {
-    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
+    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.write_back(program_id),
             InitOrZeroedAccount::Zeroed(zeroed) => zeroed.write_back(program_id),
         }
     }
 
-    fn add_keys(
-        &self,
-        add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
+    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.add_keys(add),
             InitOrZeroedAccount::Zeroed(zeroed) => zeroed.add_keys(add),
@@ -96,7 +106,7 @@ where
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: A,
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         let info = AccountInfo::from_accounts(program_id, infos, ())?;
         if *info.owner.borrow() == program_id {
             Ok(Self::Zeroed(ZeroedAccount::from_accounts(
@@ -122,7 +132,7 @@ where
     AL: AccountListItem<A>,
     A: BorshSerialize + BorshDeserialize,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: InitArgs<'a>) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, arg: InitArgs<'a>) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.validate(program_id, arg),
             InitOrZeroedAccount::Zeroed(zeroed) => zeroed.validate(program_id, ()),
@@ -138,7 +148,7 @@ where
         &mut self,
         program_id: &'static Pubkey,
         arg: (InitArgs<'a>, CheckAll),
-    ) -> GeneratorResult<()> {
+    ) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.validate(program_id, arg.0),
             InitOrZeroedAccount::Zeroed(zeroed) => zeroed.validate(program_id, arg.1),
@@ -151,15 +161,15 @@ where
     A: BorshSerialize + BorshDeserialize,
     AccountInfo: MultiIndexable<T>,
 {
-    fn is_signer(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
         self.info.is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
         self.info.is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
         self.info.is_owner(owner, indexer)
     }
 }
@@ -169,7 +179,7 @@ where
     A: BorshSerialize + BorshDeserialize,
     AccountInfo: SingleIndexable<T>,
 {
-    fn info(&self, indexer: T) -> GeneratorResult<&AccountInfo> {
+    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
         self.info.info(indexer)
     }
 }

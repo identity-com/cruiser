@@ -1,18 +1,21 @@
+//! A zeroed account that will be initialized
+
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use cruiser_derive::verify_account_arg_impl;
 use solana_program::pubkey::Pubkey;
 
-use cruiser_derive::verify_account_arg_impl;
-
-use crate::compressed_numbers::CompressedNumber;
-use crate::traits::AccountArgument;
-use crate::{
-    assert_is_owner, AccountInfo, AccountInfoIterator, AccountListItem, AllAny,
-    DiscriminantAccount, FromAccounts, GeneratorError, GeneratorResult, MultiIndexable,
-    SingleIndexable, ValidateArgument, WriteDiscriminant,
+use crate::account_argument::{
+    AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
+    ValidateArgument,
 };
+use crate::account_list::AccountListItem;
+use crate::account_types::discriminant_account::{DiscriminantAccount, WriteDiscriminant};
+use crate::compressed_numbers::CompressedNumber;
+use crate::util::assert::assert_is_owner;
+use crate::{AccountInfo, AllAny, CruiserError, CruiserResult};
 
 verify_account_arg_impl! {
     mod init_account_check{
@@ -20,14 +23,28 @@ verify_account_arg_impl! {
         where
             AL: AccountListItem<A>,
             A: BorshSerialize + BorshDeserialize{
-            from: [A];
-            validate: [(); CheckAll];
+            from: [
+                /// The initial value for the account
+                A
+            ];
+            validate: [
+                /// Checks the [`AL::DiscriminantCompressed::max_bytes()`](crate::CompressedNumber::max_bytes) bytes for any non-zero bytes.
+                ();
+                /// Checks all bytes in the account for non-zero.
+                CheckAll;
+            ];
             multi: [(); AllAny];
             single: [()];
         }
     }
 }
 
+/// Initializes an account that is zeroed out and owned by the current program.
+///
+/// - `AL`: The [`AccountList`](crate::account_list::AccountList) that is valid for `A`
+/// - `A` The account data, `AL` must implement [`AccountListItem<A>`](AccountListItem)
+///
+/// Does not guarantee rent exempt, wrap with [`RentExempt`](crate::account_types::rent_exempt::RentExempt) for that.
 #[derive(AccountArgument)]
 #[account_argument(no_from, no_validate)]
 pub struct ZeroedAccount<AL, A>
@@ -78,7 +95,7 @@ where
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: A,
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         Ok(Self {
             account: DiscriminantAccount::from_accounts(program_id, infos, (arg,))?,
         })
@@ -93,13 +110,13 @@ where
     AL: AccountListItem<A>,
     A: BorshSerialize + BorshDeserialize,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, _arg: ()) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, _arg: ()) -> CruiserResult<()> {
         assert_is_owner(&self.account, program_id, ())?;
         if self.account.info.data.borrow()[..AL::DiscriminantCompressed::max_bytes()]
             .iter()
             .any(|val| *val != 0)
         {
-            Err(GeneratorError::NonZeroedData {
+            Err(CruiserError::NonZeroedData {
                 account: self.account.info.key,
             }
             .into())
@@ -108,6 +125,7 @@ where
         }
     }
 }
+/// Checks all the bytes of a [`ZeroedAccount`]
 #[derive(Debug, Copy, Clone)]
 pub struct CheckAll;
 impl<AL, A> ValidateArgument<CheckAll> for ZeroedAccount<AL, A>
@@ -115,10 +133,10 @@ where
     AL: AccountListItem<A>,
     A: BorshSerialize + BorshDeserialize,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, _arg: CheckAll) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, _arg: CheckAll) -> CruiserResult<()> {
         assert_is_owner(&self.account, program_id, ())?;
         if self.account.info.data.borrow().iter().any(|val| *val != 0) {
-            Err(GeneratorError::NonZeroedData {
+            Err(CruiserError::NonZeroedData {
                 account: self.account.info.key,
             }
             .into())
@@ -133,15 +151,15 @@ where
     A: BorshSerialize + BorshDeserialize,
     DiscriminantAccount<AL, A>: MultiIndexable<T>,
 {
-    fn is_signer(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
         self.account.is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
         self.account.is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
         self.account.is_owner(owner, indexer)
     }
 }
@@ -151,7 +169,7 @@ where
     A: BorshSerialize + BorshDeserialize,
     DiscriminantAccount<AL, A>: SingleIndexable<T>,
 {
-    fn info(&self, indexer: T) -> GeneratorResult<&AccountInfo> {
+    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
         self.account.info(indexer)
     }
 }

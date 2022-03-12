@@ -1,7 +1,7 @@
-use crate::{
-    Advance, AdvanceArray, Error, GeneratorError, GeneratorResult, InPlaceBuilder, InPlaceData,
-    InPlaceGet, InPlaceSet, StaticSized,
-};
+use crate::error::Error;
+use crate::in_place::{InPlaceBuilder, InPlaceData, InPlaceGet, InPlaceSet, StaticSized};
+use crate::util::{Advance, AdvanceArray};
+use crate::{CruiserError, CruiserResult};
 use array_init::try_array_init;
 use num_traits::Zero;
 use std::collections::Bound;
@@ -40,11 +40,11 @@ where
     /// The maximum length this vec can be
     fn max_length(&self) -> usize;
     /// Gets an item from the vec
-    fn get(&mut self, index: usize) -> GeneratorResult<Option<T::InPlaceData<'_>>> {
+    fn get(&mut self, index: usize) -> CruiserResult<Option<T::InPlaceData<'_>>> {
         vec_get::<T>(self.len(), index, unsafe { self.data() })
     }
     /// Gets all the items in the vec
-    fn get_all(&mut self) -> GeneratorResult<Vec<T::InPlaceData<'_>>> {
+    fn get_all(&mut self) -> CruiserResult<Vec<T::InPlaceData<'_>>> {
         let length = self.len();
         vec_get_subset::<T, _>(length, 0..length, unsafe { self.data() })
     }
@@ -52,14 +52,14 @@ where
     fn get_subset(
         &mut self,
         range: impl RangeBounds<usize>,
-    ) -> GeneratorResult<Vec<T::InPlaceData<'_>>> {
+    ) -> CruiserResult<Vec<T::InPlaceData<'_>>> {
         vec_get_subset::<T, _>(self.len(), range, unsafe { self.data() })
     }
     /// Gets an array of items from the vec
     fn get_array<const N: usize>(
         &mut self,
         start: usize,
-    ) -> GeneratorResult<Option<[T::InPlaceData<'_>; N]>> {
+    ) -> CruiserResult<Option<[T::InPlaceData<'_>; N]>> {
         vec_get_array::<T, N>(self.len(), start, unsafe { self.data() })
     }
     /// Replaces a given item in the vec
@@ -67,7 +67,7 @@ where
         &mut self,
         index: usize,
         value: T::CreateArg,
-    ) -> GeneratorResult<Result<T::InPlaceData<'_>, T::CreateArg>> {
+    ) -> CruiserResult<Result<T::InPlaceData<'_>, T::CreateArg>> {
         vec_replace::<T>(self.len(), index, value, unsafe { self.data() })
     }
     /// Swaps two items in the vec with a given buffer
@@ -76,13 +76,13 @@ where
         index1: usize,
         index2: usize,
         temp_buffer: &mut [u8; T::DATA_SIZE],
-    ) -> GeneratorResult<bool> {
+    ) -> bool {
         vec_swap::<T>(self.len(), index1, index2, temp_buffer, unsafe {
             self.data()
         })
     }
     /// Swaps two items in a vec
-    fn swap(&mut self, index1: usize, index2: usize) -> GeneratorResult<bool>
+    fn swap(&mut self, index1: usize, index2: usize) -> bool
     where
         [(); T::DATA_SIZE]:,
     {
@@ -92,7 +92,7 @@ where
     fn push<'b>(
         &'b mut self,
         value: T::CreateArg,
-    ) -> GeneratorResult<Result<T::InPlaceData<'_>, T::CreateArg>>
+    ) -> CruiserResult<Result<T::InPlaceData<'_>, T::CreateArg>>
     where
         D::InPlaceData<'a>: 'b,
     {
@@ -105,7 +105,7 @@ where
     fn push_all<'b, I>(
         &'b mut self,
         values: I,
-    ) -> GeneratorResult<Result<Vec<T::InPlaceData<'b>>, I::IntoIter>>
+    ) -> CruiserResult<Result<Vec<T::InPlaceData<'b>>, I::IntoIter>>
     where
         D::InPlaceData<'a>: 'b,
         I: 'b + IntoIterator<Item = T::CreateArg>,
@@ -116,7 +116,7 @@ where
         vec_push_all::<T, I, _>(max_length, values, length, data)
     }
     /// Removes an item from the vec, moving all items later down an index
-    fn remove(&mut self, index: usize) -> GeneratorResult<bool> {
+    fn remove(&mut self, index: usize) -> bool {
         let (length, data) = unsafe { self.length_and_data() };
         vec_remove::<T, _>(index, length, data)
     }
@@ -168,7 +168,7 @@ where
     fn create(
         mut data: &mut [u8],
         max_length: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    ) -> CruiserResult<Self::InPlaceData<'_>> {
         let max_length_data_size = D::create_size(&max_length);
         let length = D::CreateArg::zero();
         let max_length = D::create(data.advance(max_length_data_size), max_length)?;
@@ -181,7 +181,7 @@ where
         })
     }
 
-    fn read(mut data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    fn read(mut data: &mut [u8]) -> CruiserResult<Self::InPlaceData<'_>> {
         let max_length_size = D::data_size(data)?;
         let max_length = D::read(data.advance(max_length_size))?;
         let length = D::read(data.advance(max_length_size))?;
@@ -276,13 +276,13 @@ where
     fn create(
         mut data: &mut [u8],
         _create_arg: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    ) -> CruiserResult<Self::InPlaceData<'_>> {
         let length = D::create(data.try_advance(D::DATA_SIZE)?, D::CreateArg::zero())?;
         let data = data.try_advance_array()?;
         Ok(StaticInPlaceVec { length, data })
     }
 
-    fn read(mut data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    fn read(mut data: &mut [u8]) -> CruiserResult<Self::InPlaceData<'_>> {
         Ok(StaticInPlaceVec {
             length: D::read(data.try_advance(D::DATA_SIZE)?)?,
             data: data.try_advance_array()?,
@@ -303,7 +303,7 @@ where
     // fn create_static(
     //     data: &mut [u8; Self::DATA_SIZE],
     //     _create_arg: Self::CreateArg,
-    // ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    // ) -> CruiserResult<Self::InPlaceData<'_>> {
     //     let [length @ 0..D::DATA_SIZE, data @ ..] = data;
     //     Ok(StaticInPlaceVec {
     //         length: D::create_static(length, D::CreateArg::zero()),
@@ -311,7 +311,7 @@ where
     //     })
     // }
     //
-    // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> CruiserResult<Self::InPlaceData<'_>> {
     //     todo!()
     // }
 }
@@ -357,7 +357,7 @@ fn vec_get<T>(
     length: usize,
     index: usize,
     data: &mut [u8],
-) -> GeneratorResult<Option<T::InPlaceData<'_>>>
+) -> CruiserResult<Option<T::InPlaceData<'_>>>
 where
     T: StaticSized,
 {
@@ -372,7 +372,7 @@ fn vec_get_subset<T, R>(
     length: usize,
     range: R,
     data: &mut [u8],
-) -> GeneratorResult<Vec<T::InPlaceData<'_>>>
+) -> CruiserResult<Vec<T::InPlaceData<'_>>>
 where
     T: StaticSized,
     R: RangeBounds<usize>,
@@ -392,7 +392,7 @@ where
     }
     .max(length);
     if start_index > end_index {
-        Err(GeneratorError::Custom {
+        Err(CruiserError::Custom {
             error: format!(
                 "Start index (`{}`) before end index (`{}`)",
                 start_index, end_index
@@ -413,7 +413,7 @@ fn vec_get_array<T, const N: usize>(
     length: usize,
     start: usize,
     data: &mut [u8],
-) -> GeneratorResult<Option<[T::InPlaceData<'_>; N]>>
+) -> CruiserResult<Option<[T::InPlaceData<'_>; N]>>
 where
     T: StaticSized,
 {
@@ -432,7 +432,7 @@ fn vec_replace<T>(
     index: usize,
     value: T::CreateArg,
     data: &mut [u8],
-) -> GeneratorResult<Result<T::InPlaceData<'_>, T::CreateArg>>
+) -> CruiserResult<Result<T::InPlaceData<'_>, T::CreateArg>>
 where
     T: StaticSized,
 {
@@ -450,14 +450,14 @@ fn vec_swap<T>(
     index2: usize,
     temp_buffer: &mut [u8; T::DATA_SIZE],
     data: &mut [u8],
-) -> GeneratorResult<bool>
+) -> bool
 where
     T: StaticSized,
 {
     if index1 >= length || index2 >= length {
-        Ok(false)
+        false
     } else if index1 == index2 {
-        Ok(true)
+        true
     } else {
         let (first_index, second_index) = if index1 > index2 {
             (index2, index1)
@@ -469,7 +469,7 @@ where
         temp_buffer.copy_from_slice(first_slice);
         first_slice.copy_from_slice(second_slice);
         second_slice.copy_from_slice(temp_buffer);
-        Ok(true)
+        true
     }
 }
 
@@ -478,7 +478,7 @@ fn vec_push<'a, T, L>(
     value: T::CreateArg,
     length: &mut L,
     data: &'a mut [u8],
-) -> GeneratorResult<Result<T::InPlaceData<'a>, T::CreateArg>>
+) -> CruiserResult<Result<T::InPlaceData<'a>, T::CreateArg>>
 where
     T: StaticSized,
     for<'b> L: InPlaceGet<'b, usize> + InPlaceSet<'b, usize>,
@@ -499,7 +499,7 @@ fn vec_push_all<'a, T, I, L>(
     values: I,
     length: &mut L,
     mut data: &'a mut [u8],
-) -> GeneratorResult<Result<Vec<T::InPlaceData<'a>>, I::IntoIter>>
+) -> CruiserResult<Result<Vec<T::InPlaceData<'a>>, I::IntoIter>>
 where
     T: StaticSized,
     I: 'a + IntoIterator<Item = T::CreateArg>,
@@ -520,20 +520,20 @@ where
     }
 }
 
-fn vec_remove<T, L>(index: usize, length: &mut L, data: &mut [u8]) -> GeneratorResult<bool>
+fn vec_remove<T, L>(index: usize, length: &mut L, data: &mut [u8]) -> bool
 where
     T: StaticSized,
     for<'b> L: InPlaceGet<'b, usize> + InPlaceSet<'b, usize>,
 {
     let length_val = length.get_value();
     if index >= length_val {
-        Ok(false)
+        false
     } else {
         data.copy_within(
             (index + 1) * T::DATA_SIZE..length_val * T::DATA_SIZE,
             index * T::DATA_SIZE,
         );
         length.set_value(length_val - 1);
-        Ok(true)
+        true
     }
 }

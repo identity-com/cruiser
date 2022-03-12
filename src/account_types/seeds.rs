@@ -1,15 +1,18 @@
+//! A single account that must come from a given set of seeds
+
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
 
 use solana_program::pubkey::Pubkey;
 
-use cruiser::PDASeedSet;
 use cruiser_derive::verify_account_arg_impl;
 
-use crate::{
-    AccountArgument, AccountInfo, AccountInfoIterator, FromAccounts, GeneratorResult,
-    MultiIndexable, PDAGenerator, PDASeeder, SingleIndexable, ValidateArgument,
+use crate::account_argument::{
+    AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
+    ValidateArgument,
 };
+use crate::pda_seeds::{PDAGenerator, PDASeedSet, PDASeeder};
+use crate::{AccountInfo, CruiserResult};
 
 verify_account_arg_impl! {
     mod seeds_check{
@@ -42,6 +45,8 @@ where
     A: AccountArgument,
     S: PDASeeder + 'a,
 {
+    /// Takes the seed set out of this.
+    /// Will be [`None`] if [`validate`](ValidateArgument::validate) was never called or this function was called before.
     pub fn take_seed_set(&mut self) -> Option<PDASeedSet<'a>> {
         let seeds = self.seeds.take()?;
         Some(PDASeedSet::new(seeds.0, seeds.1))
@@ -72,14 +77,11 @@ where
     A: AccountArgument,
     S: PDASeeder,
 {
-    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
+    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
         self.argument.write_back(program_id)
     }
 
-    fn add_keys(
-        &self,
-        add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
+    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
         self.argument.add_keys(add)
     }
 }
@@ -92,7 +94,7 @@ where
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: T,
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         Ok(Self {
             argument: A::from_accounts(program_id, infos, arg)?,
             seeds: None,
@@ -109,7 +111,7 @@ where
     S: PDASeeder,
     B: BumpSeed,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: (S, B)) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, arg: (S, B)) -> CruiserResult<()> {
         self.validate(program_id, (arg.0, arg.1, (), ()))
     }
 }
@@ -119,7 +121,7 @@ where
     S: PDASeeder,
     B: BumpSeed,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: (S, B, V)) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, arg: (S, B, V)) -> CruiserResult<()> {
         self.validate(program_id, (arg.0, arg.1, arg.2, ()))
     }
 }
@@ -129,7 +131,7 @@ where
     S: PDASeeder,
     B: BumpSeed,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: (S, B, V, I)) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, arg: (S, B, V, I)) -> CruiserResult<()> {
         self.argument.validate(program_id, arg.2)?;
         let bump_seed = arg
             .1
@@ -143,15 +145,15 @@ where
     A: MultiIndexable<T>,
     S: PDASeeder,
 {
-    fn is_signer(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
         self.argument.is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
         self.argument.is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
         self.argument.is_owner(owner, indexer)
     }
 }
@@ -160,7 +162,7 @@ where
     A: SingleIndexable<T>,
     S: PDASeeder,
 {
-    fn info(&self, indexer: T) -> GeneratorResult<&AccountInfo> {
+    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
         self.argument.info(indexer)
     }
 }
@@ -173,7 +175,7 @@ pub trait BumpSeed {
         seeder: &S,
         program_id: &'static Pubkey,
         address: &Pubkey,
-    ) -> GeneratorResult<u8>
+    ) -> CruiserResult<u8>
     where
         S: PDASeeder;
 }
@@ -183,7 +185,7 @@ impl BumpSeed for u8 {
         seeder: &S,
         program_id: &'static Pubkey,
         address: &Pubkey,
-    ) -> GeneratorResult<u8>
+    ) -> CruiserResult<u8>
     where
         S: PDASeeder,
     {
@@ -200,7 +202,7 @@ impl BumpSeed for Find {
         seeder: &S,
         program_id: &'static Pubkey,
         address: &Pubkey,
-    ) -> GeneratorResult<u8>
+    ) -> CruiserResult<u8>
     where
         S: PDASeeder,
     {

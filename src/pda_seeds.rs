@@ -1,11 +1,12 @@
+//! Support for type based PDAs
 use std::fmt::Debug;
 use std::iter::{once, Chain, Map, Once};
 
 use crate::solana_program::entrypoint::ProgramResult;
 use crate::solana_program::pubkey::PubkeyError;
 use crate::{
-    invoke_signed, invoke_signed_variable_size, AccountInfo, GeneratorError, GeneratorResult,
-    Pubkey, SolanaInstruction,
+    invoke_signed, invoke_signed_variable_size, AccountInfo, CruiserError, CruiserResult, Pubkey,
+    SolanaInstruction,
 };
 
 /// A set of seeds for a pda
@@ -65,14 +66,23 @@ impl<'a> PDASeedSet<'a> {
     }
 
     /// Invokes an instruction with given seed sets
-    pub fn invoke_signed_multiple<const N: usize>(
+    pub fn invoke_signed_multiple<T, const N: usize>(
         instruction: &SolanaInstruction,
         accounts: &[&AccountInfo; N],
-        seed_sets: &[Self],
-    ) -> ProgramResult {
+        seed_sets: &[T],
+    ) -> ProgramResult
+    where
+        T: AsRef<Self>,
+    {
         let seeds_array = seed_sets
             .iter()
-            .map(|seed_set| seed_set.seeds().map(AsRef::as_ref).collect::<Vec<_>>())
+            .map(|seed_set| {
+                seed_set
+                    .as_ref()
+                    .seeds()
+                    .map(AsRef::as_ref)
+                    .collect::<Vec<_>>()
+            })
             .collect::<Vec<_>>();
         let seeds = seeds_array.iter().map(AsRef::as_ref).collect::<Vec<_>>();
 
@@ -80,18 +90,32 @@ impl<'a> PDASeedSet<'a> {
     }
 
     /// Invokes an instruction of variable account size with given seed sets
-    pub fn invoke_signed_variable_size_multiple(
+    pub fn invoke_signed_variable_size_multiple<T>(
         instruction: &SolanaInstruction,
         accounts: &[&AccountInfo],
-        seed_sets: &[Self],
-    ) -> ProgramResult {
+        seed_sets: &[T],
+    ) -> ProgramResult
+    where
+        T: AsRef<Self>,
+    {
         let seeds_array = seed_sets
             .iter()
-            .map(|seed_set| seed_set.seeds().map(AsRef::as_ref).collect::<Vec<_>>())
+            .map(|seed_set| {
+                seed_set
+                    .as_ref()
+                    .seeds()
+                    .map(AsRef::as_ref)
+                    .collect::<Vec<_>>()
+            })
             .collect::<Vec<_>>();
         let seeds = seeds_array.iter().map(AsRef::as_ref).collect::<Vec<_>>();
 
         invoke_signed_variable_size(instruction, accounts, seeds.as_slice())
+    }
+}
+impl<'a> AsRef<PDASeedSet<'a>> for PDASeedSet<'a> {
+    fn as_ref(&self) -> &PDASeedSet<'a> {
+        self
     }
 }
 
@@ -187,22 +211,22 @@ where
     /// Finds an address for the given seeds returning `(key, nonce)`
     fn find_address(&self, program_id: &'static Pubkey) -> (Pubkey, u8);
     /// Creates an address from given seeds and nonce, ~50% chance to error if given a random nonce
-    fn create_address(&self, program_id: &'static Pubkey, nonce: u8) -> GeneratorResult<Pubkey>;
+    fn create_address(&self, program_id: &'static Pubkey, nonce: u8) -> CruiserResult<Pubkey>;
     /// Verifies that a given address is derived from given seeds and finds nonce. Returns the found nonce.
     fn verify_address_find_nonce(
         &self,
         program_id: &'static Pubkey,
         address: &Pubkey,
-    ) -> GeneratorResult<u8>;
+    ) -> CruiserResult<u8>;
     /// Verifies that a given address is derived from given seeds and nonce.
     fn verify_address_with_nonce(
         &self,
         program_id: &'static Pubkey,
         address: &Pubkey,
         nonce: u8,
-    ) -> GeneratorResult<()>;
+    ) -> CruiserResult<()>;
     /// Verifies that a given address is derived from given seeds.
-    fn verify_address(&self, program_id: &'static Pubkey, address: &Pubkey) -> GeneratorResult<()>;
+    fn verify_address(&self, program_id: &'static Pubkey, address: &Pubkey) -> CruiserResult<()>;
 }
 #[allow(clippy::type_complexity)]
 impl<'a, 'b, 'c, T: ?Sized> PDAGenerator<'a, 'b, 'c> for T
@@ -245,13 +269,13 @@ where
         Pubkey::find_program_address(&seed_bytes, program_id)
     }
 
-    fn create_address(&self, program_id: &'static Pubkey, nonce: u8) -> GeneratorResult<Pubkey> {
+    fn create_address(&self, program_id: &'static Pubkey, nonce: u8) -> CruiserResult<Pubkey> {
         Pubkey::create_program_address(
             &self.seeds_to_bytes_with_nonce(&[nonce]).collect::<Vec<_>>(),
             program_id,
         )
         .map_err(|error| match error {
-            PubkeyError::InvalidSeeds => GeneratorError::NoAccountFromSeeds {
+            PubkeyError::InvalidSeeds => CruiserError::NoAccountFromSeeds {
                 seeds: self.seeds_to_strings_with_nonce(nonce).collect(),
             }
             .into(),
@@ -263,10 +287,10 @@ where
         &self,
         program_id: &'static Pubkey,
         address: &Pubkey,
-    ) -> GeneratorResult<u8> {
+    ) -> CruiserResult<u8> {
         let (key, nonce) = self.find_address(program_id);
         if address != &key {
-            return Err(GeneratorError::AccountNotFromSeeds {
+            return Err(CruiserError::AccountNotFromSeeds {
                 account: *address,
                 seeds: self.seeds_to_strings().collect(),
                 program_id,
@@ -281,10 +305,10 @@ where
         program_id: &'static Pubkey,
         address: &Pubkey,
         nonce: u8,
-    ) -> GeneratorResult<()> {
+    ) -> CruiserResult<()> {
         let created_key = self.create_address(program_id, nonce);
         if created_key.is_err() || address != &created_key? {
-            Err(GeneratorError::AccountNotFromSeeds {
+            Err(CruiserError::AccountNotFromSeeds {
                 account: *address,
                 seeds: self.seeds_to_strings_with_nonce(nonce).collect(),
                 program_id,
@@ -295,10 +319,10 @@ where
         }
     }
 
-    fn verify_address(&self, program_id: &'static Pubkey, address: &Pubkey) -> GeneratorResult<()> {
+    fn verify_address(&self, program_id: &'static Pubkey, address: &Pubkey) -> CruiserResult<()> {
         let created_key = self.find_address(program_id).0;
         if address != &created_key {
-            return Err(GeneratorError::AccountNotFromSeeds {
+            return Err(CruiserError::AccountNotFromSeeds {
                 account: *address,
                 seeds: self.seeds_to_strings().collect(),
                 program_id,

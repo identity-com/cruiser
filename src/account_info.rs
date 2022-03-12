@@ -1,18 +1,22 @@
 use std::cell::RefCell;
 use std::mem::{align_of, size_of, transmute};
+use std::ptr::addr_of;
 use std::rc::Rc;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
+use crate::account_argument::{
+    AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
+    ValidateArgument,
+};
+use crate::CruiserResult;
+use cruiser_derive::verify_account_arg_impl;
 use solana_program::account_info::AccountInfo as SolanaAccountInfo;
 use solana_program::clock::Epoch;
 use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
 use solana_program::program_error::ProgramError;
 use solana_program::pubkey::Pubkey;
 
-use crate::{
-    verify_account_arg_impl, AccountArgument, AccountInfoIterator, AllAny, FromAccounts,
-    GeneratorResult, MultiIndexable, SingleIndexable, ValidateArgument,
-};
+use crate::AllAny;
 
 verify_account_arg_impl! {
     mod account_info_check{
@@ -140,21 +144,22 @@ impl AccountInfo {
             data: transmute::<Rc<RefCell<&'static mut [u8]>>, Rc<RefCell<&'a mut [u8]>>>(
                 self.data.clone(),
             ),
-            owner: &*(&**self.owner.borrow() as *const solana_program::pubkey::Pubkey),
+            #[allow(clippy::deref_addrof)]
+            owner: &*(addr_of!(**self.owner.borrow())),
             executable: self.executable,
             rent_epoch: self.rent_epoch,
         }
     }
 }
 impl AccountArgument for AccountInfo {
-    fn write_back(self, _program_id: &Pubkey) -> GeneratorResult<()> {
+    fn write_back(self, _program_id: &Pubkey) -> CruiserResult<()> {
         Ok(())
     }
 
     fn add_keys(
         &self,
-        mut add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
+        mut add: impl FnMut(&'static Pubkey) -> CruiserResult<()>,
+    ) -> CruiserResult<()> {
         add(self.key)
     }
 }
@@ -163,7 +168,7 @@ impl FromAccounts<()> for AccountInfo {
         _program_id: &Pubkey,
         infos: &mut impl AccountInfoIterator,
         _arg: (),
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         match infos.next() {
             None => Err(ProgramError::NotEnoughAccountKeys.into()),
             Some(info) => Ok(info),
@@ -175,38 +180,38 @@ impl FromAccounts<()> for AccountInfo {
     }
 }
 impl ValidateArgument<()> for AccountInfo {
-    fn validate(&mut self, _program_id: &'static Pubkey, _arg: ()) -> GeneratorResult<()> {
+    fn validate(&mut self, _program_id: &'static Pubkey, _arg: ()) -> CruiserResult<()> {
         Ok(())
     }
 }
 impl MultiIndexable<()> for AccountInfo {
-    fn is_signer(&self, _indexer: ()) -> GeneratorResult<bool> {
+    fn is_signer(&self, _indexer: ()) -> CruiserResult<bool> {
         Ok(self.is_signer)
     }
 
-    fn is_writable(&self, _indexer: ()) -> GeneratorResult<bool> {
+    fn is_writable(&self, _indexer: ()) -> CruiserResult<bool> {
         Ok(self.is_writable)
     }
 
-    fn is_owner(&self, owner: &Pubkey, _indexer: ()) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, _indexer: ()) -> CruiserResult<bool> {
         Ok(*self.owner.borrow() == owner)
     }
 }
 impl MultiIndexable<AllAny> for AccountInfo {
-    fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: AllAny) -> CruiserResult<bool> {
         Ok(indexer.is_not() ^ self.is_signer(())?)
     }
 
-    fn is_writable(&self, indexer: AllAny) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: AllAny) -> CruiserResult<bool> {
         Ok(indexer.is_not() ^ self.is_writable(())?)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> CruiserResult<bool> {
         Ok(indexer.is_not() ^ self.is_owner(owner, ())?)
     }
 }
 impl SingleIndexable<()> for AccountInfo {
-    fn info(&self, _indexer: ()) -> GeneratorResult<&AccountInfo> {
+    fn info(&self, _indexer: ()) -> CruiserResult<&AccountInfo> {
         Ok(self)
     }
 }
@@ -220,9 +225,9 @@ pub mod account_info_test {
     use rand::{thread_rng, Rng};
     use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
 
-    use cruiser::AllAny;
-
-    use crate::{AccountInfo, MultiIndexable, Pubkey, Single};
+    use crate::account_argument::{MultiIndexable, Single};
+    use crate::AllAny;
+    use crate::{AccountInfo, Pubkey};
 
     fn add<const N: usize>(data: &mut Vec<u8>, add: [u8; N]) {
         for item in IntoIterator::into_iter(add) {

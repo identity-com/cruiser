@@ -1,15 +1,14 @@
-use solana_program::pubkey::Pubkey;
-
-use cruiser_derive::verify_account_arg_impl;
-
 use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, ValidateArgument,
 };
 use crate::CruiserResult;
+use cruiser_derive::verify_account_arg_impl;
+use solana_program::pubkey::Pubkey;
+use std::marker::PhantomData;
 
 verify_account_arg_impl! {
     mod unit_checks {
-        () {
+        <T> PhantomData<T> {
             from: [()];
             validate: [()];
             multi: [];
@@ -18,7 +17,7 @@ verify_account_arg_impl! {
     }
 }
 
-impl AccountArgument for () {
+impl<T> AccountArgument for PhantomData<T> {
     fn write_back(self, _program_id: &'static Pubkey) -> CruiserResult<()> {
         Ok(())
     }
@@ -30,20 +29,20 @@ impl AccountArgument for () {
         Ok(())
     }
 }
-impl FromAccounts<()> for () {
+impl<T> FromAccounts<()> for PhantomData<T> {
     fn from_accounts(
         _program_id: &'static Pubkey,
         _infos: &mut impl AccountInfoIterator,
         _arg: (),
     ) -> CruiserResult<Self> {
-        Ok(())
+        Ok(PhantomData)
     }
 
     fn accounts_usage_hint(_arg: &()) -> (usize, Option<usize>) {
         (0, Some(0))
     }
 }
-impl ValidateArgument<()> for () {
+impl<T> ValidateArgument<()> for PhantomData<T> {
     fn validate(&mut self, _program_id: &'static Pubkey, _arg: ()) -> CruiserResult<()> {
         Ok(())
     }

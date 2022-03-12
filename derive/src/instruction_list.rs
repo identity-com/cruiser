@@ -130,28 +130,28 @@ impl InstructionListDerive {
 
             quote! {
                 #[automatically_derived]
-                impl #impl_generics #crate_name::InstructionListProcessor<#ident> for #ident #ty_generics #where_clause{
+                impl #impl_generics #crate_name::instruction_list::InstructionListProcessor<#ident> for #ident #ty_generics #where_clause{
                     fn process_instruction(
                         program_id: &'static #crate_name::Pubkey,
-                        accounts: &mut impl #crate_name::AccountInfoIterator,
+                        accounts: &mut impl #crate_name::account_argument::AccountInfoIterator,
                         mut data: &[u8],
-                    ) -> #crate_name::GeneratorResult<()>{
-                        let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
-                        let discriminant = <<Self as #crate_name::InstructionList>::DiscriminantCompressed as #crate_name::compressed_numbers::CompressedNumber>::into_number(discriminant);
+                    ) -> #crate_name::CruiserResult<()>{
+                        let discriminant = <<Self as #crate_name::instruction_list::InstructionList>::DiscriminantCompressed as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
+                        let discriminant = <<Self as #crate_name::instruction_list::InstructionList>::DiscriminantCompressed as #crate_name::compressed_numbers::CompressedNumber>::into_number(discriminant);
                         if false{
                             ::std::unreachable!();
                         }
                         #(else if discriminant == #variant_discriminant{
                             #instruction_prints
-                            let mut data = <<#variant_instruction_type as #crate_name::Instruction>::Data as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
-                            let from_data = <#variant_instruction_type as #crate_name::Instruction>::data_to_instruction_arg(&mut data)?;
-                            let mut accounts = <<#variant_instruction_type as #crate_name::Instruction>::Accounts as #crate_name::FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
-                            <#variant_processors as #crate_name::InstructionProcessor<#variant_instruction_type>>::process(
+                            let mut data = <<#variant_instruction_type as #crate_name::instruction::Instruction>::Data as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
+                            let (from_data, instruction_data) = <#variant_instruction_type as #crate_name::instruction::Instruction>::data_to_instruction_arg(data)?;
+                            let mut accounts = <<#variant_instruction_type as #crate_name::instruction::Instruction>::Accounts as #crate_name::account_argument::FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
+                            <#variant_processors as #crate_name::instruction::InstructionProcessor<#variant_instruction_type>>::process(
                                 program_id,
-                                data,
+                                instruction_data,
                                 &mut accounts,
                             )?;
-                            <<#variant_instruction_type as #crate_name::Instruction>::Accounts as #crate_name::AccountArgument>::write_back(accounts, program_id)?;
+                            <<#variant_instruction_type as #crate_name::instruction::Instruction>::Accounts as #crate_name::account_argument::AccountArgument>::write_back(accounts, program_id)?;
                             Ok(())
                         })* else{
                             todo!();
@@ -169,7 +169,7 @@ impl InstructionListDerive {
 
                 fn discriminant(self) -> ::std::num::NonZeroU64{
                     match self{
-                        #(Self::#variant_ident => #crate_name::ToNonZero::to_non_zero(#variant_discriminant),)*
+                        #(Self::#variant_ident => #crate_name::util::ToNonZero::to_non_zero(#variant_discriminant),)*
                     }
                 }
 

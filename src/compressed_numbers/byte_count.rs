@@ -1,6 +1,6 @@
 use crate::compressed_numbers::CompressedNumber;
 use borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::bytes_ext::{ReadExt, WriteExt};
+use cruiser::util::bytes_ext::{ReadExt, WriteExt};
 use std::io::Write;
 use std::mem::size_of;
 

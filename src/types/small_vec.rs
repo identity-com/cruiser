@@ -1,4 +1,4 @@
-//! Small size vectors for additional space savings than the
+//! Small size vectors for additional space savings than the. Still experimental.
 
 use std::convert::TryFrom;
 use std::io::Write;
@@ -6,9 +6,9 @@ use std::ops::{Deref, Index, IndexMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use cruiser::bytes_ext::{ReadExt, WriteExt};
-
-use crate::{AccountArgument, GeneratorError, GeneratorResult, Pubkey};
+use crate::account_argument::AccountArgument;
+use crate::util::bytes_ext::{ReadExt, WriteExt};
+use crate::{CruiserError, CruiserResult, Pubkey};
 
 macro_rules! small_vec {
     ($ident:ident, $ty:ty, $write:ident, $read:ident, $docs:expr) => {
@@ -16,13 +16,13 @@ macro_rules! small_vec {
         #[doc=$docs]
         pub struct $ident<T>(Vec<T>);
         impl<T> TryFrom<Vec<T>> for $ident<T> {
-            type Error = GeneratorError;
+            type Error = CruiserError;
 
             fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
                 if <$ty>::try_from(value.len()).is_ok() {
                     Ok(Self(value))
                 } else {
-                    Err(GeneratorError::SizeInvalid {
+                    Err(CruiserError::SizeInvalid {
                         min: 0,
                         max: <$ty>::MAX as usize,
                         value: value.len(),
@@ -83,7 +83,7 @@ macro_rules! small_vec {
         where
             T: AccountArgument,
         {
-            fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
+            fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
                 for val in self.0 {
                     val.write_back(program_id)?;
                 }
@@ -92,8 +92,8 @@ macro_rules! small_vec {
 
             fn add_keys(
                 &self,
-                mut add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-            ) -> GeneratorResult<()> {
+                mut add: impl FnMut(&'static Pubkey) -> CruiserResult<()>,
+            ) -> CruiserResult<()> {
                 for val in &self.0 {
                     val.add_keys(&mut add)?;
                 }

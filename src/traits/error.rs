@@ -1,12 +1,15 @@
-use crate::msg;
-use crate::solana_program::pubkey::PubkeyError;
-use cruiser::GeneratorError;
+//! Custom Error support.
+
 pub use cruiser_derive::Error;
+
 use solana_program::program_error::ProgramError;
 use std::fmt::{Debug, Display, Formatter};
 
+use crate::solana_program::pubkey::PubkeyError;
+use crate::{msg, CruiserError};
+
 /// A version of [`Result`] returned by many [`cruiser`] functions.
-pub type GeneratorResult<T = ()> = Result<T, Box<dyn Error>>;
+pub type CruiserResult<T = ()> = Result<T, Box<dyn Error>>;
 
 /// An error that can be returned on the chain
 pub trait Error: Debug {
@@ -16,12 +19,12 @@ pub trait Error: Debug {
     fn to_program_error(&self) -> ProgramError;
 }
 
-impl Display for GeneratorError {
+impl Display for CruiserError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.message())
     }
 }
-impl std::error::Error for GeneratorError {}
+impl std::error::Error for CruiserError {}
 
 impl Error for ProgramError {
     fn message(&self) -> String {

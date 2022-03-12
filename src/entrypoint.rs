@@ -1,15 +1,16 @@
 //! Contains all the entrypoint functions to start a program.
 
-use crate::{AccountInfo, GeneratorResult};
+use crate::AccountInfo;
 use solana_program::entrypoint::SUCCESS;
 use solana_program::msg;
 use solana_program::pubkey::Pubkey;
 
+use crate::traits::error::CruiserResult;
 pub use solana_program::custom_heap_default;
 pub use solana_program::custom_panic_default;
 use std::vec::IntoIter;
 
-/// The entrypoint macro, replaces [`solana_program::entrypoint`](::solana_program::entrypoint) macro.
+/// The entrypoint macro, replaces [`solana_program::entrypoint`](::solana_program::entrypoint!) macro.
 /// Requires a function that can be passed to [`entry`].
 #[macro_export]
 macro_rules! entrypoint {
@@ -36,7 +37,7 @@ macro_rules! entrypoint {
     };
 }
 
-/// Similar to the [`entrypoint`] macro but only requires passing a type that implements [`InstructionList`].
+/// Similar to the [`entrypoint`] macro but only requires passing a type that implements [`InstructionList`](crate::instruction_list::InstructionList).
 #[macro_export]
 macro_rules! entrypoint_list {
     ($instruction_list:ty, $processor:ty) => {
@@ -59,7 +60,9 @@ macro_rules! entrypoint_list {
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
             $crate::entrypoint::entry(
                 input,
-                <$processor as $crate::InstructionListProcessor<$instruction_list>>::process_instruction,
+                <$processor as $crate::instruction_list::InstructionListProcessor<
+                    $instruction_list,
+                >>::process_instruction,
             )
         }
     };
@@ -72,7 +75,7 @@ macro_rules! entrypoint_list {
 /// This must be called with the input from `pub unsafe extern "C" fn entrypoint`
 pub unsafe fn entry(
     input: *mut u8,
-    function: impl FnOnce(&'static Pubkey, &mut IntoIter<AccountInfo>, &[u8]) -> GeneratorResult<()>,
+    function: impl FnOnce(&'static Pubkey, &mut IntoIter<AccountInfo>, &[u8]) -> CruiserResult<()>,
 ) -> u64 {
     let (program_id, accounts, instruction_data) = AccountInfo::deserialize(input);
     match function(program_id, &mut accounts.into_iter(), instruction_data) {

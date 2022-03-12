@@ -1,13 +1,14 @@
+//! Helper utility functions
+
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::num::NonZeroU64;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::ptr::slice_from_raw_parts_mut;
 
-pub use short_vec::ShortVec;
+use crate::{CruiserError, CruiserResult};
 
-use crate::{GeneratorError, GeneratorResult};
-
+pub mod assert;
 pub(crate) mod bytes_ext;
 pub mod short_vec;
 
@@ -15,7 +16,7 @@ pub mod short_vec;
 pub fn convert_range(
     range: &impl RangeBounds<usize>,
     length: usize,
-) -> GeneratorResult<(usize, usize)> {
+) -> CruiserResult<(usize, usize)> {
     let start = match range.start_bound() {
         Bound::Included(val) => *val,
         Bound::Excluded(val) => val + 1,
@@ -32,7 +33,7 @@ pub fn convert_range(
         (end, start)
     };
     if end >= length {
-        Err(GeneratorError::IndexOutOfRange {
+        Err(CruiserError::IndexOutOfRange {
             index: format!(
                 "{},{}",
                 match range.start_bound() {
@@ -87,6 +88,7 @@ pub fn sum_size_hints(
     sum
 }
 
+/// Adds two size hints together. If either upper is [`None`] then the returned upper is [`None`].
 #[must_use]
 pub const fn add_size_hint(
     hint1: (usize, Option<usize>),
@@ -168,9 +170,9 @@ pub trait Advance<'a>: Length {
 
     /// Advances self forward by `amount`, returning the advanced over portion.
     /// Errors if not enough data.
-    fn try_advance(&'a mut self, amount: usize) -> GeneratorResult<Self::AdvanceOut> {
+    fn try_advance(&'a mut self, amount: usize) -> CruiserResult<Self::AdvanceOut> {
         if self.len() < amount {
-            Err(GeneratorError::NotEnoughData {
+            Err(CruiserError::NotEnoughData {
                 needed: amount,
                 remaining: self.len(),
             }
@@ -203,9 +205,9 @@ pub trait AdvanceArray<'a, const N: usize>: Length {
 
     /// Advances self forward by `N`, returning the advanced over portion.
     /// Errors if not enough data.
-    fn try_advance_array(&'a mut self) -> GeneratorResult<Self::AdvanceOut> {
+    fn try_advance_array(&'a mut self) -> CruiserResult<Self::AdvanceOut> {
         if self.len() < N {
-            Err(GeneratorError::NotEnoughData {
+            Err(CruiserError::NotEnoughData {
                 needed: N,
                 remaining: self.len(),
             }

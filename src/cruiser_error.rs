@@ -4,13 +4,13 @@ use std::num::NonZeroU64;
 use solana_program::pubkey::Pubkey;
 use strum::EnumDiscriminants;
 
-use crate::traits::Error;
+use crate::error::Error;
 
 /// General errors issued by the generator.
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Error, EnumDiscriminants)]
 #[error(start = 0)]
-pub enum GeneratorError {
+pub enum CruiserError {
     /// Custom error message for infrequent one-off errors
     #[error_msg("{}", error)]
     Custom {

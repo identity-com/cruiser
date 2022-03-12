@@ -1,9 +1,9 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use cruiser::account_argument::{AccountArgument, Single};
+use cruiser::account_list::AccountList;
+use cruiser::account_types::program_account::ProgramAccount;
+use cruiser::{verify_account_arg_impl, AllAny};
 use solana_program::pubkey::Pubkey;
-
-use cruiser::{
-    verify_account_arg_impl, AccountArgument, AccountList, AllAny, ProgramAccount, Single,
-};
 
 verify_account_arg_impl! {
     mod empty_checks{

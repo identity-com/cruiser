@@ -5,7 +5,7 @@
     missing_debug_implementations
 )]
 
-//! Common code for [`easy_proc`] and [`easy_proc_derive`].
+//! Common code for [`easy_proc`](https://docs.rs/easy_proc/latest/easy_proc/) and [`easy_proc_derive`](https://docs.rs/easy_proc_derive/latest/easy_proc_derive/).
 
 use proc_macro_error::abort;
 use std::iter::Filter;

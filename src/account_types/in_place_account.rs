@@ -1,22 +1,21 @@
+//! In place access account. Experimental.
+
 // TODO: Update this
 
-use std::cell::{RefCell, RefMut};
+use std::cell::RefMut;
 use std::marker::PhantomData;
 use std::ops::DerefMut;
-use std::rc::Rc;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 
-use cruiser::{AccountArgument, AccountListItem, AllAny, SingleIndexable};
-
+use crate::account_argument::{AccountArgument, AccountInfoIterator, FromAccounts};
+use crate::account_list::AccountListItem;
 use crate::compressed_numbers::CompressedNumber;
-use crate::{
-    AccountInfo, AccountInfoIterator, FromAccounts, GeneratorError, GeneratorResult,
-    InPlaceBuilder, MultiIndexable, SystemProgram,
-};
+use crate::in_place::InPlaceBuilder;
+use crate::{AccountInfo, CruiserError, CruiserResult};
 
-/// Access a given account in-place
+/// Access a given account in-place. Experimental.
 #[derive(Debug)]
 pub struct InPlaceProgramAccount<AL, A>
 where
@@ -44,18 +43,11 @@ where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
 {
-    fn write_back(
-        self,
-        program_id: &'static Pubkey,
-        system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
-        self.account.write_back(program_id, system_program)
+    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
+        self.account.write_back(program_id)
     }
 
-    fn add_keys(
-        &self,
-        add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
+    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
         self.account.add_keys(add)
     }
 }
@@ -69,10 +61,10 @@ where
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: T,
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         let account = AccountInfo::from_accounts(program_id, infos, arg)?;
         if *account.owner.borrow() != program_id {
-            return Err(GeneratorError::AccountOwnerNotEqual {
+            return Err(CruiserError::AccountOwnerNotEqual {
                 account: account.key,
                 owner: **account.owner.borrow(),
                 expected_owner: vec![*program_id],
@@ -81,11 +73,11 @@ where
         }
         let discriminant =
             AL::DiscriminantCompressed::deserialize(&mut &**account.data.borrow())?.into_number();
-        if discriminant != AL::discriminant().get() {
-            return Err(GeneratorError::MismatchedDiscriminant {
+        if discriminant != AL::discriminant() {
+            return Err(CruiserError::MismatchedDiscriminant {
                 account: account.key,
-                received: discriminant,
-                expected: AL::discriminant().get(),
+                received: discriminant.get(),
+                expected: AL::discriminant(),
             }
             .into());
         }
@@ -94,54 +86,58 @@ where
             phantom_al_a: PhantomData,
         })
     }
-}
-impl<AL, A> MultiIndexable<AllAny> for InPlaceProgramAccount<AL, A>
-where
-    AL: AccountListItem<A>,
-    A: InPlaceBuilder,
-{
-    fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        self.account.is_signer(indexer)
-    }
 
-    fn is_writable(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        self.account.is_writable(indexer)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
-        self.account.is_owner(owner, indexer)
+    fn accounts_usage_hint(_arg: &T) -> (usize, Option<usize>) {
+        (1, Some(1))
     }
 }
-impl<AL, A> MultiIndexable<()> for InPlaceProgramAccount<AL, A>
-where
-    AL: AccountListItem<A>,
-    A: InPlaceBuilder,
-{
-    fn is_signer(&self, indexer: ()) -> GeneratorResult<bool> {
-        self.account.is_signer(indexer)
-    }
-
-    fn is_writable(&self, indexer: ()) -> GeneratorResult<bool> {
-        self.account.is_writable(indexer)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: ()) -> GeneratorResult<bool> {
-        self.account.is_owner(owner, indexer)
-    }
-}
-impl<AL, A> SingleIndexable<()> for InPlaceProgramAccount<AL, A>
-where
-    AL: AccountListItem<A>,
-    A: InPlaceBuilder,
-{
-    fn owner(&self, indexer: ()) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
-        self.account.owner(indexer)
-    }
-
-    fn key(&self, indexer: ()) -> GeneratorResult<&'static Pubkey> {
-        self.account.key(indexer)
-    }
-}
+// impl<AL, A> MultiIndexable<AllAny> for InPlaceProgramAccount<AL, A>
+// where
+//     AL: AccountListItem<A>,
+//     A: InPlaceBuilder,
+// {
+//     fn is_signer(&self, indexer: AllAny) -> CruiserResult<bool> {
+//         self.account.is_signer(indexer)
+//     }
+//
+//     fn is_writable(&self, indexer: AllAny) -> CruiserResult<bool> {
+//         self.account.is_writable(indexer)
+//     }
+//
+//     fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> CruiserResult<bool> {
+//         self.account.is_owner(owner, indexer)
+//     }
+// }
+// impl<AL, A> MultiIndexable<()> for InPlaceProgramAccount<AL, A>
+// where
+//     AL: AccountListItem<A>,
+//     A: InPlaceBuilder,
+// {
+//     fn is_signer(&self, indexer: ()) -> CruiserResult<bool> {
+//         self.account.is_signer(indexer)
+//     }
+//
+//     fn is_writable(&self, indexer: ()) -> CruiserResult<bool> {
+//         self.account.is_writable(indexer)
+//     }
+//
+//     fn is_owner(&self, owner: &Pubkey, indexer: ()) -> CruiserResult<bool> {
+//         self.account.is_owner(owner, indexer)
+//     }
+// }
+// impl<AL, A> SingleIndexable<()> for InPlaceProgramAccount<AL, A>
+// where
+//     AL: AccountListItem<A>,
+//     A: InPlaceBuilder,
+// {
+//     fn owner(&self, indexer: ()) -> CruiserResult<&Rc<RefCell<&'static mut Pubkey>>> {
+//         self.account.owner(indexer)
+//     }
+//
+//     fn key(&self, indexer: ()) -> CruiserResult<&'static Pubkey> {
+//         self.account.key(indexer)
+//     }
+// }
 
 /// Holds an in place mutable reference
 #[derive(Debug)]
@@ -159,7 +155,7 @@ where
     A: InPlaceBuilder,
 {
     /// Gets the in-place data
-    pub fn get_data(&mut self) -> GeneratorResult<A::InPlaceData<'_>> {
+    pub fn get_data(&mut self) -> CruiserResult<A::InPlaceData<'_>> {
         A::read(&mut self.value.deref_mut()[AL::discriminant().get() as usize..])
     }
 }
@@ -192,18 +188,11 @@ where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
 {
-    fn write_back(
-        self,
-        program_id: &'static Pubkey,
-        system_program: Option<&SystemProgram>,
-    ) -> GeneratorResult<()> {
-        self.account.write_back(program_id, system_program)
+    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
+        self.account.write_back(program_id)
     }
 
-    fn add_keys(
-        &self,
-        add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
+    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
         self.account.add_keys(add)
     }
 }
@@ -216,10 +205,10 @@ where
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: C,
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         let account = AccountInfo::from_accounts(program_id, infos, ())?;
         if *account.owner.borrow() != program_id {
-            return Err(GeneratorError::AccountOwnerNotEqual {
+            return Err(CruiserError::AccountOwnerNotEqual {
                 account: account.key,
                 owner: **account.owner.borrow(),
                 expected_owner: vec![*program_id],
@@ -229,7 +218,7 @@ where
         let mut data = account.data.borrow_mut();
         for x in 0..AL::DiscriminantCompressed::max_bytes() {
             if data[x] != 0 {
-                return Err(GeneratorError::NonZeroedData {
+                return Err(CruiserError::NonZeroedData {
                     account: account.key,
                 }
                 .into());
@@ -244,51 +233,55 @@ where
             phantom_al_a: PhantomData,
         })
     }
-}
-impl<AL, A> MultiIndexable<AllAny> for InPlaceZeroed<AL, A>
-where
-    AL: AccountListItem<A>,
-    A: InPlaceBuilder,
-{
-    fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        self.account.is_signer(indexer)
-    }
 
-    fn is_writable(&self, indexer: AllAny) -> GeneratorResult<bool> {
-        self.account.is_writable(indexer)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
-        self.account.is_owner(owner, indexer)
+    fn accounts_usage_hint(_arg: &C) -> (usize, Option<usize>) {
+        (1, Some(1))
     }
 }
-impl<AL, A> MultiIndexable<()> for InPlaceZeroed<AL, A>
-where
-    AL: AccountListItem<A>,
-    A: InPlaceBuilder,
-{
-    fn is_signer(&self, indexer: ()) -> GeneratorResult<bool> {
-        self.account.is_signer(indexer)
-    }
-
-    fn is_writable(&self, indexer: ()) -> GeneratorResult<bool> {
-        self.account.is_writable(indexer)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, indexer: ()) -> GeneratorResult<bool> {
-        self.account.is_owner(owner, indexer)
-    }
-}
-impl<AL, A> SingleIndexable<()> for InPlaceZeroed<AL, A>
-where
-    AL: AccountListItem<A>,
-    A: InPlaceBuilder,
-{
-    fn owner(&self, indexer: ()) -> GeneratorResult<&Rc<RefCell<&'static mut Pubkey>>> {
-        self.account.owner(indexer)
-    }
-
-    fn key(&self, indexer: ()) -> GeneratorResult<&'static Pubkey> {
-        self.account.key(indexer)
-    }
-}
+// impl<AL, A> MultiIndexable<AllAny> for InPlaceZeroed<AL, A>
+// where
+//     AL: AccountListItem<A>,
+//     A: InPlaceBuilder,
+// {
+//     fn is_signer(&self, indexer: AllAny) -> CruiserResult<bool> {
+//         self.account.is_signer(indexer)
+//     }
+//
+//     fn is_writable(&self, indexer: AllAny) -> CruiserResult<bool> {
+//         self.account.is_writable(indexer)
+//     }
+//
+//     fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> CruiserResult<bool> {
+//         self.account.is_owner(owner, indexer)
+//     }
+// }
+// impl<AL, A> MultiIndexable<()> for InPlaceZeroed<AL, A>
+// where
+//     AL: AccountListItem<A>,
+//     A: InPlaceBuilder,
+// {
+//     fn is_signer(&self, indexer: ()) -> CruiserResult<bool> {
+//         self.account.is_signer(indexer)
+//     }
+//
+//     fn is_writable(&self, indexer: ()) -> CruiserResult<bool> {
+//         self.account.is_writable(indexer)
+//     }
+//
+//     fn is_owner(&self, owner: &Pubkey, indexer: ()) -> CruiserResult<bool> {
+//         self.account.is_owner(owner, indexer)
+//     }
+// }
+// impl<AL, A> SingleIndexable<()> for InPlaceZeroed<AL, A>
+// where
+//     AL: AccountListItem<A>,
+//     A: InPlaceBuilder,
+// {
+//     fn owner(&self, indexer: ()) -> CruiserResult<&Rc<RefCell<&'static mut Pubkey>>> {
+//         self.account.owner(indexer)
+//     }
+//
+//     fn key(&self, indexer: ()) -> CruiserResult<&'static Pubkey> {
+//         self.account.key(indexer)
+//     }
+// }

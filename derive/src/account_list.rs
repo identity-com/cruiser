@@ -51,7 +51,7 @@ impl AccountListDerive {
                 quote! {
                     #crate_name::static_assertions::const_assert_ne!(0, #dis);
                     #[automatically_derived]
-                    unsafe impl #impl_gen #crate_name::AccountListItem<#ty> for #ident #ty_gen #where_clause {
+                    unsafe impl #impl_gen #crate_name::account_list::AccountListItem<#ty> for #ident #ty_gen #where_clause {
                         fn discriminant() -> ::std::num::NonZeroU64{
                             ::std::num::NonZeroU64::new(#dis).unwrap()
                         }
@@ -73,7 +73,7 @@ impl AccountListDerive {
             #(#variant_impls)*
 
             #[automatically_derived]
-            impl #impl_gen #crate_name::AccountList for #ident #ty_gen #where_clause {
+            impl #impl_gen #crate_name::account_list::AccountList for #ident #ty_gen #where_clause {
                 type DiscriminantCompressed = #discriminant_type;
             }
         }

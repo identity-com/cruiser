@@ -1,7 +1,14 @@
-use crate::compressed_numbers::CompressedNumber;
-use crate::{AccountInfoIterator, AccountList, GeneratorResult, Pubkey, SolanaInstruction};
+//! A list of instructions serving as an interface and entrypoint for the program.
+
 pub use cruiser_derive::InstructionList;
+
+use crate::account_argument::AccountInfoIterator;
+use solana_program::pubkey::Pubkey;
 use std::num::NonZeroU64;
+
+use crate::account_list::AccountList;
+use crate::compressed_numbers::CompressedNumber;
+use crate::{CruiserResult, SolanaInstruction};
 
 /// A list of possible instructions for a program.
 pub trait InstructionList: Copy {
@@ -16,26 +23,24 @@ pub trait InstructionList: Copy {
     fn from_discriminant(discriminant: NonZeroU64) -> Option<Self>;
 }
 
-/// A Processor for a given [`InstructionList`]
+/// A Processor for a given [`InstructionList`].
 pub trait InstructionListProcessor<IL: InstructionList> {
-    /// Processes a given instruction. Usually delegates to [`crate::InstructionProcessor`].
+    /// Processes a given instruction. Usually delegates to [`InstructionProcessor`](crate::instruction::InstructionProcessor).
     fn process_instruction(
         program_id: &'static Pubkey,
         accounts: &mut impl AccountInfoIterator,
         data: &[u8],
-    ) -> GeneratorResult<()>;
+    ) -> CruiserResult<()>;
 }
 
-/// Adds support for building items in the instruction list
+/// Adds support for building items in the instruction list.
 pub trait InstructionListBuilder<IL: InstructionList, B> {
-    /// Builds an instruction from [`BuildEnum`].
-    fn build_instruction(
-        program_id: &'static Pubkey,
-        build: B,
-    ) -> GeneratorResult<SolanaInstruction>;
+    /// Builds an instruction from `B`
+    fn build_instruction(program_id: &'static Pubkey, build: B)
+        -> CruiserResult<SolanaInstruction>;
 }
 
-/// Instruction list is an interface. Still WIP
+/// Instruction list is an interface. Still Experimental.
 pub trait Interface: InstructionList {
     /// The global discriminant of the developer
     const DEVELOPER_DISCRIMINANT: &'static [u8];
@@ -43,7 +48,7 @@ pub trait Interface: InstructionList {
     const INTERFACE_DISCRIMINANT: u64;
 }
 
-/// Processor can process a given interface
+/// Processor can process a given interface. Still Experimental.
 pub trait InterfaceProcessor<I: Interface>: InstructionListProcessor<I> {}
 impl<T, I> InterfaceProcessor<I> for T
 where

@@ -1,19 +1,24 @@
+//! Initializes an account
+
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
+use solana_program::rent::Rent;
+use solana_program::sysvar::Sysvar;
 
-use cruiser_derive::verify_account_arg_impl;
-
-use crate::solana_program::rent::Rent;
-use crate::solana_program::sysvar::Sysvar;
-use crate::traits::AccountArgument;
-use crate::{
-    AccountInfo, AccountInfoIterator, AccountListItem, AllAny, DiscriminantAccount, FromAccounts,
-    GeneratorResult, MultiIndexable, PDASeedSet, SingleIndexable, SystemProgram, ValidateArgument,
-    WriteDiscriminant,
+use crate::account_argument::{
+    AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
+    ValidateArgument,
 };
+use crate::account_list::AccountListItem;
+use crate::account_types::discriminant_account::{DiscriminantAccount, WriteDiscriminant};
+use crate::account_types::system_program::SystemProgram;
+use crate::pda_seeds::PDASeedSet;
+use crate::AllAny;
+use crate::{AccountInfo, CruiserResult};
+use cruiser_derive::verify_account_arg_impl;
 
 verify_account_arg_impl! {
     mod init_account_check{
@@ -21,7 +26,10 @@ verify_account_arg_impl! {
         where
             AL: AccountListItem<A>,
             A: BorshSerialize + BorshDeserialize{
-            from: [A];
+            from: [
+                /// The initial value for the account's data
+                A;
+            ];
             validate: [<'a> InitArgs<'a>];
             multi: [(); AllAny];
             single: [()];
@@ -29,15 +37,25 @@ verify_account_arg_impl! {
     }
 }
 
+/// The arguments for initializing an account
 #[derive(Debug)]
 pub struct InitArgs<'a> {
+    /// The system program to initalize the account
     pub system_program: &'a SystemProgram,
+    /// The space for the account being created
     pub space: usize,
+    /// The funder for the newly created account, must be owned by the system program
     pub funder: &'a AccountInfo,
+    /// The seeds for the funder if PDA
     pub funder_seeds: Option<&'a PDASeedSet<'a>>,
+    /// The rent to use, if [`None`] will use [`Rent::get`].
     pub rent: Option<Rent>,
 }
 
+/// Initializes a given account to be rent exempt and owned by the current program.
+///
+/// - `AL`: The [`AccountList`](crate::account_list::AccountList) that is valid for `A`
+/// - `A` The account data, `AL` must implement [`AccountListItem<A>`](AccountListItem)
 #[derive(AccountArgument)]
 #[account_argument(no_from, no_validate)]
 pub struct InitAccount<AL, A>
@@ -88,7 +106,7 @@ where
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: A,
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         Ok(Self {
             account: DiscriminantAccount::<AL, A>::from_accounts(program_id, infos, (arg,))?,
         })
@@ -103,7 +121,7 @@ where
     AL: AccountListItem<A>,
     A: BorshSerialize + BorshDeserialize,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: InitArgs<'a>) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, arg: InitArgs<'a>) -> CruiserResult<()> {
         let rent = match arg.rent {
             None => Rent::get()?,
             Some(rent) => rent,
@@ -112,7 +130,7 @@ where
 
         match arg.funder_seeds {
             Some(seeds) => arg.system_program.invoke_signed_create_account(
-                seeds,
+                &[seeds],
                 arg.funder,
                 &self.account.info,
                 rent,
@@ -136,15 +154,15 @@ where
     A: BorshSerialize + BorshDeserialize,
     DiscriminantAccount<AL, A>: MultiIndexable<T>,
 {
-    fn is_signer(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
         self.account.is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
         self.account.is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
         self.account.is_owner(owner, indexer)
     }
 }
@@ -154,7 +172,7 @@ where
     A: BorshSerialize + BorshDeserialize,
     DiscriminantAccount<AL, A>: SingleIndexable<T>,
 {
-    fn info(&self, indexer: T) -> GeneratorResult<&AccountInfo> {
+    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
         self.account.info(indexer)
     }
 }
@@ -205,9 +223,9 @@ where
 //         self,
 //         program_id: &Pubkey,
 //         system_program: Option<&SystemProgram>,
-//     ) -> GeneratorResult<()> {
+//     ) -> CruiserResult<()> {
 //         let system_program = match system_program {
-//             None => return Err(GeneratorError::MissingSystemProgram.into()),
+//             None => return Err(CruiserError::MissingSystemProgram.into()),
 //             Some(system_program) => {
 //                 debug_assert_eq!(system_program.info.key, &SYSTEM_PROGRAM_ID,);
 //                 system_program
@@ -221,7 +239,7 @@ where
 //             InitSize::DataSizePlus(plus) => required_length + plus.get(),
 //             InitSize::SetSize(size) => {
 //                 if size < required_length {
-//                     return Err(GeneratorError::NotEnoughSpaceInit {
+//                     return Err(CruiserError::NotEnoughSpaceInit {
 //                         account: self.info.key,
 //                         space_given: size,
 //                         space_needed: required_length,
@@ -235,19 +253,19 @@ where
 //         let self_key = self.info.key;
 //         let funder = self
 //             .funder
-//             .ok_or(GeneratorError::NoPayerForInit { account: self_key })?;
+//             .ok_or(CruiserError::NoPayerForInit { account: self_key })?;
 //         match (
 //             self.funder_seeds.is_some() || funder.is_signer,
 //             funder.is_writable,
 //         ) {
 //             (false, _) => {
-//                 return Err(GeneratorError::AccountIsNotSigner {
+//                 return Err(CruiserError::AccountIsNotSigner {
 //                     account: funder.key,
 //                 }
 //                 .into())
 //             }
 //             (_, false) => {
-//                 return Err(GeneratorError::CannotWrite {
+//                 return Err(CruiserError::CannotWrite {
 //                     account: funder.key,
 //                 }
 //                 .into())
@@ -256,7 +274,7 @@ where
 //         }
 //         let rent = Rent::get()?.minimum_balance(size as usize);
 //         if **funder.lamports.borrow() < rent {
-//             return Err(GeneratorError::NotEnoughLamports {
+//             return Err(CruiserError::NotEnoughLamports {
 //                 account: funder.key,
 //                 lamports: **funder.lamports.borrow(),
 //                 needed_lamports: rent,
@@ -274,7 +292,7 @@ where
 //                 if let Some(account_seeds) = account_seeds {
 //                     seeds.push(account_seeds).unwrap();
 //                 } else if !self.info.is_signer {
-//                     return Err(GeneratorError::AccountIsNotSigner {
+//                     return Err(CruiserError::AccountIsNotSigner {
 //                         account: self.info.key,
 //                     }
 //                     .into());
@@ -300,8 +318,8 @@ where
 //
 //     fn add_keys(
 //         &self,
-//         add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-//     ) -> GeneratorResult<()> {
+//         add: impl FnMut(&'static Pubkey) -> CruiserResult<()>,
+//     ) -> CruiserResult<()> {
 //         self.info.add_keys(add)
 //     }
 // }
@@ -315,11 +333,11 @@ where
 //         program_id: &'static Pubkey,
 //         infos: &mut impl AccountInfoIterator,
 //         arg: Arg,
-//     ) -> GeneratorResult<Self> {
+//     ) -> CruiserResult<Self> {
 //         let info = AccountInfo::from_accounts(program_id, infos, arg)?;
 //
 //         if *info.owner.borrow() != &SYSTEM_PROGRAM_ID {
-//             return Err(GeneratorError::AccountOwnerNotEqual {
+//             return Err(CruiserError::AccountOwnerNotEqual {
 //                 account: info.key,
 //                 owner: **info.owner.borrow(),
 //                 expected_owner: vec![SYSTEM_PROGRAM_ID],
@@ -328,7 +346,7 @@ where
 //         }
 //
 //         if !info.is_writable {
-//             return Err(GeneratorError::CannotWrite { account: info.key }.into());
+//             return Err(CruiserError::CannotWrite { account: info.key }.into());
 //         }
 //
 //         Ok(Self {
@@ -351,15 +369,15 @@ where
 //     AL: AccountListItem<A>,
 //     A: BorshSerialize + BorshDeserialize + Default,
 // {
-//     fn is_signer(&self, indexer: ()) -> GeneratorResult<bool> {
+//     fn is_signer(&self, indexer: ()) -> CruiserResult<bool> {
 //         self.info.is_signer(indexer)
 //     }
 //
-//     fn is_writable(&self, indexer: ()) -> GeneratorResult<bool> {
+//     fn is_writable(&self, indexer: ()) -> CruiserResult<bool> {
 //         self.info.is_writable(indexer)
 //     }
 //
-//     fn is_owner(&self, owner: &Pubkey, indexer: ()) -> GeneratorResult<bool> {
+//     fn is_owner(&self, owner: &Pubkey, indexer: ()) -> CruiserResult<bool> {
 //         self.info.is_owner(owner, indexer)
 //     }
 // }
@@ -368,15 +386,15 @@ where
 //     AL: AccountListItem<A>,
 //     A: BorshSerialize + Default,
 // {
-//     fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
+//     fn is_signer(&self, indexer: AllAny) -> CruiserResult<bool> {
 //         self.info.is_signer(indexer)
 //     }
 //
-//     fn is_writable(&self, indexer: AllAny) -> GeneratorResult<bool> {
+//     fn is_writable(&self, indexer: AllAny) -> CruiserResult<bool> {
 //         self.info.is_writable(indexer)
 //     }
 //
-//     fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
+//     fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> CruiserResult<bool> {
 //         self.info.is_owner(owner, indexer)
 //     }
 // }
@@ -385,7 +403,7 @@ where
 //     AL: AccountListItem<A>,
 //     A: BorshSerialize + BorshDeserialize + Default,
 // {
-//     fn info(&self, indexer: ()) -> GeneratorResult<&AccountInfo> {
+//     fn info(&self, indexer: ()) -> CruiserResult<&AccountInfo> {
 //         self.info.info(indexer)
 //     }
 // }

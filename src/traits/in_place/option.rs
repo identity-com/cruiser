@@ -1,6 +1,6 @@
-use crate::AdvanceArray;
+use crate::util::AdvanceArray;
 use core::convert::Infallible;
-use cruiser::traits::error::GeneratorResult;
+use cruiser::traits::error::CruiserResult;
 use cruiser::traits::in_place::{InPlaceBuilder, InPlaceData, StaticSized};
 
 /// The option version of in-place data
@@ -23,7 +23,7 @@ where
     }
 
     /// Gets the optional value
-    pub fn get(&mut self) -> GeneratorResult<Option<T::InPlaceData<'_>>> {
+    pub fn get(&mut self) -> CruiserResult<Option<T::InPlaceData<'_>>> {
         match *self.discriminant {
             0 => Ok(None),
             1 => Ok(Some(T::read(self.value)?)),
@@ -51,7 +51,7 @@ where
     fn create(
         mut data: &mut [u8],
         _create_arg: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    ) -> CruiserResult<Self::InPlaceData<'_>> {
         let discriminant: &mut [u8; 1] = data.try_advance_array()?;
         discriminant[0] = 0;
         Ok(InPlaceOption {
@@ -60,7 +60,7 @@ where
         })
     }
 
-    fn read(mut data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    fn read(mut data: &mut [u8]) -> CruiserResult<Self::InPlaceData<'_>> {
         let discriminant: &mut [u8; 1] = data.try_advance_array()?;
         Ok(InPlaceOption {
             discriminant: &mut discriminant[0],
@@ -78,7 +78,7 @@ where
     // fn create_static(
     //     data: &mut [u8; Self::DATA_SIZE],
     //     _create_arg: Self::CreateArg,
-    // ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    // ) -> CruiserResult<Self::InPlaceData<'_>> {
     //     let [discriminant, value @ ..] = data;
     //     Ok(InPlaceOption {
     //         discriminant,
@@ -86,7 +86,7 @@ where
     //     })
     // }
     //
-    // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> CruiserResult<Self::InPlaceData<'_>> {
     //     let [discriminant, value @ ..] = data;
     //     Ok(InPlaceOption {
     //         discriminant,

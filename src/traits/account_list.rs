@@ -1,3 +1,5 @@
+//! Account types list of a program.
+
 use std::num::NonZeroU64;
 
 pub use cruiser_derive::AccountList;

@@ -1,13 +1,21 @@
 //! The escrow program from the paulx blog
 
+use cruiser::account_argument::{AccountArgument, Single};
+use cruiser::account_list::AccountList;
+use cruiser::account_types::close_account::CloseAccount;
+use cruiser::account_types::init_account::InitArgs;
+use cruiser::account_types::init_or_zeroed_account::InitOrZeroedAccount;
+use cruiser::account_types::program_account::ProgramAccount;
+use cruiser::account_types::rent_exempt::RentExempt;
+use cruiser::account_types::seeds::{Find, Seeds};
+use cruiser::account_types::system_program::SystemProgram;
 use cruiser::borsh::{BorshDeserialize, BorshSerialize};
+use cruiser::instruction::{Instruction, InstructionProcessor};
+use cruiser::instruction_list::InstructionList;
+use cruiser::on_chain_size::{OnChainSize, OnChainStaticSize};
+use cruiser::pda_seeds::{PDAGenerator, PDASeed, PDASeeder};
 use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
-use cruiser::{
-    entrypoint_list, msg, AccountArgument, AccountInfo, AccountList, CloseAccount, Find,
-    GeneratorError, GeneratorResult, InitArgs, InitOrZeroedAccount, Instruction, InstructionList,
-    InstructionProcessor, OnChainSize, PDAGenerator, PDASeed, PDASeeder, ProgramAccount, Pubkey,
-    RentExempt, Seeds, Single, SystemProgram,
-};
+use cruiser::{entrypoint_list, msg, AccountInfo, CruiserError, CruiserResult, Pubkey};
 
 entrypoint_list!(EscrowInstructions, EscrowInstructions);
 
@@ -32,9 +40,9 @@ pub struct EscrowAccount {
     pub initializer_token_to_receive: Pubkey,
     pub expected_amount: u64,
 }
-impl OnChainSize for EscrowAccount {
-    fn on_chain_size() -> usize {
-        Pubkey::on_chain_size() * 3 + u64::on_chain_size()
+impl OnChainSize<()> for EscrowAccount {
+    fn on_chain_max_size(_arg: ()) -> usize {
+        Pubkey::on_chain_static_size() * 3 + u64::on_chain_static_size()
     }
 }
 
@@ -50,18 +58,21 @@ pub struct InitEscrow;
 impl Instruction for InitEscrow {
     type Data = InitEscrowData;
     type FromAccountsData = ();
+    type InstructionData = Self::Data;
     type Accounts = InitEscrowAccounts;
 
-    fn data_to_instruction_arg(_data: &mut Self::Data) -> GeneratorResult<Self::FromAccountsData> {
-        Ok(())
+    fn data_to_instruction_arg(
+        data: Self::Data,
+    ) -> CruiserResult<(Self::FromAccountsData, Self::InstructionData)> {
+        Ok(((), data))
     }
 }
 impl InstructionProcessor<InitEscrow> for InitEscrow {
     fn process(
         program_id: &'static Pubkey,
-        data: <Self as Instruction>::Data,
+        data: <Self as Instruction>::InstructionData,
         accounts: &mut <Self as Instruction>::Accounts,
-    ) -> GeneratorResult<()> {
+    ) -> CruiserResult<()> {
         let escrow_account = &mut accounts.escrow_account;
         escrow_account.initializer = *accounts.initializer.key;
         escrow_account.temp_token_account = *accounts.temp_token_account.get_info().key;
@@ -97,7 +108,7 @@ pub struct InitEscrowAccounts {
         funder: &self.initializer,
         funder_seeds: None,
         rent: None,
-        space: EscrowAccount::on_chain_size(),
+        space: EscrowAccount::on_chain_static_size(),
         system_program: &self.system_program,
     },))]
     escrow_account: RentExempt<InitOrZeroedAccount<EscrowAccounts, EscrowAccount>>,
@@ -109,10 +120,13 @@ pub struct Exchange;
 impl Instruction for Exchange {
     type Data = ExchangeData;
     type FromAccountsData = ();
+    type InstructionData = Self::Data;
     type Accounts = ExchangeAccounts;
 
-    fn data_to_instruction_arg(_data: &mut Self::Data) -> GeneratorResult<Self::FromAccountsData> {
-        Ok(())
+    fn data_to_instruction_arg(
+        data: Self::Data,
+    ) -> CruiserResult<(Self::FromAccountsData, Self::InstructionData)> {
+        Ok(((), data))
     }
 }
 impl InstructionProcessor<Exchange> for Exchange {
@@ -120,9 +134,9 @@ impl InstructionProcessor<Exchange> for Exchange {
         _program_id: &'static Pubkey,
         data: <Self as Instruction>::Data,
         accounts: &mut <Self as Instruction>::Accounts,
-    ) -> GeneratorResult<()> {
+    ) -> CruiserResult<()> {
         if data.amount != accounts.escrow_account.expected_amount {
-            return Err(GeneratorError::Custom {
+            return Err(CruiserError::Custom {
                 error: format!(
                     "Amount (`{}`) did not equal expected (`{}`)",
                     data.amount, accounts.escrow_account.expected_amount
@@ -142,7 +156,7 @@ impl InstructionProcessor<Exchange> for Exchange {
         let seeds = accounts.pda_account.take_seed_set().unwrap();
         msg!("Calling the token program to transfer tokens to the taker...");
         accounts.token_program.invoke_signed_transfer(
-            &seeds,
+            &[&seeds],
             &accounts.temp_token_account,
             &accounts.taker_receive_token_account,
             accounts.pda_account.get_info(),
@@ -151,7 +165,7 @@ impl InstructionProcessor<Exchange> for Exchange {
 
         msg!("Calling the token program to close pda's temp account...");
         accounts.token_program.invoke_signed_close_account(
-            &seeds,
+            &[&seeds],
             &accounts.temp_token_account,
             &accounts.initializer,
             accounts.pda_account.get_info(),

@@ -1,16 +1,16 @@
+//! An account owned by the current program
+
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 
+use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable};
+use crate::account_list::AccountListItem;
+use crate::account_types::discriminant_account::DiscriminantAccount;
+use crate::{AccountInfo, CruiserResult};
 use cruiser_derive::verify_account_arg_impl;
-
-use crate::traits::AccountArgument;
-use crate::{
-    AccountInfo, AccountListItem, DiscriminantAccount, GeneratorResult, MultiIndexable,
-    SingleIndexable,
-};
 
 verify_account_arg_impl! {
     mod program_account_check{
@@ -27,6 +27,10 @@ verify_account_arg_impl! {
     }
 }
 
+/// An account owned by the current program.
+///
+/// - `AL`: The [`AccountList`](crate::account_list::AccountList) that is valid for `A`
+/// - `A` The account data, `AL` must implement [`AccountListItem<A>`](AccountListItem)
 #[derive(AccountArgument)]
 pub struct ProgramAccount<AL, A>
 where
@@ -74,15 +78,15 @@ where
     A: BorshSerialize + BorshDeserialize,
     DiscriminantAccount<AL, A>: MultiIndexable<T>,
 {
-    fn is_signer(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
         self.account.is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
         self.account.is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
         self.account.is_owner(owner, indexer)
     }
 }
@@ -92,7 +96,7 @@ where
     A: BorshSerialize + BorshDeserialize,
     DiscriminantAccount<AL, A>: SingleIndexable<T>,
 {
-    fn info(&self, indexer: T) -> GeneratorResult<&AccountInfo> {
+    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
         self.account.info(indexer)
     }
 }

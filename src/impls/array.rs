@@ -1,10 +1,13 @@
-use crate::{
-    convert_range, mul_size_hint, sum_size_hints, AccountArgument, AccountInfo,
-    AccountInfoIterator, AllAny, FromAccounts, GeneratorError, GeneratorResult, MultiIndexable,
-    Pubkey, SingleIndexable, ValidateArgument,
+use crate::account_argument::{
+    AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
+    ValidateArgument,
 };
+use crate::util::{convert_range, mul_size_hint, sum_size_hints};
+use crate::AllAny;
+use crate::{AccountInfo, CruiserError, CruiserResult};
 use array_init::try_array_init;
 use cruiser_derive::verify_account_arg_impl;
+use solana_program::pubkey::Pubkey;
 use std::ops::RangeBounds;
 
 verify_account_arg_impl! {
@@ -36,9 +39,9 @@ verify_account_arg_impl! {
         }
     }
 }
-fn get_index<T, const N: usize>(array: &[T; N], index: usize) -> GeneratorResult<&T> {
+fn get_index<T, const N: usize>(array: &[T; N], index: usize) -> CruiserResult<&T> {
     array.get(index).ok_or_else(|| {
-        GeneratorError::IndexOutOfRange {
+        CruiserError::IndexOutOfRange {
             index: index.to_string(),
             possible_range: format!("[0,{})", array.len()),
         }
@@ -50,15 +53,15 @@ impl<T, const N: usize> AccountArgument for [T; N]
 where
     T: AccountArgument,
 {
-    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
+    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
         self.into_iter()
             .try_for_each(|item| item.write_back(program_id))
     }
 
     fn add_keys(
         &self,
-        mut add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
+        mut add: impl FnMut(&'static Pubkey) -> CruiserResult<()>,
+    ) -> CruiserResult<()> {
         self.iter().try_for_each(|inner| inner.add_keys(&mut add))
     }
 }
@@ -70,7 +73,7 @@ where
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: (),
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         try_array_init(|_| T::from_accounts(program_id, infos, arg))
     }
 
@@ -87,7 +90,7 @@ where
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: (A,),
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         try_array_init(|_| T::from_accounts(program_id, infos, arg.0.clone()))
     }
 
@@ -103,7 +106,7 @@ where
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: [A; N],
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         let mut iter = IntoIterator::into_iter(arg);
         try_array_init(|_| T::from_accounts(program_id, infos, iter.next().unwrap()))
     }
@@ -116,7 +119,7 @@ impl<T, const N: usize> ValidateArgument<()> for [T; N]
 where
     T: ValidateArgument<()>,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: ()) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, arg: ()) -> CruiserResult<()> {
         self.iter_mut()
             .try_for_each(|val| val.validate(program_id, arg))
     }
@@ -126,7 +129,7 @@ where
     T: ValidateArgument<A>,
     A: Clone,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: (A,)) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, arg: (A,)) -> CruiserResult<()> {
         self.iter_mut()
             .try_for_each(|val| val.validate(program_id, arg.0.clone()))
     }
@@ -135,7 +138,7 @@ impl<A, T, const N: usize> ValidateArgument<[A; N]> for [T; N]
 where
     T: ValidateArgument<A>,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: [A; N]) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, arg: [A; N]) -> CruiserResult<()> {
         self.iter_mut()
             .zip(arg.into_iter())
             .try_for_each(|(val, arg)| val.validate(program_id, arg))
@@ -145,15 +148,15 @@ impl<T, const N: usize> MultiIndexable<usize> for [T; N]
 where
     T: MultiIndexable<()>,
 {
-    fn is_signer(&self, indexer: usize) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: usize) -> CruiserResult<bool> {
         self.is_signer((indexer, ()))
     }
 
-    fn is_writable(&self, indexer: usize) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: usize) -> CruiserResult<bool> {
         self.is_writable((indexer, ()))
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: usize) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: usize) -> CruiserResult<bool> {
         self.is_owner(owner, (indexer, ()))
     }
 }
@@ -161,15 +164,15 @@ impl<T, I, const N: usize> MultiIndexable<(usize, I)> for [T; N]
 where
     T: MultiIndexable<I>,
 {
-    fn is_signer(&self, indexer: (usize, I)) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: (usize, I)) -> CruiserResult<bool> {
         self[indexer.0].is_signer(indexer.1)
     }
 
-    fn is_writable(&self, indexer: (usize, I)) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: (usize, I)) -> CruiserResult<bool> {
         self[indexer.0].is_writable(indexer.1)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: (usize, I)) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (usize, I)) -> CruiserResult<bool> {
         self[indexer.0].is_owner(owner, indexer.1)
     }
 }
@@ -177,15 +180,15 @@ impl<T, const N: usize> MultiIndexable<AllAny> for [T; N]
 where
     T: MultiIndexable<()>,
 {
-    fn is_signer(&self, indexer: AllAny) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: AllAny) -> CruiserResult<bool> {
         self.is_signer((indexer, ()))
     }
 
-    fn is_writable(&self, indexer: AllAny) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: AllAny) -> CruiserResult<bool> {
         self.is_writable((indexer, ()))
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> CruiserResult<bool> {
         self.is_owner(owner, (indexer, ()))
     }
 }
@@ -194,19 +197,19 @@ where
     T: AccountArgument + MultiIndexable<I>,
     I: Clone,
 {
-    fn is_signer(&self, indexer: (AllAny, I)) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: (AllAny, I)) -> CruiserResult<bool> {
         indexer
             .0
             .run_func(self.iter(), |val| val.is_signer(indexer.1.clone()))
     }
 
-    fn is_writable(&self, indexer: (AllAny, I)) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: (AllAny, I)) -> CruiserResult<bool> {
         indexer
             .0
             .run_func(self.iter(), |val| val.is_writable(indexer.1.clone()))
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: (AllAny, I)) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (AllAny, I)) -> CruiserResult<bool> {
         indexer
             .0
             .run_func(self.iter(), |val| val.is_owner(owner, indexer.1.clone()))
@@ -218,21 +221,21 @@ where
     R: RangeBounds<usize>,
     I: Clone,
 {
-    fn is_signer(&self, indexer: (R, AllAny, I)) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: (R, AllAny, I)) -> CruiserResult<bool> {
         let (start, end) = convert_range(&indexer.0, self.len())?;
         indexer
             .1
             .run_func(&self[start..=end], |val| val.is_signer(indexer.2.clone()))
     }
 
-    fn is_writable(&self, indexer: (R, AllAny, I)) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: (R, AllAny, I)) -> CruiserResult<bool> {
         let (start, end) = convert_range(&indexer.0, self.len())?;
         indexer
             .1
             .run_func(&self[start..=end], |val| val.is_writable(indexer.2.clone()))
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: (R, AllAny, I)) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: (R, AllAny, I)) -> CruiserResult<bool> {
         let (start, end) = convert_range(&indexer.0, self.len())?;
         indexer.1.run_func(&self[start..=end], |val| {
             val.is_owner(owner, indexer.2.clone())
@@ -243,7 +246,7 @@ impl<T, const N: usize> SingleIndexable<usize> for [T; N]
 where
     T: SingleIndexable<()>,
 {
-    fn info(&self, indexer: usize) -> GeneratorResult<&AccountInfo> {
+    fn info(&self, indexer: usize) -> CruiserResult<&AccountInfo> {
         get_index(self, indexer)?.info(())
     }
 }
@@ -251,7 +254,7 @@ impl<T, I, const N: usize> SingleIndexable<(usize, I)> for [T; N]
 where
     T: SingleIndexable<I>,
 {
-    fn info(&self, indexer: (usize, I)) -> GeneratorResult<&AccountInfo> {
+    fn info(&self, indexer: (usize, I)) -> CruiserResult<&AccountInfo> {
         get_index(self, indexer.0)?.info(indexer.1)
     }
 }

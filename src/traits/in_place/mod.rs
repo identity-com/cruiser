@@ -1,3 +1,5 @@
+//! Experimental support for in place data access.
+
 mod array;
 mod option;
 mod vec;
@@ -6,7 +8,9 @@ pub use array::*;
 pub use option::*;
 pub use vec::*;
 
-use crate::{Advance, Error, GeneratorError, GeneratorResult};
+use crate::error::Error;
+use crate::util::Advance;
+use crate::{CruiserError, CruiserResult};
 use array_init::try_array_init;
 use std::convert::{Infallible, TryInto};
 use std::mem::size_of;
@@ -26,12 +30,10 @@ pub trait InPlaceBuilder {
     /// The size based on the create arg
     fn create_size(create_arg: &Self::CreateArg) -> usize;
     /// Incoming length has no guarantees.
-    fn create(
-        data: &mut [u8],
-        create_arg: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>>;
+    fn create(data: &mut [u8], create_arg: Self::CreateArg)
+        -> CruiserResult<Self::InPlaceData<'_>>;
     /// Incoming length has no guarantees.
-    fn read(data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>>;
+    fn read(data: &mut [u8]) -> CruiserResult<Self::InPlaceData<'_>>;
 }
 /// An in place structure
 pub trait StaticSized: InPlaceBuilder {
@@ -44,10 +46,10 @@ pub trait StaticSized: InPlaceBuilder {
     // fn create_static(
     //     data: &mut [u8; Self::DATA_SIZE],
     //     create_arg: Self::CreateArg,
-    // ) -> GeneratorResult<Self::InPlaceData<'_>>;
+    // ) -> CruiserResult<Self::InPlaceData<'_>>;
     // /// An optimized version of [`InPlaceBuilder::read`] by avoiding a size check.
     // /// [`InPlaceBuilder::read`] should usually call this function by converting with [`TryInto`].
-    // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>>;
+    // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> CruiserResult<Self::InPlaceData<'_>>;
 }
 /// Data that is read/written in-place
 pub trait InPlaceData {
@@ -84,12 +86,12 @@ impl InPlaceBuilder for () {
     fn create(
         _data: &mut [u8],
         _create_arg: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    ) -> CruiserResult<Self::InPlaceData<'_>> {
         Ok(())
     }
 
     #[inline]
-    fn read(_data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    fn read(_data: &mut [u8]) -> CruiserResult<Self::InPlaceData<'_>> {
         Ok(())
     }
 }
@@ -99,11 +101,11 @@ impl StaticSized for () {
     // fn create_static(
     //     _data: &mut [u8; Self::DATA_SIZE],
     //     _create_arg: Self::CreateArg,
-    // ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    // ) -> CruiserResult<Self::InPlaceData<'_>> {
     //     Ok(())
     // }
     //
-    // fn read_static(_data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    // fn read_static(_data: &mut [u8; Self::DATA_SIZE]) -> CruiserResult<Self::InPlaceData<'_>> {
     //     Ok(())
     // }
 }
@@ -141,7 +143,7 @@ where
     fn create(
         data: &mut [u8],
         create_arg: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    ) -> CruiserResult<Self::InPlaceData<'_>> {
         let size1 = T1::create_size(&create_arg.0);
         let (a, b) = if size1 > data.len() {
             (data, &mut [] as &mut [u8])
@@ -151,7 +153,7 @@ where
         Ok((T1::create(a, create_arg.0)?, T2::create(b, create_arg.1)?))
     }
 
-    fn read(data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    fn read(data: &mut [u8]) -> CruiserResult<Self::InPlaceData<'_>> {
         let size1 = T1::data_size(data)?;
         let (a, b) = if size1 > data.len() {
             (data, &mut [] as &mut [u8])
@@ -198,12 +200,12 @@ where
     fn create(
         mut data: &mut [u8],
         create_arg: Self::CreateArg,
-    ) -> GeneratorResult<Self::InPlaceData<'_>> {
+    ) -> CruiserResult<Self::InPlaceData<'_>> {
         let mut iter = IntoIterator::into_iter(create_arg);
         try_array_init(|_| T::create(data.try_advance(T::DATA_SIZE)?, iter.next().unwrap()))
     }
 
-    fn read(mut data: &mut [u8]) -> GeneratorResult<Self::InPlaceData<'_>> {
+    fn read(mut data: &mut [u8]) -> CruiserResult<Self::InPlaceData<'_>> {
         try_array_init(|_| T::read(data.try_advance(T::DATA_SIZE)?))
     }
 }
@@ -218,7 +220,7 @@ where
     T: InPlaceData,
 {
     fn self_data_size(&self) -> usize {
-        self.iter().map(|item| item.self_data_size()).sum()
+        self.iter().map(T::self_data_size).sum()
     }
 }
 
@@ -248,9 +250,9 @@ macro_rules! impl_in_place_for_prim_num {
                 size_of::<$ty>()
             }
 
-            fn create<'a>(data: &'a mut [u8], create_arg: Self::CreateArg) -> GeneratorResult<Self::InPlaceData<'a>> {
+            fn create<'a>(data: &'a mut [u8], create_arg: Self::CreateArg) -> CruiserResult<Self::InPlaceData<'a>> {
                 if data.len() < size_of::<$ty>(){
-                    Err(GeneratorError::NotEnoughData {
+                    Err(CruiserError::NotEnoughData {
                         needed: size_of::<$ty>(),
                         remaining: data.len(),
                     }
@@ -261,9 +263,9 @@ macro_rules! impl_in_place_for_prim_num {
                 }
             }
 
-            fn read<'a>(data: &'a mut [u8]) -> GeneratorResult<Self::InPlaceData<'a>> {
+            fn read<'a>(data: &'a mut [u8]) -> CruiserResult<Self::InPlaceData<'a>> {
                 if data.len() < size_of::<$ty>() {
-                    Err(GeneratorError::NotEnoughData {
+                    Err(CruiserError::NotEnoughData {
                         needed: size_of::<$ty>(),
                         remaining: data.len(),
                     }
@@ -284,12 +286,12 @@ macro_rules! impl_in_place_for_prim_num {
             // fn create_static(
             //     data: &mut [u8; Self::DATA_SIZE],
             //     create_arg: Self::CreateArg,
-            // ) -> GeneratorResult<Self::InPlaceData<'_>> {
+            // ) -> CruiserResult<Self::InPlaceData<'_>> {
             //     *data = create_arg.to_le_bytes();
             //     Ok(InPlaceNumber(data))
             // }
             //
-            // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> GeneratorResult<Self::InPlaceData<'_>> {
+            // fn read_static(data: &mut [u8; Self::DATA_SIZE]) -> CruiserResult<Self::InPlaceData<'_>> {
             //     Ok(InPlaceNumber(data))
             // }
         }

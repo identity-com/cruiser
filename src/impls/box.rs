@@ -1,11 +1,11 @@
 use solana_program::pubkey::Pubkey;
 
-use cruiser_derive::verify_account_arg_impl;
-
-use crate::{
-    AccountArgument, AccountInfo, AccountInfoIterator, FromAccounts, GeneratorResult,
-    MultiIndexable, SingleIndexable, ValidateArgument,
+use crate::account_argument::{
+    AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
+    ValidateArgument,
 };
+use crate::{AccountInfo, CruiserResult};
+use cruiser_derive::verify_account_arg_impl;
 
 verify_account_arg_impl! {
     mod box_checks{
@@ -23,15 +23,12 @@ where
     A: AccountArgument,
 {
     #[inline]
-    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
+    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
         A::write_back(*self, program_id)
     }
 
     #[inline]
-    fn add_keys(
-        &self,
-        add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
+    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
         A::add_keys(self, add)
     }
 }
@@ -43,7 +40,7 @@ where
         program_id: &'static Pubkey,
         infos: &mut impl AccountInfoIterator,
         arg: T,
-    ) -> GeneratorResult<Self> {
+    ) -> CruiserResult<Self> {
         A::from_accounts(program_id, infos, arg).map(Box::new)
     }
 
@@ -55,7 +52,7 @@ impl<A, T> ValidateArgument<T> for Box<A>
 where
     A: ValidateArgument<T>,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: T) -> GeneratorResult<()> {
+    fn validate(&mut self, program_id: &'static Pubkey, arg: T) -> CruiserResult<()> {
         A::validate(self, program_id, arg)
     }
 }
@@ -63,15 +60,15 @@ impl<A, T> MultiIndexable<T> for Box<A>
 where
     A: MultiIndexable<T>,
 {
-    fn is_signer(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
         A::is_signer(self, indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> GeneratorResult<bool> {
+    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
         A::is_writable(self, indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> GeneratorResult<bool> {
+    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
         A::is_owner(self, owner, indexer)
     }
 }
@@ -79,7 +76,7 @@ impl<A, T> SingleIndexable<T> for Box<A>
 where
     A: SingleIndexable<T>,
 {
-    fn info(&self, indexer: T) -> GeneratorResult<&AccountInfo> {
+    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
         A::info(self, indexer)
     }
 }

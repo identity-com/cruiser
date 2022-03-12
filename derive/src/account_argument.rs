@@ -363,19 +363,19 @@ impl AccountArgumentDerive {
 
         quote! {
             #[automatically_derived]
-            impl #impl_gen #crate_name::AccountArgument for #ident #ty_gen #where_clause {
+            impl #impl_gen #crate_name::account_argument::AccountArgument for #ident #ty_gen #where_clause {
                 fn write_back(
                     self,
                     program_id: &'static #crate_name::Pubkey,
-                ) -> #crate_name::GeneratorResult<()>{
+                ) -> #crate_name::CruiserResult<()>{
                     #write_back
                     Ok(())
                 }
 
                 fn add_keys(
                     &self,
-                    mut add__: impl ::core::ops::FnMut(&'static #crate_name::solana_program::pubkey::Pubkey) -> #crate_name::GeneratorResult<()>
-                ) -> #crate_name::GeneratorResult<()>{
+                    mut add__: impl ::core::ops::FnMut(&'static #crate_name::solana_program::pubkey::Pubkey) -> #crate_name::CruiserResult<()>
+                ) -> #crate_name::CruiserResult<()>{
                     #add_keys
                     Ok(())
                 }
@@ -439,6 +439,7 @@ impl AccountArgumentDeriveType {
     }
 
     //noinspection RsSelfConvention
+    #[allow(clippy::wrong_self_convention)]
     fn from_accounts(
         &self,
         ident: &Ident,
@@ -461,12 +462,12 @@ impl AccountArgumentDeriveType {
             };
             out.push(quote! {
                 #[automatically_derived]
-                impl #impl_gen #crate_name::FromAccounts<#ty> for #ident #ty_gen #where_clause{
+                impl #impl_gen #crate_name::account_argument::FromAccounts<#ty> for #ident #ty_gen #where_clause{
                     fn from_accounts(
                         program_id: &'static #crate_name::Pubkey,
-                        __infos: &mut impl #crate_name::AccountInfoIterator,
+                        __infos: &mut impl #crate_name::account_argument::AccountInfoIterator,
                         __arg: #ty,
-                    ) -> #crate_name::GeneratorResult<Self>{
+                    ) -> #crate_name::CruiserResult<Self>{
                         #(#accessors)*
                         #inner
                     }
@@ -504,8 +505,8 @@ impl AccountArgumentDeriveType {
             };
             out.push(quote! {
                 #[automatically_derived]
-                impl #impl_gen #crate_name::ValidateArgument<#ty> for #ident #ty_gen #where_clause{
-                    fn validate(&mut self, program_id: &'static #crate_name::Pubkey, __arg: #ty) -> #crate_name::GeneratorResult<()>{
+                impl #impl_gen #crate_name::account_argument::ValidateArgument<#ty> for #ident #ty_gen #where_clause{
+                    fn validate(&mut self, program_id: &'static #crate_name::Pubkey, __arg: #ty) -> #crate_name::CruiserResult<()>{
                         #(#accessors)*
                         #inner
                         ::std::result::Result::Ok(())
@@ -808,6 +809,7 @@ impl AccountArgumentDeriveStruct {
     }
 
     //noinspection RsSelfConvention
+    #[allow(clippy::wrong_self_convention)]
     fn from_accounts(
         &self,
         id: &str,
@@ -921,6 +923,7 @@ impl NamedField {
     }
 
     //noinspection RsSelfConvention
+    #[allow(clippy::wrong_self_convention)]
     fn from_accounts(
         &self,
         id: &str,
@@ -967,7 +970,7 @@ impl UnnamedField {
         let crate_name = get_crate_name();
         let ty = &self.ty;
         quote! {
-            <#ty as #crate_name::AccountArgument>::write_back(#accessor, program_id)?;
+            <#ty as #crate_name::account_argument::AccountArgument>::write_back(#accessor, program_id)?;
         }
     }
 
@@ -975,11 +978,12 @@ impl UnnamedField {
         let crate_name = get_crate_name();
         let ty = &self.ty;
         quote! {
-            <#ty as #crate_name::AccountArgument>::add_keys(&#accessor, &mut add__)?;
+            <#ty as #crate_name::account_argument::AccountArgument>::add_keys(&#accessor, &mut add__)?;
         }
     }
 
     //noinspection RsSelfConvention
+    #[allow(clippy::wrong_self_convention)]
     fn from_accounts(
         &self,
         id: &str,
@@ -992,7 +996,7 @@ impl UnnamedField {
             .get(id)
             .and_then(|attr| attr.data.clone())
             .unwrap_or_else(|| syn::parse_str("()").unwrap());
-        quote! { #crate_name::FromAccounts::from_accounts(#program_id, #infos, #expr)? }
+        quote! { #crate_name::account_argument::FromAccounts::from_accounts(#program_id, #infos, #expr)? }
     }
 
     fn validate_argument(
@@ -1006,25 +1010,25 @@ impl UnnamedField {
         let validate = attr.data.unwrap_or_else(|| syn::parse_str("()").unwrap());
         let signer = attr.signer.into_iter().map(|signer| {
             let indexer = signer.to_tokens();
-            quote! { #crate_name::assert_is_signer(&#accessor, #indexer)?; }
+            quote! { #crate_name::util::assert::assert_is_signer(&#accessor, #indexer)?; }
         });
         let writable = attr.writable.into_iter().map(|writable| {
             let indexer = writable.to_tokens();
-            quote! { #crate_name::assert_is_writable(&#accessor, #indexer)?; }
+            quote! { #crate_name::util::assert::assert_is_writable(&#accessor, #indexer)?; }
         });
         let owner = attr.owner.into_iter().map(|owner| {
             let indexer = owner.indexes.to_tokens();
             let owner = owner.value;
-            quote! { #crate_name::assert_is_owner(&#accessor, #owner, #indexer)?; }
+            quote! { #crate_name::util::assert::assert_is_owner(&#accessor, #owner, #indexer)?; }
         });
         let key = attr.key.into_iter().map(|key| {
             let indexer = key.indexes.to_tokens();
             let key = key.value;
-            quote! { #crate_name::assert_is_key(&#accessor, #key, #indexer)?; }
+            quote! { #crate_name::util::assert::assert_is_key(&#accessor, #key, #indexer)?; }
         });
 
         quote! {
-            #crate_name::ValidateArgument::validate(&mut #accessor, #program_id, #validate)?;
+            #crate_name::account_argument::ValidateArgument::validate(&mut #accessor, #program_id, #validate)?;
             #(#signer)*
             #(#writable)*
             #(#owner)*
@@ -1092,10 +1096,10 @@ impl<D: DefaultIndex> Indexes<D> {
     fn to_tokens(&self) -> TokenStream {
         let crate_name = get_crate_name();
         match self {
-            Indexes::All(_) => quote! { #crate_name::AllAny::from(#crate_name::All) },
-            Indexes::NotAll(_) => quote! { #crate_name::AllAny::from(#crate_name::NotAll) },
-            Indexes::Any(_) => quote! { #crate_name::AllAny::from(#crate_name::Any) },
-            Indexes::NotAny(_) => quote! { #crate_name::AllAny::from(#crate_name::NotAny) },
+            Indexes::All(_) => quote! { #crate_name::AllAny::All },
+            Indexes::NotAll(_) => quote! { #crate_name::AllAny::NotAll },
+            Indexes::Any(_) => quote! { #crate_name::AllAny::Any },
+            Indexes::NotAny(_) => quote! { #crate_name::AllAny::NotAny },
             Indexes::Expr(expr, _) => quote! { #expr },
         }
     }

@@ -1,32 +1,47 @@
-// TODO: Update this
+//! Sysvar support
 
+use solana_program::pubkey::Pubkey;
 use std::marker::PhantomData;
 use std::ops::Deref;
 
-use solana_program::pubkey::Pubkey;
+use cruiser::account_argument::MultiIndexable;
+use cruiser_derive::verify_account_arg_impl;
 use solana_program::sysvar::Sysvar;
 
-use cruiser::AccountInfo;
+use crate::account_argument::{AccountArgument, SingleIndexable};
+use crate::{AccountInfo, AllAny, CruiserResult};
 
-use crate::{AccountArgument, AccountInfoIterator, FromAccounts, GeneratorError, GeneratorResult};
-
-/// A sysvar, checks the address is the same.
-#[derive(Debug)]
-pub struct SysVar<T>(pub AccountInfo, PhantomData<fn() -> T>)
-where
-    T: Sysvar;
-impl<T> SysVar<T>
-where
-    T: Sysvar,
-{
-    /// Gets the sysvar, may be unsupported for large sys vars
-    pub fn get(&self) -> GeneratorResult<T> {
-        unsafe { Ok(T::from_account_info(&self.0.to_solana_account_info())?) }
+verify_account_arg_impl! {
+    mod sys_var_check{
+        <S> SysVar<S> where S: Sysvar{
+            from: [()];
+            validate: [()];
+            multi: [(); AllAny];
+            single: [()];
+        }
     }
 }
-impl<T> Deref for SysVar<T>
+
+/// A sysvar, checks the address is the same.
+#[derive(AccountArgument, Debug)]
+pub struct SysVar<S>(
+    #[validate(key = &S::id())] pub AccountInfo,
+    PhantomData<fn() -> S>,
+)
 where
-    T: Sysvar,
+    S: Sysvar;
+impl<S> SysVar<S>
+where
+    S: Sysvar,
+{
+    /// Gets the sysvar, may be unsupported for large sys vars
+    pub fn get(&self) -> CruiserResult<S> {
+        unsafe { Ok(S::from_account_info(&self.0.to_solana_account_info())?) }
+    }
+}
+impl<S> Deref for SysVar<S>
+where
+    S: Sysvar,
 {
     type Target = AccountInfo;
 
@@ -34,42 +49,29 @@ where
         &self.0
     }
 }
-impl<T> AccountArgument for SysVar<T>
+impl<S, T> MultiIndexable<T> for SysVar<S>
 where
-    T: Sysvar,
+    AccountInfo: MultiIndexable<T>,
+    S: Sysvar,
 {
-    fn write_back(self, program_id: &'static Pubkey) -> GeneratorResult<()> {
-        self.0.write_back(program_id)
+    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
+        self.0.is_signer(indexer)
     }
 
-    fn add_keys(
-        &self,
-        add: impl FnMut(&'static Pubkey) -> GeneratorResult<()>,
-    ) -> GeneratorResult<()> {
-        self.0.add_keys(add)
+    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
+        self.0.is_writable(indexer)
+    }
+
+    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
+        self.0.is_owner(owner, indexer)
     }
 }
-impl<T> FromAccounts<()> for SysVar<T>
+impl<S, T> SingleIndexable<T> for SysVar<S>
 where
-    T: Sysvar,
+    AccountInfo: SingleIndexable<T>,
+    S: Sysvar,
 {
-    fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        _arg: (),
-    ) -> GeneratorResult<Self> {
-        let account = AccountInfo::from_accounts(program_id, infos, ())?;
-        if T::check_id(account.key) {
-            Ok(Self(account, PhantomData))
-        } else {
-            Err(GeneratorError::InvalidSysVar {
-                actual: account.key,
-            }
-            .into())
-        }
-    }
-
-    fn accounts_usage_hint(arg: &()) -> (usize, Option<usize>) {
-        AccountInfo::accounts_usage_hint(arg)
+    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
+        self.0.info(indexer)
     }
 }
