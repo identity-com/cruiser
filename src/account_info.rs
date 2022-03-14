@@ -29,7 +29,7 @@ verify_account_arg_impl! {
     }
 }
 
-/// A custom version of [`solana_program::account_info::AccountInfo`] that allows for owner changes.
+/// A custom version of Solana's [`AccountInfo`](solana_program::account_info::AccountInfo) that allows for owner changes.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AccountInfo {
     /// The public key of the account.

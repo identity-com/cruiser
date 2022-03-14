@@ -21,7 +21,7 @@ impl ErrorDerive {
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
         let start = match self.error_attribute.and_then(|ea| ea.start) {
-            None => LitInt::new("300", Span::call_site()),
+            None => LitInt::new("1_000_000", Span::call_site()),
             Some(start) => start.parse.value,
         };
 

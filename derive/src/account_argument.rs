@@ -127,16 +127,16 @@ impl Default for ValidateAttribute {
 }
 
 #[derive(ArgumentList, Debug)]
-struct ArgumentFromFieldAttribute {
+struct FromFieldAttribute {
     #[argument(attr_ident)]
     attr_ident: Ident,
     id: Option<Ident>,
     data: Option<Expr>,
 }
-impl ArgumentFromFieldAttribute {
+impl FromFieldAttribute {
     const IDENT: &'static str = "from";
 }
-impl IdAttr for ArgumentFromFieldAttribute {
+impl IdAttr for FromFieldAttribute {
     fn id(&self) -> Option<&Ident> {
         self.id.as_ref()
     }
@@ -145,7 +145,7 @@ impl IdAttr for ArgumentFromFieldAttribute {
         &self.attr_ident
     }
 }
-impl Default for ArgumentFromFieldAttribute {
+impl Default for FromFieldAttribute {
     fn default() -> Self {
         Self {
             attr_ident: Ident::new("__invalid_identifier__", Span::call_site()),
@@ -156,7 +156,7 @@ impl Default for ArgumentFromFieldAttribute {
 }
 
 #[derive(ArgumentList, Debug, Clone)]
-struct ArgumentValidateFieldAttribute {
+struct ValidateFieldAttribute {
     #[argument(attr_ident)]
     attr_ident: Ident,
     id: Option<Ident>,
@@ -170,10 +170,10 @@ struct ArgumentValidateFieldAttribute {
     #[argument(custom)]
     key: Option<IndexesValue<Expr, UnitDefault>>,
 }
-impl ArgumentValidateFieldAttribute {
+impl ValidateFieldAttribute {
     const IDENT: &'static str = "validate";
 }
-impl IdAttr for ArgumentValidateFieldAttribute {
+impl IdAttr for ValidateFieldAttribute {
     fn id(&self) -> Option<&Ident> {
         self.id.as_ref()
     }
@@ -182,7 +182,7 @@ impl IdAttr for ArgumentValidateFieldAttribute {
         &self.attr_ident
     }
 }
-impl Default for ArgumentValidateFieldAttribute {
+impl Default for ValidateFieldAttribute {
     fn default() -> Self {
         Self {
             attr_ident: Ident::new("__invalid_identifier__", Span::call_site()),
@@ -285,9 +285,8 @@ impl Parse for AccountArgumentDerive {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let from_attribute_ident = format_ident!("{}", FromAttribute::IDENT);
         let validate_attribute_ident = format_ident!("{}", ValidateAttribute::IDENT);
-        let argument_from_field_attr_ident = format_ident!("{}", ArgumentFromFieldAttribute::IDENT);
-        let argument_validate_field_attr_ident =
-            format_ident!("{}", ArgumentValidateFieldAttribute::IDENT);
+        let argument_from_field_attr_ident = format_ident!("{}", FromFieldAttribute::IDENT);
+        let argument_validate_field_attr_ident = format_ident!("{}", ValidateFieldAttribute::IDENT);
         let derive_input: DeriveInput = input.parse()?;
 
         let account_argument_attribute = find_attr(
@@ -720,11 +719,9 @@ impl AccountArgumentDeriveStruct {
         validate_ids: HashSet<String>,
     ) -> impl Iterator<Item = UnnamedField> + 'a {
         value.map(move |field| {
-            let from_attrs = ArgumentFromFieldAttribute::read_all(
-                argument_from_field_attr_ident,
-                field.attrs.iter(),
-            );
-            let validate_attrs = ArgumentValidateFieldAttribute::read_all(
+            let from_attrs =
+                FromFieldAttribute::read_all(argument_from_field_attr_ident, field.attrs.iter());
+            let validate_attrs = ValidateFieldAttribute::read_all(
                 argument_validate_field_attr_ident,
                 field.attrs.iter(),
             );
@@ -961,8 +958,8 @@ impl DerefMut for NamedField {
 
 #[derive(Debug)]
 struct UnnamedField {
-    from_attrs: HashMap<String, ArgumentFromFieldAttribute>,
-    validate_attrs: HashMap<String, ArgumentValidateFieldAttribute>,
+    from_attrs: HashMap<String, FromFieldAttribute>,
+    validate_attrs: HashMap<String, ValidateFieldAttribute>,
     ty: Type,
 }
 impl UnnamedField {

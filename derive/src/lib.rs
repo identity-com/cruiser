@@ -34,7 +34,7 @@ mod instruction_list;
 mod log_level;
 mod verify_account_arg_impl;
 
-/// If no start specified starts at `300`
+/// If no start specified starts at `1_000_000`
 #[proc_macro_error]
 #[proc_macro_derive(Error, attributes(error, error_msg))]
 pub fn derive_error(ts: TokenStream) -> TokenStream {
@@ -47,9 +47,97 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
-/// The derive macro is implemented for structs only. Each field must implement `AccountArgument`.
+/// Derives `AccountArgument`, `FromAccounts`, and `ValidateArgument`.
 ///
-/// TODO: Write docs for this
+/// # Requirements
+/// This macro is implemented for structs only. Each field must implement `AccountArgument`.
+///
+/// # How to use
+/// This macro utilizes `from`, `validate`, and `account_argument` attributes on the struct, and `from` and `validate` on the fields.
+///
+/// # `account_argument`
+/// Arguments for the whole struct
+/// ```ignore
+/// #[derive(AccountArgument)]
+/// #[account_argument(no_from, no_validate, enum_discriminant_type = <$ty:ty>)]
+/// struct Test;
+/// ```
+/// | Argument | Argument Type | Description |
+/// |---|---|---|
+/// | `no_from` | presence | Presence of this means all `from` attributes are ignored and no default `FromAccounts` implementation is generated. |
+/// | `no_validate` | presence | Presence of this means all `validate` attributes are ignored and no default `ValidateArgument` implementation is generated. |
+/// | ~~`enum_discriminant_type = <$ty:ty>`~~ | optional | Sets the serialization type for the enum discriminant. Type must implement `CompressedNumber<Num = u64>`. Defaults to [`u64`]. Not yet implemented. |
+///
+/// # `from`
+/// Arguments for `FromAccounts` implementation. Multiple `from` attributes can exist, each with a different id.
+/// ```ignore
+/// #[derive(AccountArgument)]
+/// #[from(
+///     id = <$id:ident>,
+///     data = (<$($data_name:ident: $data_ty:ty),*>),
+///     enum_discriminant = <$dis:expr>,
+///     log_level: <$log_level:ident>,
+/// )]
+/// struct Test{
+///     #[from(
+///         id = <$id:ident>,
+///         data = <$data:expr>,
+///     )]
+///     field: FieldType,
+/// }
+/// ```
+///
+/// ## Struct Attribute
+/// | Argument | Argument Type | Description |
+/// |---|---|---|
+/// | `id = <$id:ident>` | optional | Sets the id for this attribute and for other to reference. Defaults to unique default id. |
+/// | `data = (<$($data_name:ident: $data_ty:ty),*>)` | optional | Data type coming in for the `FromAccounts` implementation. `$data_name` is the name that can be referenced. `$data_ty` is the type of the data argument. Type defaults to [`()`] and maps to a tupple of the types. If a single argument is present then both `FromAccounts<$data_ty>` and `FromAccounts<($data_ty,)>` are implemented. |
+/// | ~~`enum_discriminant = <$dis:expr>`~~ | optional | Sets the enum discriminant from the incoming data. Required if deriving on enum. Not yet implemented. |
+/// | `log_level = $<log_level:ident>` | optional | Sets the logging level for implementation. Valid are `none`, `error`, `warn`, `info`, `debug`, or `trace` |
+///
+/// ## Field Attribute
+/// | Argument | Argument Type | Description |
+/// |---|---|---|
+/// | `id = <$id:ident>` | optional | Points to the struct attribute that this references. Defaults to unique empty id. |
+/// | `data = <$data:expr>` | optional | The argument to pass to the field's `FromAccounts` implementation. Defaults to [`()`] |
+///
+/// # `validate`
+/// Arguments for `ValidateArgument` implementation. Multiple `validate` attributes can exist, each with a different id.
+/// ```ignore
+/// #[derive(AccountArgument)]
+/// #[validate(
+///     id = <$id:ident>,
+///     data = (<$($data_name:ident: $data_ty:ty),*>),
+///     log_level: <$log_level:ident>,
+/// )]
+/// struct Test{
+///     #[validate(
+///         id = <$id:ident>,
+///         data = <$data:expr>,
+///         signer(<$index:expr>),
+///         writable(<$index:expr>),
+///         owner(<$index:expr>) = <$owner:expr>,
+///         key(<$index:expr>) = <$key:expr>,
+///     )]
+///     field: FieldType,
+/// }
+/// ```
+/// ## Struct Attribute
+/// | Argument | Argument Type | Description |
+/// |---|---|---|
+/// | `id = <$id:ident>` | optional | Sets the id for this attribute and for other to reference. Defaults to unique default id. |
+/// | `data = (<$($data_name:ident: $data_ty:ty),*>)` | optional | Data type coming in for the `ValidateArgument` implementation. `$data_name` is the name that can be referenced. `$data_ty` is the type of the data argument. Type defaults to [`()`] and maps to a tupple of the types. If a single argument is present then both `ValidateArgument<$data_ty>` and `ValidateArgument<($data_ty,)>` are implemented. |
+/// | `log_level = $<log_level:ident>` | optional | Sets the logging level for implementation. Valid are `none`, `error`, `warn`, `info`, `debug`, or `trace` |
+///
+/// ## Field Attribute
+/// | Argument | Argument Type | Description |
+/// |---|---|---|
+/// | `id = <$id:ident>` | optional | Points to the struct attribute that this references. Defaults to unique empty id. |
+/// | `data = <$data:expr>` | optional | The argument to pass to the field's `ValidateArgument` implementation. Defaults to [`()`] |
+/// | `signer(<$index:expr>)` | multiple, 0+ | Checks that `MultiIndexable::is_signer($index)` is true. If indexer is omitted defaults to `AllAny::All` |
+/// | `writable(<$index:expr)` | multiple, 0+ | Checks that `MultiIndexable::is_signer($index)` is true. If indexer is omitted defaults to `AllAny::All` |
+/// | `owner(<$index:expr>) = <$owner:expr>` | multiple, 0+ | Checks that `MultiIndexable::is_owner($owner, $index)` is true. If indexer is omitted defaults to `AllAny::All` |
+/// | `key(<$index:expr) = <$key:expr>` | multiple, 0+ | Checks that `SingleIndexable::info($index).key` is `$key`. If indexer is omitted defaults to `AllAny::All` |
 #[proc_macro_error]
 #[proc_macro_derive(AccountArgument, attributes(from, account_argument, validate))]
 pub fn derive_account_argument(ts: TokenStream) -> TokenStream {
@@ -127,10 +215,11 @@ fn get_crate_name() -> proc_macro2::TokenStream {
 //     stream.into()
 // }
 
+/// Macro for testing `easy_proc`
 #[cfg(feature = "easy_proc_test")]
 #[proc_macro_error]
 #[proc_macro_attribute]
-fn test_easy_proc(args: TokenStream, tokens: TokenStream) -> TokenStream {
+pub fn test_easy_proc(args: TokenStream, tokens: TokenStream) -> TokenStream {
     println!("ts1: {}", args);
     println!("ts2: {}", tokens);
 
