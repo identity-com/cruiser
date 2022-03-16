@@ -144,7 +144,7 @@ impl InstructionListDerive {
                         #(else if discriminant == #variant_discriminant{
                             #instruction_prints
                             let mut data = <<#variant_instruction_type as #crate_name::instruction::Instruction>::Data as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
-                            let (from_data, validate_data, instruction_data) = <#variant_instruction_type as #crate_name::instruction::Instruction>::data_to_instruction_arg(data)?;
+                            let (from_data, validate_data, instruction_data) = <#variant_processors as #crate_name::instruction::InstructionProcessor<#variant_instruction_type>>::data_to_instruction_arg(data)?;
                             let mut accounts = <<#variant_instruction_type as #crate_name::instruction::Instruction>::Accounts as #crate_name::account_argument::FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
                             #crate_name::account_argument::ValidateArgument::validate(&mut accounts, program_id, validate_data)?;
                             <#variant_processors as #crate_name::instruction::InstructionProcessor<#variant_instruction_type>>::process(

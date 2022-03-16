@@ -23,13 +23,15 @@ pub enum TestList {
 pub struct TestInstruction1;
 impl Instruction for TestInstruction1 {
     type Data = ();
+    type Accounts = ();
+}
+impl InstructionProcessor<TestInstruction1> for TestInstruction1 {
     type FromAccountsData = ();
     type ValidateData = ();
     type InstructionData = ();
-    type Accounts = ();
 
     fn data_to_instruction_arg(
-        _data: Self::Data,
+        _data: <Self as Instruction>::Data,
     ) -> CruiserResult<(
         Self::FromAccountsData,
         Self::ValidateData,
@@ -37,8 +39,7 @@ impl Instruction for TestInstruction1 {
     )> {
         Ok(Default::default())
     }
-}
-impl InstructionProcessor<TestInstruction1> for TestInstruction1 {
+
     fn process(
         _program_id: &'static Pubkey,
         _data: <TestInstruction1 as Instruction>::Data,

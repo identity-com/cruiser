@@ -58,13 +58,15 @@ impl PDASeeder for EscrowPDASeeder {
 pub struct InitEscrow;
 impl Instruction for InitEscrow {
     type Data = InitEscrowData;
+    type Accounts = InitEscrowAccounts;
+}
+impl InstructionProcessor<InitEscrow> for InitEscrow {
     type FromAccountsData = ();
     type ValidateData = ();
-    type InstructionData = Self::Data;
-    type Accounts = InitEscrowAccounts;
+    type InstructionData = <InitEscrow as Instruction>::Data;
 
     fn data_to_instruction_arg(
-        data: Self::Data,
+        data: <InitEscrow as Instruction>::Data,
     ) -> CruiserResult<(
         Self::FromAccountsData,
         Self::ValidateData,
@@ -72,11 +74,10 @@ impl Instruction for InitEscrow {
     )> {
         Ok(((), (), data))
     }
-}
-impl InstructionProcessor<InitEscrow> for InitEscrow {
+
     fn process(
         program_id: &'static Pubkey,
-        data: <Self as Instruction>::InstructionData,
+        data: Self::InstructionData,
         accounts: &mut <Self as Instruction>::Accounts,
     ) -> CruiserResult<()> {
         let escrow_account = &mut accounts.escrow_account;
@@ -127,13 +128,15 @@ pub struct InitEscrowAccounts {
 pub struct Exchange;
 impl Instruction for Exchange {
     type Data = ExchangeData;
+    type Accounts = ExchangeAccounts;
+}
+impl InstructionProcessor<Exchange> for Exchange {
     type FromAccountsData = ();
     type ValidateData = ();
-    type InstructionData = Self::Data;
-    type Accounts = ExchangeAccounts;
+    type InstructionData = <Self as Instruction>::Data;
 
     fn data_to_instruction_arg(
-        data: Self::Data,
+        data: <Self as Instruction>::Data,
     ) -> CruiserResult<(
         Self::FromAccountsData,
         Self::ValidateData,
@@ -141,8 +144,7 @@ impl Instruction for Exchange {
     )> {
         Ok(((), (), data))
     }
-}
-impl InstructionProcessor<Exchange> for Exchange {
+
     fn process(
         _program_id: &'static Pubkey,
         data: <Self as Instruction>::Data,
