@@ -4,6 +4,7 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use cruiser::util::short_iter::ShortIter;
 use solana_program::pubkey::Pubkey;
 use solana_program::rent::Rent;
 use solana_program::sysvar::Sysvar;
@@ -48,6 +49,8 @@ pub struct InitArgs<'a> {
     pub funder: &'a AccountInfo,
     /// The seeds for the funder if PDA
     pub funder_seeds: Option<&'a PDASeedSet<'a>>,
+    /// The seeds for the account if PDA
+    pub account_seeds: Option<&'a PDASeedSet<'a>>,
     /// The rent to use, if [`None`] will use [`Rent::get`].
     pub rent: Option<Rent>,
 }
@@ -128,23 +131,22 @@ where
         }
         .minimum_balance(arg.space);
 
-        match arg.funder_seeds {
-            Some(seeds) => arg.system_program.invoke_signed_create_account(
-                &[seeds],
-                arg.funder,
-                &self.account.info,
-                rent,
-                arg.space as u64,
-                program_id,
-            )?,
-            None => arg.system_program.invoke_create_account(
-                arg.funder,
-                &self.account.info,
-                rent,
-                arg.space as u64,
-                program_id,
-            )?,
+        let mut seeds = ShortIter::<_, 2>::new();
+        if let Some(funder_seeds) = arg.funder_seeds {
+            seeds.push(funder_seeds);
         }
+        if let Some(account_seeds) = arg.account_seeds {
+            seeds.push(account_seeds);
+        }
+
+        arg.system_program.create_account(
+            arg.funder,
+            &self.info,
+            rent,
+            arg.space as u64,
+            program_id,
+            seeds,
+        )?;
         self.account.validate(program_id, WriteDiscriminant)
     }
 }

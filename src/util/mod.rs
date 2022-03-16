@@ -10,6 +10,7 @@ use crate::{CruiserError, CruiserResult};
 
 pub mod assert;
 pub(crate) mod bytes_ext;
+pub mod short_iter;
 pub mod short_vec;
 
 /// (start, end), inclusive

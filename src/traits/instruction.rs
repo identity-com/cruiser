@@ -11,6 +11,8 @@ pub trait Instruction: Sized {
     type Data: BorshDeserialize;
     /// The data passed to [`FromAccounts::from_accounts`].
     type FromAccountsData;
+    /// The data passed to [`ValidateArgument::validate`].
+    type ValidateData;
     /// The data passed to [`InstructionProcessor::process`].
     type InstructionData;
     /// The account argument for this instruction.
@@ -19,7 +21,11 @@ pub trait Instruction: Sized {
     /// Turns the [`Self::Data`] into the instruction arg for [`Self::Accounts`].
     fn data_to_instruction_arg(
         data: Self::Data,
-    ) -> CruiserResult<(Self::FromAccountsData, Self::InstructionData)>;
+    ) -> CruiserResult<(
+        Self::FromAccountsData,
+        Self::ValidateData,
+        Self::InstructionData,
+    )>;
 }
 
 /// A processor for a given instruction `I`

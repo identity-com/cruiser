@@ -66,23 +66,14 @@ impl<'a> PDASeedSet<'a> {
     }
 
     /// Invokes an instruction with given seed sets
-    pub fn invoke_signed_multiple<T, const N: usize>(
+    pub fn invoke_signed_multiple<const N: usize>(
         instruction: &SolanaInstruction,
         accounts: &[&AccountInfo; N],
-        seed_sets: &[T],
-    ) -> ProgramResult
-    where
-        T: AsRef<Self>,
-    {
+        seed_sets: impl IntoIterator<Item = &'a PDASeedSet<'a>>,
+    ) -> ProgramResult {
         let seeds_array = seed_sets
-            .iter()
-            .map(|seed_set| {
-                seed_set
-                    .as_ref()
-                    .seeds()
-                    .map(AsRef::as_ref)
-                    .collect::<Vec<_>>()
-            })
+            .into_iter()
+            .map(|seed_set| seed_set.seeds().map(AsRef::as_ref).collect::<Vec<_>>())
             .collect::<Vec<_>>();
         let seeds = seeds_array.iter().map(AsRef::as_ref).collect::<Vec<_>>();
 
@@ -90,23 +81,14 @@ impl<'a> PDASeedSet<'a> {
     }
 
     /// Invokes an instruction of variable account size with given seed sets
-    pub fn invoke_signed_variable_size_multiple<T>(
+    pub fn invoke_signed_variable_size_multiple(
         instruction: &SolanaInstruction,
         accounts: &[&AccountInfo],
-        seed_sets: &[T],
-    ) -> ProgramResult
-    where
-        T: AsRef<Self>,
-    {
+        seed_sets: impl IntoIterator<Item = &'a PDASeedSet<'a>>,
+    ) -> ProgramResult {
         let seeds_array = seed_sets
-            .iter()
-            .map(|seed_set| {
-                seed_set
-                    .as_ref()
-                    .seeds()
-                    .map(AsRef::as_ref)
-                    .collect::<Vec<_>>()
-            })
+            .into_iter()
+            .map(|seed_set| seed_set.seeds().map(AsRef::as_ref).collect::<Vec<_>>())
             .collect::<Vec<_>>();
         let seeds = seeds_array.iter().map(AsRef::as_ref).collect::<Vec<_>>();
 

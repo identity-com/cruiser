@@ -1,6 +1,6 @@
 use crate::account_argument::{AccountArgument, MultiIndexable, Single, SingleIndexable};
 use crate::pda_seeds::PDASeedSet;
-use crate::{invoke, AccountInfo, AllAny, CruiserResult};
+use crate::{AccountInfo, AllAny, CruiserResult};
 use cruiser_derive::verify_account_arg_impl;
 use solana_program::entrypoint::ProgramResult;
 use solana_program::pubkey::Pubkey;
@@ -28,14 +28,15 @@ pub struct TokenProgram {
 }
 impl TokenProgram {
     /// Calls the token program's [`set_authority`] instruction
-    pub fn invoke_set_authority(
+    pub fn set_authority<'a>(
         &self,
         account: &TokenAccount,
         new_authority: &Pubkey,
         owner: &AccountInfo,
+        seeds: impl IntoIterator<Item = &'a PDASeedSet<'a>>,
     ) -> ProgramResult {
         let account_info = account.get_info();
-        invoke(
+        PDASeedSet::invoke_signed_multiple(
             &set_authority(
                 &spl_token::ID,
                 account_info.key,
@@ -45,44 +46,19 @@ impl TokenProgram {
                 &[owner.key],
             )?,
             &[&self.info, account_info, owner],
+            seeds,
         )
     }
 
     /// Calls the token program's [`transfer`] instruction
-    pub fn invoke_transfer(
+    pub fn transfer<'a>(
         &self,
         from: &TokenAccount,
         to: &TokenAccount,
         authority: &AccountInfo,
         amount: u64,
+        seeds: impl IntoIterator<Item = &'a PDASeedSet<'a>>,
     ) -> ProgramResult {
-        let from_info = from.get_info();
-        let to_info = to.get_info();
-        invoke(
-            &transfer(
-                &spl_token::ID,
-                from_info.key,
-                to_info.key,
-                authority.key,
-                &[authority.key],
-                amount,
-            )?,
-            &[&self.info, from_info, to_info, authority],
-        )
-    }
-
-    /// Calls the token program's [`transfer`] instruction with PDA seeds
-    pub fn invoke_signed_transfer<'a, T>(
-        &self,
-        seeds: &[T],
-        from: &TokenAccount,
-        to: &TokenAccount,
-        authority: &AccountInfo,
-        amount: u64,
-    ) -> ProgramResult
-    where
-        T: AsRef<PDASeedSet<'a>>,
-    {
         let from_info = from.get_info();
         let to_info = to.get_info();
         PDASeedSet::invoke_signed_multiple(
@@ -100,36 +76,13 @@ impl TokenProgram {
     }
 
     /// Calls the token program's [`close_account`] instruction
-    pub fn invoke_close_account(
+    pub fn close_account<'a>(
         &self,
         account: &TokenAccount,
         destination: &AccountInfo,
         authority: &AccountInfo,
+        seeds: impl IntoIterator<Item = &'a PDASeedSet<'a>>,
     ) -> ProgramResult {
-        let account_info = account.get_info();
-        invoke(
-            &close_account(
-                &spl_token::ID,
-                account_info.key,
-                destination.key,
-                authority.key,
-                &[authority.key],
-            )?,
-            &[&self.info, account_info, destination, authority],
-        )
-    }
-
-    /// Calls the token program's [`close_account`] instruction with PDA seeds
-    pub fn invoke_signed_close_account<'a, T>(
-        &self,
-        seeds: &[T],
-        account: &TokenAccount,
-        destination: &AccountInfo,
-        authority: &AccountInfo,
-    ) -> ProgramResult
-    where
-        T: AsRef<PDASeedSet<'a>>,
-    {
         let account_info = account.get_info();
         PDASeedSet::invoke_signed_multiple(
             &close_account(

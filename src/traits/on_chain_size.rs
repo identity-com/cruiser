@@ -36,12 +36,51 @@ where
         4 + arg * T::on_chain_static_size()
     }
 }
+impl<T, I, A> OnChainSize<(I,)> for Vec<T>
+where
+    I: IntoIterator<Item = A>,
+    T: OnChainSize<A>,
+{
+    fn on_chain_max_size(arg: (I,)) -> usize {
+        4 + arg.0.into_iter().map(T::on_chain_max_size).sum::<usize>()
+    }
+}
 impl<A, T, const N: usize> OnChainSize<[A; N]> for Vec<T>
 where
     T: OnChainSize<A>,
 {
     fn on_chain_max_size(arg: [A; N]) -> usize {
-        arg.into_iter().map(|arg| T::on_chain_max_size(arg)).sum()
+        4 + arg
+            .into_iter()
+            .map(|arg| T::on_chain_max_size(arg))
+            .sum::<usize>()
+    }
+}
+impl<A, T, const N: usize> OnChainSize<[A; N]> for [T; N]
+where
+    T: OnChainSize<A>,
+{
+    fn on_chain_max_size(arg: [A; N]) -> usize {
+        4 + arg.into_iter().map(T::on_chain_max_size).sum::<usize>()
+    }
+}
+impl<A1, A2, T1, T2> OnChainSize<(A1, A2)> for (T1, T2)
+where
+    T1: OnChainSize<A1>,
+    T2: OnChainSize<A2>,
+{
+    fn on_chain_max_size(arg: (A1, A2)) -> usize {
+        T1::on_chain_max_size(arg.0) + T2::on_chain_max_size(arg.1)
+    }
+}
+impl<A1, A2, A3, T1, T2, T3> OnChainSize<(A1, A2, A3)> for (T1, T2, T3)
+where
+    T1: OnChainSize<A1>,
+    T2: OnChainSize<A2>,
+    T3: OnChainSize<A3>,
+{
+    fn on_chain_max_size(arg: (A1, A2, A3)) -> usize {
+        T1::on_chain_max_size(arg.0) + T2::on_chain_max_size(arg.1) + T3::on_chain_max_size(arg.2)
     }
 }
 

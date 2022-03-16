@@ -24,12 +24,17 @@ pub struct TestInstruction1;
 impl Instruction for TestInstruction1 {
     type Data = ();
     type FromAccountsData = ();
+    type ValidateData = ();
     type InstructionData = ();
     type Accounts = ();
 
     fn data_to_instruction_arg(
         _data: Self::Data,
-    ) -> CruiserResult<(Self::FromAccountsData, Self::InstructionData)> {
+    ) -> CruiserResult<(
+        Self::FromAccountsData,
+        Self::ValidateData,
+        Self::InstructionData,
+    )> {
         Ok(Default::default())
     }
 }

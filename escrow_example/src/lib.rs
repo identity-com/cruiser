@@ -16,6 +16,7 @@ use cruiser::on_chain_size::{OnChainSize, OnChainStaticSize};
 use cruiser::pda_seeds::{PDAGenerator, PDASeed, PDASeeder};
 use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
 use cruiser::{entrypoint_list, msg, AccountInfo, CruiserError, CruiserResult, Pubkey};
+use std::iter::empty;
 
 entrypoint_list!(EscrowInstructions, EscrowInstructions);
 
@@ -58,13 +59,18 @@ pub struct InitEscrow;
 impl Instruction for InitEscrow {
     type Data = InitEscrowData;
     type FromAccountsData = ();
+    type ValidateData = ();
     type InstructionData = Self::Data;
     type Accounts = InitEscrowAccounts;
 
     fn data_to_instruction_arg(
         data: Self::Data,
-    ) -> CruiserResult<(Self::FromAccountsData, Self::InstructionData)> {
-        Ok(((), data))
+    ) -> CruiserResult<(
+        Self::FromAccountsData,
+        Self::ValidateData,
+        Self::InstructionData,
+    )> {
+        Ok(((), (), data))
     }
 }
 impl InstructionProcessor<InitEscrow> for InitEscrow {
@@ -83,10 +89,11 @@ impl InstructionProcessor<InitEscrow> for InitEscrow {
         let (pda, _) = EscrowPDASeeder.find_address(program_id);
 
         msg!("Calling the token program to transfer token account ownership...");
-        accounts.token_program.invoke_set_authority(
+        accounts.token_program.set_authority(
             &accounts.temp_token_account,
             &pda,
             &accounts.initializer,
+            empty(),
         )?;
 
         Ok(())
@@ -110,6 +117,7 @@ pub struct InitEscrowAccounts {
         rent: None,
         space: EscrowAccount::on_chain_static_size(),
         system_program: &self.system_program,
+        account_seeds: None,
     },))]
     escrow_account: RentExempt<InitOrZeroedAccount<EscrowAccounts, EscrowAccount>>,
     token_program: TokenProgram,
@@ -120,13 +128,18 @@ pub struct Exchange;
 impl Instruction for Exchange {
     type Data = ExchangeData;
     type FromAccountsData = ();
+    type ValidateData = ();
     type InstructionData = Self::Data;
     type Accounts = ExchangeAccounts;
 
     fn data_to_instruction_arg(
         data: Self::Data,
-    ) -> CruiserResult<(Self::FromAccountsData, Self::InstructionData)> {
-        Ok(((), data))
+    ) -> CruiserResult<(
+        Self::FromAccountsData,
+        Self::ValidateData,
+        Self::InstructionData,
+    )> {
+        Ok(((), (), data))
     }
 }
 impl InstructionProcessor<Exchange> for Exchange {
@@ -146,29 +159,30 @@ impl InstructionProcessor<Exchange> for Exchange {
         }
 
         msg!("Calling the token program to transfer tokens to the escrow's initializer...");
-        accounts.token_program.invoke_transfer(
+        accounts.token_program.transfer(
             &accounts.taker_send_token_account,
             &accounts.initializer_token_account,
             &accounts.taker,
             accounts.escrow_account.expected_amount,
+            empty(),
         )?;
 
         let seeds = accounts.pda_account.take_seed_set().unwrap();
         msg!("Calling the token program to transfer tokens to the taker...");
-        accounts.token_program.invoke_signed_transfer(
-            &[&seeds],
+        accounts.token_program.transfer(
             &accounts.temp_token_account,
             &accounts.taker_receive_token_account,
             accounts.pda_account.get_info(),
             accounts.temp_token_account.amount,
+            [&seeds],
         )?;
 
         msg!("Calling the token program to close pda's temp account...");
-        accounts.token_program.invoke_signed_close_account(
-            &[&seeds],
+        accounts.token_program.close_account(
             &accounts.temp_token_account,
             &accounts.initializer,
             accounts.pda_account.get_info(),
+            [&seeds],
         )?;
 
         msg!("Closing the escrow account...");
