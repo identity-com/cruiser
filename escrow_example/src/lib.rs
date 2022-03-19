@@ -15,7 +15,7 @@ use cruiser::instruction_list::InstructionList;
 use cruiser::on_chain_size::{OnChainSize, OnChainStaticSize};
 use cruiser::pda_seeds::{PDAGenerator, PDASeed, PDASeeder};
 use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
-use cruiser::{entrypoint_list, msg, AccountInfo, CruiserError, CruiserResult, Pubkey};
+use cruiser::{entrypoint_list, msg, AccountInfo, CruiserResult, GenericError, Pubkey};
 use std::iter::empty;
 
 entrypoint_list!(EscrowInstructions, EscrowInstructions);
@@ -151,7 +151,7 @@ impl InstructionProcessor<Exchange> for Exchange {
         accounts: &mut <Self as Instruction>::Accounts,
     ) -> CruiserResult<()> {
         if data.amount != accounts.escrow_account.expected_amount {
-            return Err(CruiserError::Custom {
+            return Err(GenericError::Custom {
                 error: format!(
                     "Amount (`{}`) did not equal expected (`{}`)",
                     data.amount, accounts.escrow_account.expected_amount

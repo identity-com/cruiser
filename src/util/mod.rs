@@ -6,7 +6,7 @@ use std::num::NonZeroU64;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::ptr::slice_from_raw_parts_mut;
 
-use crate::{CruiserError, CruiserResult};
+use crate::{CruiserResult, GenericError};
 
 pub mod assert;
 pub(crate) mod bytes_ext;
@@ -34,7 +34,7 @@ pub fn convert_range(
         (end, start)
     };
     if end >= length {
-        Err(CruiserError::IndexOutOfRange {
+        Err(GenericError::IndexOutOfRange {
             index: format!(
                 "{},{}",
                 match range.start_bound() {
@@ -173,7 +173,7 @@ pub trait Advance<'a>: Length {
     /// Errors if not enough data.
     fn try_advance(&'a mut self, amount: usize) -> CruiserResult<Self::AdvanceOut> {
         if self.len() < amount {
-            Err(CruiserError::NotEnoughData {
+            Err(GenericError::NotEnoughData {
                 needed: amount,
                 remaining: self.len(),
             }
@@ -208,7 +208,7 @@ pub trait AdvanceArray<'a, const N: usize>: Length {
     /// Errors if not enough data.
     fn try_advance_array(&'a mut self) -> CruiserResult<Self::AdvanceOut> {
         if self.len() < N {
-            Err(CruiserError::NotEnoughData {
+            Err(GenericError::NotEnoughData {
                 needed: N,
                 remaining: self.len(),
             }

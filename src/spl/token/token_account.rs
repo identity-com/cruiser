@@ -3,7 +3,7 @@ use std::ops::Deref;
 use crate::account_argument::{
     AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable, ValidateArgument,
 };
-use crate::{AccountInfo, CruiserError, CruiserResult};
+use crate::{AccountInfo, CruiserResult, GenericError};
 use cruiser_derive::verify_account_arg_impl;
 use solana_program::program_pack::Pack;
 use solana_program::pubkey::Pubkey;
@@ -66,7 +66,7 @@ impl ValidateArgument<Owner<'_>> for TokenAccount {
         if &self.data.owner == arg.0 {
             Ok(())
         } else {
-            Err(CruiserError::InvalidAccount {
+            Err(GenericError::InvalidAccount {
                 account: self.data.owner,
                 expected: *arg.0,
             }

@@ -5,7 +5,7 @@ use std::iter::{once, Chain, Map, Once};
 use crate::solana_program::entrypoint::ProgramResult;
 use crate::solana_program::pubkey::PubkeyError;
 use crate::{
-    invoke_signed, invoke_signed_variable_size, AccountInfo, CruiserError, CruiserResult, Pubkey,
+    invoke_signed, invoke_signed_variable_size, AccountInfo, CruiserResult, GenericError, Pubkey,
     SolanaInstruction,
 };
 
@@ -24,7 +24,7 @@ impl<'a> PDASeedSet<'a> {
     }
 
     /// Finds a set of pda seeds
-    pub fn find(seeder: impl PDASeeder + 'a, program_id: &'static Pubkey) -> (Pubkey, Self) {
+    pub fn find(seeder: impl PDASeeder + 'a, program_id: &Pubkey) -> (Pubkey, Self) {
         let (key, bump) = seeder.find_address(program_id);
         (key, Self::from_boxed(Box::new(seeder), bump))
     }
@@ -36,6 +36,17 @@ impl<'a> PDASeedSet<'a> {
             seeder,
             nonce: [nonce],
         }
+    }
+
+    /// Verifies that a given address is derived from this seed set.
+    pub fn verify_address(&self, program_id: &Pubkey, address: &Pubkey) -> CruiserResult<()> {
+        self.seeder
+            .verify_address_with_nonce(program_id, address, self.nonce[0])
+    }
+
+    /// Creates the address from these seeds
+    pub fn create_address(&self, program_id: &Pubkey) -> CruiserResult<Pubkey> {
+        self.seeder.create_address(program_id, self.nonce[0])
     }
 
     /// Gets an iterator of the seeds
@@ -191,24 +202,21 @@ where
     /// Gets the seeds as an iterator of strings with an additional nonce
     fn seeds_to_strings_with_nonce(&'a self, nonce: u8) -> Self::SeedsToStringsWithNonceIter;
     /// Finds an address for the given seeds returning `(key, nonce)`
-    fn find_address(&self, program_id: &'static Pubkey) -> (Pubkey, u8);
+    fn find_address(&self, program_id: &Pubkey) -> (Pubkey, u8);
     /// Creates an address from given seeds and nonce, ~50% chance to error if given a random nonce
-    fn create_address(&self, program_id: &'static Pubkey, nonce: u8) -> CruiserResult<Pubkey>;
+    fn create_address(&self, program_id: &Pubkey, nonce: u8) -> CruiserResult<Pubkey>;
     /// Verifies that a given address is derived from given seeds and finds nonce. Returns the found nonce.
-    fn verify_address_find_nonce(
-        &self,
-        program_id: &'static Pubkey,
-        address: &Pubkey,
-    ) -> CruiserResult<u8>;
+    fn verify_address_find_nonce(&self, program_id: &Pubkey, address: &Pubkey)
+        -> CruiserResult<u8>;
     /// Verifies that a given address is derived from given seeds and nonce.
     fn verify_address_with_nonce(
         &self,
-        program_id: &'static Pubkey,
+        program_id: &Pubkey,
         address: &Pubkey,
         nonce: u8,
     ) -> CruiserResult<()>;
     /// Verifies that a given address is derived from given seeds.
-    fn verify_address(&self, program_id: &'static Pubkey, address: &Pubkey) -> CruiserResult<()>;
+    fn verify_address(&self, program_id: &Pubkey, address: &Pubkey) -> CruiserResult<()>;
 }
 #[allow(clippy::type_complexity)]
 impl<'a, 'b, 'c, T: ?Sized> PDAGenerator<'a, 'b, 'c> for T
@@ -246,18 +254,18 @@ where
         self.seeds_to_strings().chain(once(nonce.to_string()))
     }
 
-    fn find_address(&self, program_id: &'static Pubkey) -> (Pubkey, u8) {
+    fn find_address(&self, program_id: &Pubkey) -> (Pubkey, u8) {
         let seed_bytes = self.seeds_to_bytes().collect::<Vec<_>>();
         Pubkey::find_program_address(&seed_bytes, program_id)
     }
 
-    fn create_address(&self, program_id: &'static Pubkey, nonce: u8) -> CruiserResult<Pubkey> {
+    fn create_address(&self, program_id: &Pubkey, nonce: u8) -> CruiserResult<Pubkey> {
         Pubkey::create_program_address(
             &self.seeds_to_bytes_with_nonce(&[nonce]).collect::<Vec<_>>(),
             program_id,
         )
         .map_err(|error| match error {
-            PubkeyError::InvalidSeeds => CruiserError::NoAccountFromSeeds {
+            PubkeyError::InvalidSeeds => GenericError::NoAccountFromSeeds {
                 seeds: self.seeds_to_strings_with_nonce(nonce).collect(),
             }
             .into(),
@@ -267,15 +275,15 @@ where
 
     fn verify_address_find_nonce(
         &self,
-        program_id: &'static Pubkey,
+        program_id: &Pubkey,
         address: &Pubkey,
     ) -> CruiserResult<u8> {
         let (key, nonce) = self.find_address(program_id);
         if address != &key {
-            return Err(CruiserError::AccountNotFromSeeds {
+            return Err(GenericError::AccountNotFromSeeds {
                 account: *address,
                 seeds: self.seeds_to_strings().collect(),
-                program_id,
+                program_id: *program_id,
             }
             .into());
         }
@@ -284,16 +292,16 @@ where
 
     fn verify_address_with_nonce(
         &self,
-        program_id: &'static Pubkey,
+        program_id: &Pubkey,
         address: &Pubkey,
         nonce: u8,
     ) -> CruiserResult<()> {
         let created_key = self.create_address(program_id, nonce);
         if created_key.is_err() || address != &created_key? {
-            Err(CruiserError::AccountNotFromSeeds {
+            Err(GenericError::AccountNotFromSeeds {
                 account: *address,
                 seeds: self.seeds_to_strings_with_nonce(nonce).collect(),
-                program_id,
+                program_id: *program_id,
             }
             .into())
         } else {
@@ -301,13 +309,13 @@ where
         }
     }
 
-    fn verify_address(&self, program_id: &'static Pubkey, address: &Pubkey) -> CruiserResult<()> {
+    fn verify_address(&self, program_id: &Pubkey, address: &Pubkey) -> CruiserResult<()> {
         let created_key = self.find_address(program_id).0;
         if address != &created_key {
-            return Err(CruiserError::AccountNotFromSeeds {
+            return Err(GenericError::AccountNotFromSeeds {
                 account: *address,
                 seeds: self.seeds_to_strings().collect(),
-                program_id,
+                program_id: *program_id,
             }
             .into());
         }

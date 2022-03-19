@@ -7,10 +7,9 @@ use strum::EnumDiscriminants;
 use crate::error::Error;
 
 /// General errors issued by the generator.
-#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Error, EnumDiscriminants)]
 #[error(start = 0)]
-pub enum CruiserError {
+pub enum GenericError {
     /// Custom error message for infrequent one-off errors
     #[error_msg("{}", error)]
     Custom {
@@ -189,7 +188,7 @@ pub enum CruiserError {
         /// Seeds that should have generated `account`
         seeds: Vec<String>,
         /// The program id for seeding
-        program_id: &'static Pubkey,
+        program_id: Pubkey,
     },
     /// Interface is not yet supported.
     #[error_msg("Interfaces are not yet supported")]

@@ -1,7 +1,7 @@
 //! Assertions used in generated code and standard types.
 
 use crate::account_argument::{MultiIndexable, SingleIndexable};
-use crate::{CruiserError, CruiserResult};
+use crate::{CruiserResult, GenericError};
 use solana_program::pubkey::Pubkey;
 use std::fmt::Debug;
 
@@ -13,7 +13,7 @@ where
     if argument.is_signer(indexer.clone())? {
         Ok(())
     } else {
-        Err(CruiserError::AccountsSignerError {
+        Err(GenericError::AccountsSignerError {
             accounts: argument.keys()?,
             indexer: format!("{:?}", indexer),
         }
@@ -29,7 +29,7 @@ where
     if argument.is_writable(indexer.clone())? {
         Ok(())
     } else {
-        Err(CruiserError::AccountsWritableError {
+        Err(GenericError::AccountsWritableError {
             accounts: argument.keys()?,
             indexer: format!("{:?}", indexer),
         }
@@ -50,7 +50,7 @@ where
     if account == key {
         Ok(())
     } else {
-        Err(CruiserError::InvalidAccount {
+        Err(GenericError::InvalidAccount {
             account: *account,
             expected: *key,
         }
@@ -70,7 +70,7 @@ where
     if argument.is_owner(owner, indexer.clone())? {
         Ok(())
     } else {
-        Err(CruiserError::AccountsOwnerError {
+        Err(GenericError::AccountsOwnerError {
             accounts: argument.keys()?,
             indexer: format!("{:?}", indexer),
             owner: *owner,

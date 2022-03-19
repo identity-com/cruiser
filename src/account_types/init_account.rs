@@ -16,6 +16,7 @@ use crate::account_argument::{
 use crate::account_list::AccountListItem;
 use crate::account_types::discriminant_account::{DiscriminantAccount, WriteDiscriminant};
 use crate::account_types::system_program::SystemProgram;
+use crate::compressed_numbers::CompressedNumber;
 use crate::pda_seeds::PDASeedSet;
 use crate::AllAny;
 use crate::{AccountInfo, CruiserResult};
@@ -129,7 +130,7 @@ where
             None => Rent::get()?,
             Some(rent) => rent,
         }
-        .minimum_balance(arg.space);
+        .minimum_balance(AL::compressed_discriminant().num_bytes() as usize + arg.space);
 
         let mut seeds = ShortIter::<_, 2>::new();
         if let Some(funder_seeds) = arg.funder_seeds {

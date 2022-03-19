@@ -168,14 +168,13 @@ impl InstructionListDerive {
                 type DiscriminantCompressed = #discriminant_type;
                 type AccountList = #account_list;
 
-                fn discriminant(self) -> ::std::num::NonZeroU64{
+                fn discriminant(self) -> u64{
                     match self{
-                        #(Self::#variant_ident => #crate_name::util::ToNonZero::to_non_zero(#variant_discriminant),)*
+                        #(Self::#variant_ident => #variant_discriminant,)*
                     }
                 }
 
-                fn from_discriminant(discriminant: ::std::num::NonZeroU64) -> Option<Self>{
-                    let discriminant = discriminant.get();
+                fn from_discriminant(discriminant: u64) -> Option<Self>{
                     if false{
                         ::std::unreachable!();
                     }

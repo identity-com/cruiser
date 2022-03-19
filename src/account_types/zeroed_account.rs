@@ -15,7 +15,7 @@ use crate::account_list::AccountListItem;
 use crate::account_types::discriminant_account::{DiscriminantAccount, WriteDiscriminant};
 use crate::compressed_numbers::CompressedNumber;
 use crate::util::assert::assert_is_owner;
-use crate::{AccountInfo, AllAny, CruiserError, CruiserResult};
+use crate::{AccountInfo, AllAny, CruiserResult, GenericError};
 
 verify_account_arg_impl! {
     mod init_account_check{
@@ -116,7 +116,7 @@ where
             .iter()
             .any(|val| *val != 0)
         {
-            Err(CruiserError::NonZeroedData {
+            Err(GenericError::NonZeroedData {
                 account: self.account.info.key,
             }
             .into())
@@ -136,7 +136,7 @@ where
     fn validate(&mut self, program_id: &'static Pubkey, _arg: CheckAll) -> CruiserResult<()> {
         assert_is_owner(&self.account, program_id, ())?;
         if self.account.info.data.borrow().iter().any(|val| *val != 0) {
-            Err(CruiserError::NonZeroedData {
+            Err(GenericError::NonZeroedData {
                 account: self.account.info.key,
             }
             .into())

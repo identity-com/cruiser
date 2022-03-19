@@ -4,7 +4,7 @@ use crate::account_argument::{
 };
 use crate::util::{convert_range, mul_size_hint, sum_size_hints};
 use crate::AllAny;
-use crate::{AccountInfo, CruiserError, CruiserResult};
+use crate::{AccountInfo, CruiserResult, GenericError};
 use array_init::try_array_init;
 use cruiser_derive::verify_account_arg_impl;
 use solana_program::pubkey::Pubkey;
@@ -41,7 +41,7 @@ verify_account_arg_impl! {
 }
 fn get_index<T, const N: usize>(array: &[T; N], index: usize) -> CruiserResult<&T> {
     array.get(index).ok_or_else(|| {
-        CruiserError::IndexOutOfRange {
+        GenericError::IndexOutOfRange {
             index: index.to_string(),
             possible_range: format!("[0,{})", array.len()),
         }

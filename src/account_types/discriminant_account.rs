@@ -10,7 +10,7 @@ use crate::account_argument::{
 use crate::account_list::AccountListItem;
 use crate::compressed_numbers::CompressedNumber;
 use crate::AllAny;
-use crate::{AccountInfo, CruiserError, CruiserResult};
+use crate::{AccountInfo, CruiserResult, GenericError};
 use borsh::{BorshDeserialize, BorshSerialize};
 use cruiser_derive::verify_account_arg_impl;
 use solana_program::pubkey::Pubkey;
@@ -163,7 +163,7 @@ where
         if self.discriminant == AL::compressed_discriminant() {
             Ok(())
         } else {
-            Err(CruiserError::MismatchedDiscriminant {
+            Err(GenericError::MismatchedDiscriminant {
                 account: self.info.key,
                 received: self.discriminant.into_number().get(),
                 expected: AL::discriminant(),

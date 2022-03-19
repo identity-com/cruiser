@@ -11,7 +11,7 @@ use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
     ValidateArgument,
 };
-use crate::{AccountInfo, CruiserError, CruiserResult};
+use crate::{AccountInfo, CruiserResult, GenericError};
 use cruiser_derive::verify_account_arg_impl;
 
 verify_account_arg_impl! {
@@ -125,7 +125,7 @@ where
         let lamports = **info.lamports.borrow();
         let needed_lamports = arg.2.minimum_balance(info.data.borrow().len());
         if lamports < needed_lamports {
-            Err(CruiserError::NotEnoughLamports {
+            Err(GenericError::NotEnoughLamports {
                 account: info.key,
                 lamports,
                 needed_lamports,

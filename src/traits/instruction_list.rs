@@ -4,7 +4,6 @@ pub use cruiser_derive::InstructionList;
 
 use crate::account_argument::AccountInfoIterator;
 use solana_program::pubkey::Pubkey;
-use std::num::NonZeroU64;
 
 use crate::account_list::AccountList;
 use crate::compressed_numbers::CompressedNumber;
@@ -18,9 +17,13 @@ pub trait InstructionList: Copy {
     type AccountList: AccountList;
 
     /// Gets the discriminant for the instruction
-    fn discriminant(self) -> NonZeroU64;
+    fn discriminant(self) -> u64;
+    /// Gets the discriminant in compressed form
+    fn discriminant_compressed(self) -> Self::DiscriminantCompressed {
+        Self::DiscriminantCompressed::from_number(self.discriminant())
+    }
     /// Creates the instruction from a discriminant
-    fn from_discriminant(discriminant: NonZeroU64) -> Option<Self>;
+    fn from_discriminant(discriminant: u64) -> Option<Self>;
 }
 
 /// A Processor for a given [`InstructionList`].

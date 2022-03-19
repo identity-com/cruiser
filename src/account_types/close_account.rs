@@ -9,7 +9,7 @@ use crate::account_argument::{
     ValidateArgument,
 };
 use crate::util::assert::assert_is_owner;
-use crate::{AccountInfo, CruiserError, CruiserResult};
+use crate::{AccountInfo, CruiserResult, GenericError};
 use cruiser_derive::verify_account_arg_impl;
 
 verify_account_arg_impl! {
@@ -54,7 +54,7 @@ where
 {
     fn write_back(self, _program_id: &'static Pubkey) -> CruiserResult<()> {
         let self_info = self.0.get_info();
-        let fundee = self.1.ok_or_else(|| CruiserError::Custom {
+        let fundee = self.1.ok_or_else(|| GenericError::Custom {
             error: format!("Close `{}` is missing fundee", self_info.key),
         })?;
         let mut self_lamports = self_info.lamports.borrow_mut();

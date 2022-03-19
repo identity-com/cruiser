@@ -66,7 +66,7 @@ mod traits;
 pub use account_info::*;
 pub use borsh;
 pub use cruiser_derive::verify_account_arg_impl;
-pub use cruiser_error::*;
+pub use generic_error::*;
 pub use indexer::AllAny;
 pub use solana_program;
 pub use solana_program::msg;
@@ -82,7 +82,7 @@ pub use traits::*;
 use solana_program::entrypoint::ProgramResult;
 use solana_program::program::{invoke as solana_invoke, invoke_signed as solana_invoke_signed};
 
-mod cruiser_error;
+mod generic_error;
 
 use array_init::array_init;
 
