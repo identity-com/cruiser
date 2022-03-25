@@ -1,19 +1,19 @@
 use crate::account_argument::AccountArgument;
-use crate::{AccountInfo, CruiserResult};
+use crate::CruiserResult;
 use solana_program::pubkey::Pubkey;
 use std::iter::FusedIterator;
 
 /// Allows an account argument to be made from the account iterator and data `A`.
 /// This is the first step in the instruction lifecycle.
-pub trait FromAccounts<A>: Sized + AccountArgument {
+pub trait FromAccounts<AI, Arg>: Sized + AccountArgument<AI> {
     /// Creates this argument from an [`AccountInfo`] iterator and data `A`.
     /// - `program_id` is the current program's id.
     /// - `infos` is the iterator of [`AccountInfo`]s
     /// - `arg` is the data argument
     fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        arg: A,
+        program_id: &Pubkey,
+        infos: &mut impl AccountInfoIterator<AI>,
+        arg: Arg,
     ) -> CruiserResult<Self>;
 
     /// A hint as to the number of accounts that this will use when [`FromAccounts::from_accounts`] is called.
@@ -25,15 +25,15 @@ pub trait FromAccounts<A>: Sized + AccountArgument {
     // TODO: Make this const once const trait functions are stabilized
     // TODO: Figure out how to make this derivable
     #[must_use]
-    fn accounts_usage_hint(arg: &A) -> (usize, Option<usize>);
+    fn accounts_usage_hint(arg: &Arg) -> (usize, Option<usize>);
 }
 
 /// A globing trait for an account info iterator
-pub trait AccountInfoIterator:
-    Iterator<Item = AccountInfo> + DoubleEndedIterator + FusedIterator
+pub trait AccountInfoIterator<AI>:
+    Iterator<Item = AI> + DoubleEndedIterator + FusedIterator
 {
 }
-impl<T> AccountInfoIterator for T where
-    T: Iterator<Item = AccountInfo> + DoubleEndedIterator + FusedIterator
+impl<AI, T> AccountInfoIterator<AI> for T where
+    T: Iterator<Item = AI> + DoubleEndedIterator + FusedIterator
 {
 }

@@ -4,51 +4,51 @@ use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
     ValidateArgument,
 };
-use crate::{AccountInfo, CruiserResult};
+use crate::CruiserResult;
 use cruiser_derive::verify_account_arg_impl;
 use solana_program::pubkey::Pubkey;
 use std::iter::once;
 use std::ops::{Deref, DerefMut};
 
 verify_account_arg_impl! {
-    mod init_account_check{
-        <A> Rest<A>
+    mod init_account_check<AI>{
+        <AI, T> Rest<T>
         where
-            A: AccountArgument{
+            T: AccountArgument<AI>{
             from: [
-                () where A: FromAccounts<()>;
-                <T> (T,) where A: FromAccounts<T>, T: Clone;
-                <T, F> (F, ()) where A: FromAccounts<T>, F: FnMut(usize) -> T;
+                () where T: FromAccounts<AI, ()>;
+                <Arg> (Arg,) where T: FromAccounts<AI, Arg>, Arg: Clone;
+                <Arg, F> (F, ()) where T: FromAccounts<AI, Arg>, F: FnMut(usize) -> Arg;
             ];
-            validate: [<T> T where Vec<A>: ValidateArgument<T>];
-            multi: [<T> T where Vec<A>: MultiIndexable<T>];
-            single: [<T> T where Vec<A>: SingleIndexable<T>];
+            validate: [<Arg> Arg where Vec<T>: ValidateArgument<AI, Arg>];
+            multi: [<Arg> Arg where Vec<T>: MultiIndexable<AI, Arg>];
+            single: [<Arg> Arg where Vec<T>: SingleIndexable<AI, Arg>];
         }
     }
 }
 
 /// An account argument that takes the rest of the accounts as type `A`
 #[derive(Debug)]
-pub struct Rest<A>(pub Vec<A>);
-impl<A> AccountArgument for Rest<A>
+pub struct Rest<T>(pub Vec<T>);
+impl<AI, T> AccountArgument<AI> for Rest<T>
 where
-    A: AccountArgument,
+    T: AccountArgument<AI>,
 {
-    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
+    fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         self.0.write_back(program_id)
     }
 
-    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
+    fn add_keys(&self, add: impl FnMut(Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
         self.0.add_keys(add)
     }
 }
-impl<A> FromAccounts<()> for Rest<A>
+impl<AI, T> FromAccounts<AI, ()> for Rest<T>
 where
-    A: FromAccounts<()>,
+    T: FromAccounts<AI, ()>,
 {
     fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
+        program_id: &Pubkey,
+        infos: &mut impl AccountInfoIterator<AI>,
         arg: (),
     ) -> CruiserResult<Self> {
         Self::from_accounts(program_id, infos, (arg,))
@@ -58,41 +58,41 @@ where
         Self::accounts_usage_hint(&(*arg,))
     }
 }
-impl<A, T> FromAccounts<(T,)> for Rest<A>
+impl<AI, T, Arg> FromAccounts<AI, (Arg,)> for Rest<T>
 where
-    A: FromAccounts<T>,
-    T: Clone,
+    T: FromAccounts<AI, Arg>,
+    Arg: Clone,
 {
     fn from_accounts(
-        program_id: &'static Pubkey,
-        mut infos: &mut impl AccountInfoIterator,
-        arg: (T,),
+        program_id: &Pubkey,
+        mut infos: &mut impl AccountInfoIterator<AI>,
+        arg: (Arg,),
     ) -> CruiserResult<Self> {
-        let mut out = match A::accounts_usage_hint(&arg.0).1 {
+        let mut out = match T::accounts_usage_hint(&arg.0).1 {
             Some(0) | None => Vec::new(),
             Some(upper) => Vec::with_capacity(infos.size_hint().0 / upper),
         };
         let mut next = infos.next();
         while let Some(info) = next {
             let mut iter = once(info).chain(&mut infos);
-            out.push(A::from_accounts(program_id, &mut iter, arg.0.clone())?);
+            out.push(T::from_accounts(program_id, &mut iter, arg.0.clone())?);
             next = iter.next();
         }
         Ok(Self(out))
     }
 
-    fn accounts_usage_hint(_arg: &(T,)) -> (usize, Option<usize>) {
+    fn accounts_usage_hint(_arg: &(Arg,)) -> (usize, Option<usize>) {
         (0, None)
     }
 }
-impl<A, T, F> FromAccounts<(F, ())> for Rest<A>
+impl<AI, T, Arg, F> FromAccounts<AI, (F, ())> for Rest<T>
 where
-    A: FromAccounts<T>,
-    F: FnMut(usize) -> T,
+    T: FromAccounts<AI, Arg>,
+    F: FnMut(usize) -> Arg,
 {
     fn from_accounts(
-        program_id: &'static Pubkey,
-        mut infos: &mut impl AccountInfoIterator,
+        program_id: &Pubkey,
+        mut infos: &mut impl AccountInfoIterator<AI>,
         mut arg: (F, ()),
     ) -> CruiserResult<Self> {
         let mut out = Vec::new();
@@ -100,7 +100,7 @@ where
         let mut index = 0;
         while let Some(info) = next {
             let mut iter = once(info).chain(&mut infos);
-            out.push(A::from_accounts(program_id, &mut iter, arg.0(index))?);
+            out.push(T::from_accounts(program_id, &mut iter, arg.0(index))?);
             next = iter.next();
             index += 1;
         }
@@ -111,78 +111,78 @@ where
         (0, None)
     }
 }
-impl<A, T> ValidateArgument<T> for Rest<A>
+impl<AI, T, Arg> ValidateArgument<AI, Arg> for Rest<T>
 where
-    A: AccountArgument,
-    Vec<A>: ValidateArgument<T>,
+    T: AccountArgument<AI>,
+    Vec<T>: ValidateArgument<AI, Arg>,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: T) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: Arg) -> CruiserResult<()> {
         self.0.validate(program_id, arg)
     }
 }
-impl<A, T> MultiIndexable<T> for Rest<A>
+impl<AI, T, Arg> MultiIndexable<AI, Arg> for Rest<T>
 where
-    A: AccountArgument,
-    Vec<A>: MultiIndexable<T>,
+    T: AccountArgument<AI>,
+    Vec<T>: MultiIndexable<AI, Arg>,
 {
-    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
-        self.0.is_signer(indexer)
+    fn index_is_signer(&self, indexer: Arg) -> CruiserResult<bool> {
+        self.0.index_is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
-        self.0.is_writable(indexer)
+    fn index_is_writable(&self, indexer: Arg) -> CruiserResult<bool> {
+        self.0.index_is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
-        self.0.is_owner(owner, indexer)
+    fn index_is_owner(&self, owner: &Pubkey, indexer: Arg) -> CruiserResult<bool> {
+        self.0.index_is_owner(owner, indexer)
     }
 }
-impl<A, T> SingleIndexable<T> for Rest<A>
+impl<AI, T, Arg> SingleIndexable<AI, Arg> for Rest<T>
 where
-    A: AccountArgument,
-    Vec<A>: SingleIndexable<T>,
+    T: AccountArgument<AI>,
+    Vec<T>: SingleIndexable<AI, Arg>,
 {
-    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
-        self.0.info(indexer)
+    fn index_info(&self, indexer: Arg) -> CruiserResult<&AI> {
+        self.0.index_info(indexer)
     }
 }
-impl<A> Deref for Rest<A> {
-    type Target = Vec<A>;
+impl<T> Deref for Rest<T> {
+    type Target = Vec<T>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl<A> DerefMut for Rest<A> {
+impl<T> DerefMut for Rest<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
-impl<A> IntoIterator for Rest<A> {
-    type Item = <std::vec::Vec<A> as IntoIterator>::Item;
-    type IntoIter = <std::vec::Vec<A> as IntoIterator>::IntoIter;
+impl<T> IntoIterator for Rest<T> {
+    type Item = <std::vec::Vec<T> as IntoIterator>::Item;
+    type IntoIter = <std::vec::Vec<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
 }
-impl<'a, A> IntoIterator for &'a Rest<A>
+impl<'a, T> IntoIterator for &'a Rest<T>
 where
-    A: 'a,
+    T: 'a,
 {
-    type Item = <&'a std::vec::Vec<A> as IntoIterator>::Item;
-    type IntoIter = <&'a std::vec::Vec<A> as IntoIterator>::IntoIter;
+    type Item = <&'a std::vec::Vec<T> as IntoIterator>::Item;
+    type IntoIter = <&'a std::vec::Vec<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
     }
 }
-impl<'a, A> IntoIterator for &'a mut Rest<A>
+impl<'a, T> IntoIterator for &'a mut Rest<T>
 where
-    A: 'a,
+    T: 'a,
 {
-    type Item = <&'a mut std::vec::Vec<A> as IntoIterator>::Item;
-    type IntoIter = <&'a mut std::vec::Vec<A> as IntoIterator>::IntoIter;
+    type Item = <&'a mut std::vec::Vec<T> as IntoIterator>::Item;
+    type IntoIter = <&'a mut std::vec::Vec<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter_mut()

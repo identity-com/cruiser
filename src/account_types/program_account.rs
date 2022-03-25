@@ -13,16 +13,17 @@ use crate::{AccountInfo, CruiserResult};
 use cruiser_derive::verify_account_arg_impl;
 
 verify_account_arg_impl! {
-    mod program_account_check{
-        <AL, A> ProgramAccount<AL, A>
+    mod program_account_check<AI>{
+        <AI, AL, D> ProgramAccount<AI, AL, D>
         where
-            AL: AccountListItem<A>,
-            A: BorshSerialize + BorshDeserialize,
+            AI: AccountInfo,
+            AL: AccountListItem<D>,
+            D: BorshSerialize + BorshDeserialize,
         {
             from: [()];
             validate: [()];
-            multi: [<T> T where DiscriminantAccount<AL, A>: MultiIndexable<T>];
-            single: [<T> T where DiscriminantAccount<AL, A>: SingleIndexable<T>];
+            multi: [<T> T where DiscriminantAccount<AI, AL, D>: MultiIndexable<AI, T>];
+            single: [<T> T where DiscriminantAccount<AI, AL, D>: SingleIndexable<AI, T>];
         }
     }
 }
@@ -32,19 +33,22 @@ verify_account_arg_impl! {
 /// - `AL`: The [`AccountList`](crate::account_list::AccountList) that is valid for `A`
 /// - `A` The account data, `AL` must implement [`AccountListItem<A>`](AccountListItem)
 #[derive(AccountArgument)]
-pub struct ProgramAccount<AL, A>
+#[account_argument(account_info = AI)]
+pub struct ProgramAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
 {
     #[validate(owner = program_id)]
-    account: DiscriminantAccount<AL, A>,
+    account: DiscriminantAccount<AI, AL, D>,
 }
-impl<AL, A> Debug for ProgramAccount<AL, A>
+impl<AI, AL, D> Debug for ProgramAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
-    DiscriminantAccount<AL, A>: Debug,
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
+    DiscriminantAccount<AI, AL, D>: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ProgramAccount")
@@ -52,51 +56,55 @@ where
             .finish()
     }
 }
-impl<AL, A> Deref for ProgramAccount<AL, A>
+impl<AI, AL, D> Deref for ProgramAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
 {
-    type Target = DiscriminantAccount<AL, A>;
+    type Target = DiscriminantAccount<AI, AL, D>;
 
     fn deref(&self) -> &Self::Target {
         &self.account
     }
 }
-impl<AL, A> DerefMut for ProgramAccount<AL, A>
+impl<AI, AL, D> DerefMut for ProgramAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.account
     }
 }
-impl<AL, A, T> MultiIndexable<T> for ProgramAccount<AL, A>
+impl<AI, AL, D, T> MultiIndexable<AI, T> for ProgramAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
-    DiscriminantAccount<AL, A>: MultiIndexable<T>,
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
+    DiscriminantAccount<AI, AL, D>: MultiIndexable<AI, T>,
 {
-    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
-        self.account.is_signer(indexer)
+    fn index_is_signer(&self, indexer: T) -> CruiserResult<bool> {
+        self.account.index_is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
-        self.account.is_writable(indexer)
+    fn index_is_writable(&self, indexer: T) -> CruiserResult<bool> {
+        self.account.index_is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
-        self.account.is_owner(owner, indexer)
+    fn index_is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
+        self.account.index_is_owner(owner, indexer)
     }
 }
-impl<AL, A, T> SingleIndexable<T> for ProgramAccount<AL, A>
+impl<AI, AL, D, T> SingleIndexable<AI, T> for ProgramAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
-    DiscriminantAccount<AL, A>: SingleIndexable<T>,
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
+    DiscriminantAccount<AI, AL, D>: SingleIndexable<AI, T>,
 {
-    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
-        self.account.info(indexer)
+    fn index_info(&self, indexer: T) -> CruiserResult<&AI> {
+        self.account.index_info(indexer)
     }
 }

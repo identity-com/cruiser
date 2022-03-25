@@ -133,7 +133,7 @@ impl InstructionListDerive {
                 impl #impl_generics #crate_name::instruction_list::InstructionListProcessor<#ident> for #ident #ty_generics #where_clause{
                     fn process_instruction(
                         program_id: &'static #crate_name::Pubkey,
-                        accounts: &mut impl #crate_name::account_argument::AccountInfoIterator,
+                        accounts: &mut impl #crate_name::account_argument::AccountInfoIterator<#crate_name::CruiserAccountInfo>,
                         mut data: &[u8],
                     ) -> #crate_name::CruiserResult<()>{
                         let discriminant = <<Self as #crate_name::instruction_list::InstructionList>::DiscriminantCompressed as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
@@ -143,16 +143,16 @@ impl InstructionListDerive {
                         }
                         #(else if discriminant == #variant_discriminant{
                             #instruction_prints
-                            let mut data = <<#variant_instruction_type as #crate_name::instruction::Instruction>::Data as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
-                            let (from_data, validate_data, instruction_data) = <#variant_processors as #crate_name::instruction::InstructionProcessor<#variant_instruction_type>>::data_to_instruction_arg(data)?;
-                            let mut accounts = <<#variant_instruction_type as #crate_name::instruction::Instruction>::Accounts as #crate_name::account_argument::FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
-                            #crate_name::account_argument::ValidateArgument::validate(&mut accounts, program_id, validate_data)?;
-                            <#variant_processors as #crate_name::instruction::InstructionProcessor<#variant_instruction_type>>::process(
+                            let data = <<#variant_instruction_type as #crate_name::instruction::Instruction<#crate_name::CruiserAccountInfo>>::Data as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
+                            let (from_data, validate_data, instruction_data) = <#variant_processors as #crate_name::instruction::InstructionProcessor<#crate_name::CruiserAccountInfo, #variant_instruction_type>>::data_to_instruction_arg(data)?;
+                            let mut accounts = <<#variant_instruction_type as #crate_name::instruction::Instruction<#crate_name::CruiserAccountInfo>>::Accounts as #crate_name::account_argument::FromAccounts<_, _>>::from_accounts(program_id, accounts, from_data)?;
+                            #crate_name::account_argument::ValidateArgument::<#crate_name::CruiserAccountInfo, _>::validate(&mut accounts, program_id, validate_data)?;
+                            <#variant_processors as #crate_name::instruction::InstructionProcessor<#crate_name::CruiserAccountInfo, #variant_instruction_type>>::process(
                                 program_id,
                                 instruction_data,
                                 &mut accounts,
                             )?;
-                            <<#variant_instruction_type as #crate_name::instruction::Instruction>::Accounts as #crate_name::account_argument::AccountArgument>::write_back(accounts, program_id)?;
+                            <<#variant_instruction_type as #crate_name::instruction::Instruction<#crate_name::CruiserAccountInfo>>::Accounts as #crate_name::account_argument::AccountArgument<#crate_name::CruiserAccountInfo>>::write_back(accounts, program_id)?;
                             Ok(())
                         })* else{
                             todo!();

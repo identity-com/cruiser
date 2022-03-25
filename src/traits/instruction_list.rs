@@ -3,6 +3,7 @@
 pub use cruiser_derive::InstructionList;
 
 use crate::account_argument::AccountInfoIterator;
+use cruiser::CruiserAccountInfo;
 use solana_program::pubkey::Pubkey;
 
 use crate::account_list::AccountList;
@@ -31,7 +32,7 @@ pub trait InstructionListProcessor<IL: InstructionList> {
     /// Processes a given instruction. Usually delegates to [`InstructionProcessor`](crate::instruction::InstructionProcessor).
     fn process_instruction(
         program_id: &'static Pubkey,
-        accounts: &mut impl AccountInfoIterator,
+        accounts: &mut impl AccountInfoIterator<CruiserAccountInfo>,
         data: &[u8],
     ) -> CruiserResult<()>;
 }

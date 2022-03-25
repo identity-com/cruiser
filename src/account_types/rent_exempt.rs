@@ -15,25 +15,25 @@ use crate::{AccountInfo, CruiserResult, GenericError};
 use cruiser_derive::verify_account_arg_impl;
 
 verify_account_arg_impl! {
-    mod rent_exempt_check{
-        <A> RentExempt<A> where A: AccountArgument{
+    mod rent_exempt_check<AI>{
+        <AI, T> RentExempt<T> where T: AccountArgument<AI>{
             from: [
-                <T> T where A: FromAccounts<T>;
+                <Arg> Arg where T: FromAccounts<AI, Arg>;
             ];
             validate: [
                 /// Uses [`Rent::get`] to determine the required rent.
-                () where A: ValidateArgument<()> + SingleIndexable<()>;
+                () where AI: AccountInfo, T: ValidateArgument<AI, ()> + SingleIndexable<AI, ()>;
                 /// Uses the passed rent to determine the required rent.
-                Rent where A: ValidateArgument<()> + SingleIndexable<()>;
+                Rent where AI: AccountInfo, T: ValidateArgument<AI, ()> + SingleIndexable<AI, ()>;
                 /// Uses [`Rent::get`] to determine the required rent.
-                <T> (T,) where A: ValidateArgument<T> + SingleIndexable<()>;
+                <Arg> (Arg,) where AI: AccountInfo, T: ValidateArgument<AI, Arg> + SingleIndexable<AI, ()>;
                 /// Uses [`Rent::get`] to determine the required rent.
-                <T, I> (T, I) where A: ValidateArgument<T> + SingleIndexable<I>;
+                <Arg, I> (Arg, I) where AI: AccountInfo, T: ValidateArgument<AI, Arg> + SingleIndexable<AI, I>;
                 /// Uses the passed rent to determine the required rent.
-                <T, I> (T, I, Rent) where A: ValidateArgument<T> + SingleIndexable<I>;
+                <Arg, I> (Arg, I, Rent) where AI: AccountInfo, T: ValidateArgument<AI, Arg> + SingleIndexable<AI, I>;
             ];
-            multi: [<I> I where A: MultiIndexable<I>];
-            single: [<I> I where A: SingleIndexable<I>];
+            multi: [<I> I where T: MultiIndexable<AI, I>];
+            single: [<I> I where T: SingleIndexable<AI, I>];
         }
     }
 }
@@ -42,9 +42,9 @@ verify_account_arg_impl! {
 ///
 /// - `A` the Account argument to wrap. Must implement [`SingleIndexable<()>`].
 #[derive(Debug)]
-pub struct RentExempt<A>(pub A);
-impl<A> Deref for RentExempt<A> {
-    type Target = A;
+pub struct RentExempt<T>(pub T);
+impl<T> Deref for RentExempt<T> {
+    type Target = T;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -55,78 +55,83 @@ impl<A> DerefMut for RentExempt<A> {
         &mut self.0
     }
 }
-impl<A> AccountArgument for RentExempt<A>
+impl<AI, T> AccountArgument<AI> for RentExempt<T>
 where
-    A: AccountArgument,
+    T: AccountArgument<AI>,
 {
-    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
+    fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         self.0.write_back(program_id)
     }
 
-    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
+    fn add_keys(&self, add: impl FnMut(Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
         self.0.add_keys(add)
     }
 }
-impl<A, T> FromAccounts<T> for RentExempt<A>
+impl<AI, T, Arg> FromAccounts<AI, Arg> for RentExempt<T>
 where
-    A: FromAccounts<T>,
+    T: FromAccounts<AI, Arg>,
 {
     fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        arg: T,
+        program_id: &Pubkey,
+        infos: &mut impl AccountInfoIterator<AI>,
+        arg: Arg,
     ) -> CruiserResult<Self> {
-        Ok(Self(A::from_accounts(program_id, infos, arg)?))
+        Ok(Self(T::from_accounts(program_id, infos, arg)?))
     }
 
-    fn accounts_usage_hint(arg: &T) -> (usize, Option<usize>) {
-        A::accounts_usage_hint(arg)
+    fn accounts_usage_hint(arg: &Arg) -> (usize, Option<usize>) {
+        T::accounts_usage_hint(arg)
     }
 }
-impl<A> ValidateArgument<()> for RentExempt<A>
+impl<AI, T> ValidateArgument<AI, ()> for RentExempt<T>
 where
-    A: ValidateArgument<()> + SingleIndexable<()>,
+    AI: AccountInfo,
+    T: ValidateArgument<AI, ()> + SingleIndexable<AI, ()>,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, _arg: ()) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, _arg: ()) -> CruiserResult<()> {
         self.validate(program_id, Rent::get()?)
     }
 }
-impl<A> ValidateArgument<Rent> for RentExempt<A>
+impl<AI, T> ValidateArgument<AI, Rent> for RentExempt<T>
 where
-    A: ValidateArgument<()> + SingleIndexable<()>,
+    AI: AccountInfo,
+    T: ValidateArgument<AI, ()> + SingleIndexable<AI, ()>,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: Rent) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: Rent) -> CruiserResult<()> {
         self.validate(program_id, ((), (), arg))
     }
 }
-impl<A, T> ValidateArgument<(T,)> for RentExempt<A>
+impl<AI, T, Arg> ValidateArgument<AI, (Arg,)> for RentExempt<T>
 where
-    A: ValidateArgument<T> + SingleIndexable<()>,
+    AI: AccountInfo,
+    T: ValidateArgument<AI, Arg> + SingleIndexable<AI, ()>,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: (T,)) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: (Arg,)) -> CruiserResult<()> {
         self.validate(program_id, (arg.0, (), Rent::get()?))
     }
 }
-impl<A, T, I> ValidateArgument<(T, I)> for RentExempt<A>
+impl<AI, T, Arg, I> ValidateArgument<AI, (Arg, I)> for RentExempt<T>
 where
-    A: ValidateArgument<T> + SingleIndexable<I>,
+    AI: AccountInfo,
+    T: ValidateArgument<AI, Arg> + SingleIndexable<AI, I>,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: (T, I)) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: (Arg, I)) -> CruiserResult<()> {
         self.validate(program_id, (arg.0, arg.1, Rent::get()?))
     }
 }
-impl<A, T, I> ValidateArgument<(T, I, Rent)> for RentExempt<A>
+impl<AI, T, Arg, I> ValidateArgument<AI, (Arg, I, Rent)> for RentExempt<T>
 where
-    A: ValidateArgument<T> + SingleIndexable<I>,
+    AI: AccountInfo,
+    T: ValidateArgument<AI, Arg> + SingleIndexable<AI, I>,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: (T, I, Rent)) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: (Arg, I, Rent)) -> CruiserResult<()> {
         self.0.validate(program_id, arg.0)?;
-        let info = self.0.info(arg.1)?;
-        let lamports = **info.lamports.borrow();
-        let needed_lamports = arg.2.minimum_balance(info.data.borrow().len());
+        let info = self.0.index_info(arg.1)?;
+        let lamports = *info.lamports();
+        let needed_lamports = arg.2.minimum_balance(info.data().len());
         if lamports < needed_lamports {
             Err(GenericError::NotEnoughLamports {
-                account: info.key,
+                account: *info.key(),
                 lamports,
                 needed_lamports,
             }
@@ -136,31 +141,31 @@ where
         }
     }
 }
-impl<T, A> MultiIndexable<T> for RentExempt<A>
+impl<AI, T, Arg> MultiIndexable<AI, Arg> for RentExempt<T>
 where
-    A: MultiIndexable<T>,
+    T: MultiIndexable<AI, Arg>,
 {
     #[inline]
-    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
-        self.0.is_signer(indexer)
+    fn index_is_signer(&self, indexer: Arg) -> CruiserResult<bool> {
+        self.0.index_is_signer(indexer)
     }
 
     #[inline]
-    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
-        self.0.is_writable(indexer)
+    fn index_is_writable(&self, indexer: Arg) -> CruiserResult<bool> {
+        self.0.index_is_writable(indexer)
     }
 
     #[inline]
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
-        self.0.is_owner(owner, indexer)
+    fn index_is_owner(&self, owner: &Pubkey, indexer: Arg) -> CruiserResult<bool> {
+        self.0.index_is_owner(owner, indexer)
     }
 }
-impl<T, A> SingleIndexable<T> for RentExempt<A>
+impl<AI, T, Arg> SingleIndexable<AI, Arg> for RentExempt<T>
 where
-    A: SingleIndexable<T>,
+    T: SingleIndexable<AI, Arg>,
 {
     #[inline]
-    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
-        self.0.info(indexer)
+    fn index_info(&self, indexer: Arg) -> CruiserResult<&AI> {
+        self.0.index_info(indexer)
     }
 }

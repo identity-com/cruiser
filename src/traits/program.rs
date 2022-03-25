@@ -5,7 +5,7 @@ use crate::account_argument::AccountArgument;
 use solana_program::pubkey::Pubkey;
 
 /// A program on solana
-pub trait Program: AccountArgument {
+pub trait Program<AI>: AccountArgument<AI> {
     /// The program's key
     const KEY: Pubkey;
 }

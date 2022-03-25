@@ -23,15 +23,9 @@ members = [
 
 [features]
 default = []
-nightly = ["cruiser_derive/nightly"]
-in_place = ["nightly"]
+experimental = ["in_place", "small_vec"]
+in_place = ["cruiser_derive/in_place"]
 small_vec = []
-
-derive_debug_account = ["cruiser_derive/debug_account"]
-derive_debug_error = ["cruiser_derive/debug_error"]
-derive_debug_account_argument = ["cruiser_derive/debug_account_argument"]
-derive_debug_instruction_list = ["cruiser_derive/debug_instruction_list"]
-easy_proc_test = ["cruiser_derive/easy_proc_test"]
 
 [dependencies]
 cruiser_derive = { version = "0.1.2", path = "./derive" }
@@ -70,4 +64,4 @@ crate-type = ["cdylib", "lib"]
 [[example]]
 name = "easy_proc_test"
 crate-type = ["cdylib", "lib"]
-required-features = ["easy_proc_test"]
+required-features = ["cruiser_derive/easy_proc_test"]

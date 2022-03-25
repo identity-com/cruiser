@@ -4,6 +4,7 @@ use std::iter::once;
 use std::ops::{Deref, DerefMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use cruiser::CPI;
 use solana_program::pubkey::Pubkey;
 
 use crate::account_argument::{
@@ -14,23 +15,25 @@ use crate::account_list::AccountListItem;
 use crate::account_types::discriminant_account::DiscriminantAccount;
 use crate::account_types::init_account::{InitAccount, InitArgs};
 use crate::account_types::zeroed_account::{CheckAll, ZeroedAccount};
-use crate::AllAny;
-use crate::{AccountInfo, CruiserResult};
+use crate::{AccountInfo, AllAny};
+use crate::{CruiserResult, ToSolanaAccountInfo};
 use cruiser_derive::verify_account_arg_impl;
 
 verify_account_arg_impl! {
-    mod init_account_check{
-        <AL, A> InitOrZeroedAccount<AL, A>
+    mod init_account_check<AI>{
+        <AI, AL, D> InitOrZeroedAccount<AI, AL, D>
         where
-            AL: AccountListItem<A>,
-            A: BorshSerialize + BorshDeserialize{
+            AI: AccountInfo,
+            AL: AccountListItem<D>,
+            D: BorshSerialize + BorshDeserialize,
+        {
             from: [
                 /// The initial value of this account
-                A;
+                D;
             ];
             validate: [
-                <'a> InitArgs<'a>;
-                <'a> (InitArgs<'a>, CheckAll);
+                <'a, 'b, C> InitArgs<'a, AI, C> where AI: 'a + ToSolanaAccountInfo<'b>, C: CPI;
+                <'a, 'b, C> (InitArgs<'a, AI, C>, CheckAll) where AI: 'a + ToSolanaAccountInfo<'b>, C: CPI;
             ];
             multi: [(); AllAny];
             single: [()];
@@ -42,22 +45,22 @@ verify_account_arg_impl! {
 // TODO: impl Debug for this
 #[allow(missing_debug_implementations)]
 // TODO: use AccountArgument trait for impl when enums supported
-pub enum InitOrZeroedAccount<AL, A>
+pub enum InitOrZeroedAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
 {
     /// Is an [`InitAccount`]
-    Init(InitAccount<AL, A>),
+    Init(InitAccount<AI, AL, D>),
     /// Is a [`ZeroedAccount`]
-    Zeroed(ZeroedAccount<AL, A>),
+    Zeroed(ZeroedAccount<AI, AL, D>),
 }
-impl<AL, A> Deref for InitOrZeroedAccount<AL, A>
+impl<AI, AL, D> Deref for InitOrZeroedAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
 {
-    type Target = DiscriminantAccount<AL, A>;
+    type Target = DiscriminantAccount<AI, AL, D>;
 
     fn deref(&self) -> &Self::Target {
         match self {
@@ -66,10 +69,10 @@ where
         }
     }
 }
-impl<AL, A> DerefMut for InitOrZeroedAccount<AL, A>
+impl<AI, AL, D> DerefMut for InitOrZeroedAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
@@ -78,37 +81,39 @@ where
         }
     }
 }
-impl<AL, A> AccountArgument for InitOrZeroedAccount<AL, A>
+impl<AI, AL, D> AccountArgument<AI> for InitOrZeroedAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
 {
-    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
+    fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.write_back(program_id),
             InitOrZeroedAccount::Zeroed(zeroed) => zeroed.write_back(program_id),
         }
     }
 
-    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
+    fn add_keys(&self, add: impl FnMut(Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.add_keys(add),
             InitOrZeroedAccount::Zeroed(zeroed) => zeroed.add_keys(add),
         }
     }
 }
-impl<'a, AL, A> FromAccounts<A> for InitOrZeroedAccount<AL, A>
+impl<'a, AI, AL, D> FromAccounts<AI, D> for InitOrZeroedAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
 {
     fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        arg: A,
+        program_id: &Pubkey,
+        infos: &mut impl AccountInfoIterator<AI>,
+        arg: D,
     ) -> CruiserResult<Self> {
-        let info = AccountInfo::from_accounts(program_id, infos, ())?;
-        if *info.owner.borrow() == program_id {
+        let info = AI::from_accounts(program_id, infos, ())?;
+        if &*info.owner() == program_id {
             Ok(Self::Zeroed(ZeroedAccount::from_accounts(
                 program_id,
                 &mut once(info),
@@ -123,31 +128,37 @@ where
         }
     }
 
-    fn accounts_usage_hint(_arg: &A) -> (usize, Option<usize>) {
-        AccountInfo::accounts_usage_hint(&())
+    fn accounts_usage_hint(_arg: &D) -> (usize, Option<usize>) {
+        AI::accounts_usage_hint(&())
     }
 }
-impl<'a, AL, A> ValidateArgument<InitArgs<'a>> for InitOrZeroedAccount<AL, A>
+impl<'a, 'b, AI, AL, D, C> ValidateArgument<AI, InitArgs<'a, AI, C>>
+    for InitOrZeroedAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
+    AI: ToSolanaAccountInfo<'b>,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
+    C: CPI,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: InitArgs<'a>) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: InitArgs<'a, AI, C>) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.validate(program_id, arg),
             InitOrZeroedAccount::Zeroed(zeroed) => zeroed.validate(program_id, ()),
         }
     }
 }
-impl<'a, AL, A> ValidateArgument<(InitArgs<'a>, CheckAll)> for InitOrZeroedAccount<AL, A>
+impl<'a, 'b, AI, AL, D, C> ValidateArgument<AI, (InitArgs<'a, AI, C>, CheckAll)>
+    for InitOrZeroedAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
+    AI: ToSolanaAccountInfo<'b>,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
+    C: CPI,
 {
     fn validate(
         &mut self,
-        program_id: &'static Pubkey,
-        arg: (InitArgs<'a>, CheckAll),
+        program_id: &Pubkey,
+        arg: (InitArgs<'a, AI, C>, CheckAll),
     ) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.validate(program_id, arg.0),
@@ -155,31 +166,31 @@ where
         }
     }
 }
-impl<AL, A, T> MultiIndexable<T> for InitOrZeroedAccount<AL, A>
+impl<AI, AL, D, T> MultiIndexable<AI, T> for InitOrZeroedAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
-    AccountInfo: MultiIndexable<T>,
+    AI: AccountInfo + MultiIndexable<AI, T>,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
 {
-    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
-        self.info.is_signer(indexer)
+    fn index_is_signer(&self, indexer: T) -> CruiserResult<bool> {
+        self.info.index_is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
-        self.info.is_writable(indexer)
+    fn index_is_writable(&self, indexer: T) -> CruiserResult<bool> {
+        self.info.index_is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
-        self.info.is_owner(owner, indexer)
+    fn index_is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
+        self.info.index_is_owner(owner, indexer)
     }
 }
-impl<AL, A, T> SingleIndexable<T> for InitOrZeroedAccount<AL, A>
+impl<AI, AL, D, T> SingleIndexable<AI, T> for InitOrZeroedAccount<AI, AL, D>
 where
-    AL: AccountListItem<A>,
-    A: BorshSerialize + BorshDeserialize,
-    AccountInfo: SingleIndexable<T>,
+    AI: AccountInfo + SingleIndexable<AI, T>,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
 {
-    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
-        self.info.info(indexer)
+    fn index_info(&self, indexer: T) -> CruiserResult<&AI> {
+        self.info.index_info(indexer)
     }
 }

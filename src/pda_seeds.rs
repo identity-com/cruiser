@@ -4,10 +4,7 @@ use std::iter::{once, Chain, Map, Once};
 
 use crate::solana_program::entrypoint::ProgramResult;
 use crate::solana_program::pubkey::PubkeyError;
-use crate::{
-    invoke_signed, invoke_signed_variable_size, AccountInfo, CruiserResult, GenericError, Pubkey,
-    SolanaInstruction,
-};
+use crate::{CruiserResult, GenericError, Pubkey, SolanaInstruction, ToSolanaAccountInfo, CPI};
 
 /// A set of seeds for a pda
 #[derive(Debug)]
@@ -55,32 +52,35 @@ impl<'a> PDASeedSet<'a> {
     }
 
     /// Invokes an instruction with these seeds
-    pub fn invoke_signed<const N: usize>(
+    pub fn invoke_signed<'b, AI: ToSolanaAccountInfo<'b>, const N: usize>(
         &self,
+        cpi: impl CPI,
         instruction: &SolanaInstruction,
-        accounts: &[&AccountInfo; N],
+        account_infos: &[&AI; N],
     ) -> ProgramResult {
         let seeds = self.seeds().map(AsRef::as_ref).collect::<Vec<_>>();
 
-        invoke_signed(instruction, accounts, &[&seeds])
+        cpi.invoke_signed(instruction, account_infos, &[&seeds])
     }
 
     /// Invokes an instruction of variable account size with these seeds
-    pub fn invoke_signed_variable_size(
+    pub fn invoke_signed_variable_size<'b, 'c, AI: 'b + ToSolanaAccountInfo<'c>>(
         &self,
+        cpi: impl CPI,
         instruction: &SolanaInstruction,
-        accounts: &[&AccountInfo],
+        account_infos: impl IntoIterator<Item = &'b AI>,
     ) -> ProgramResult {
         let seeds = self.seeds().map(AsRef::as_ref).collect::<Vec<_>>();
 
-        invoke_signed_variable_size(instruction, accounts, &[&seeds])
+        cpi.invoke_signed_variable_size(instruction, account_infos, &[&seeds])
     }
 
     /// Invokes an instruction with given seed sets
-    pub fn invoke_signed_multiple<const N: usize>(
+    pub fn invoke_signed_multiple<'b: 'a, 'c, AI: ToSolanaAccountInfo<'c>, const N: usize>(
+        cpi: impl CPI,
         instruction: &SolanaInstruction,
-        accounts: &[&AccountInfo; N],
-        seed_sets: impl IntoIterator<Item = &'a PDASeedSet<'a>>,
+        account_infos: &[&AI; N],
+        seed_sets: impl IntoIterator<Item = &'a PDASeedSet<'b>>,
     ) -> ProgramResult {
         let seeds_array = seed_sets
             .into_iter()
@@ -88,14 +88,20 @@ impl<'a> PDASeedSet<'a> {
             .collect::<Vec<_>>();
         let seeds = seeds_array.iter().map(AsRef::as_ref).collect::<Vec<_>>();
 
-        invoke_signed(instruction, accounts, seeds.as_slice())
+        cpi.invoke_signed(instruction, account_infos, seeds.as_slice())
     }
 
     /// Invokes an instruction of variable account size with given seed sets
-    pub fn invoke_signed_variable_size_multiple(
+    pub fn invoke_signed_variable_size_multiple<
+        'b: 'a,
+        'c,
+        'd,
+        AI: 'c + ToSolanaAccountInfo<'d>,
+    >(
+        cpi: impl CPI,
         instruction: &SolanaInstruction,
-        accounts: &[&AccountInfo],
-        seed_sets: impl IntoIterator<Item = &'a PDASeedSet<'a>>,
+        account_infos: impl IntoIterator<Item = &'c AI>,
+        seed_sets: impl IntoIterator<Item = &'a PDASeedSet<'b>>,
     ) -> ProgramResult {
         let seeds_array = seed_sets
             .into_iter()
@@ -103,7 +109,7 @@ impl<'a> PDASeedSet<'a> {
             .collect::<Vec<_>>();
         let seeds = seeds_array.iter().map(AsRef::as_ref).collect::<Vec<_>>();
 
-        invoke_signed_variable_size(instruction, accounts, seeds.as_slice())
+        cpi.invoke_signed_variable_size(instruction, account_infos, seeds.as_slice())
     }
 }
 impl<'a> AsRef<PDASeedSet<'a>> for PDASeedSet<'a> {

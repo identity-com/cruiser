@@ -13,7 +13,7 @@ use crate::account_argument::{AccountArgument, AccountInfoIterator, FromAccounts
 use crate::account_list::AccountListItem;
 use crate::compressed_numbers::CompressedNumber;
 use crate::in_place::InPlaceBuilder;
-use crate::{AccountInfo, CruiserError, CruiserResult};
+use crate::{CruiserAccountInfo, CruiserError, CruiserResult};
 
 /// Access a given account in-place. Experimental.
 #[derive(Debug)]
@@ -22,7 +22,7 @@ where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
 {
-    account: AccountInfo,
+    account: CruiserAccountInfo,
     phantom_al_a: PhantomData<fn() -> (AL, A)>,
 }
 impl<AL, A> InPlaceProgramAccount<AL, A>
@@ -53,7 +53,7 @@ where
 }
 impl<T, AL, A> FromAccounts<T> for InPlaceProgramAccount<AL, A>
 where
-    AccountInfo: FromAccounts<T>,
+    CruiserAccountInfo: FromAccounts<T>,
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
 {
@@ -62,7 +62,7 @@ where
         infos: &mut impl AccountInfoIterator,
         arg: T,
     ) -> CruiserResult<Self> {
-        let account = AccountInfo::from_accounts(program_id, infos, arg)?;
+        let account = CruiserAccountInfo::from_accounts(program_id, infos, arg)?;
         if *account.owner.borrow() != program_id {
             return Err(CruiserError::AccountOwnerNotEqual {
                 account: account.key,
@@ -167,7 +167,7 @@ where
     AL: AccountListItem<A>,
     A: InPlaceBuilder,
 {
-    account: AccountInfo,
+    account: CruiserAccountInfo,
     phantom_al_a: PhantomData<fn() -> (AL, A)>,
 }
 impl<AL, A> InPlaceZeroed<AL, A>
@@ -206,7 +206,7 @@ where
         infos: &mut impl AccountInfoIterator,
         arg: C,
     ) -> CruiserResult<Self> {
-        let account = AccountInfo::from_accounts(program_id, infos, ())?;
+        let account = CruiserAccountInfo::from_accounts(program_id, infos, ())?;
         if *account.owner.borrow() != program_id {
             return Err(CruiserError::AccountOwnerNotEqual {
                 account: account.key,

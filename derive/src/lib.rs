@@ -59,7 +59,7 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 /// Arguments for the whole struct
 /// ```ignore
 /// #[derive(AccountArgument)]
-/// #[account_argument(no_from, no_validate, enum_discriminant_type = <$ty:ty>)]
+/// #[account_argument(no_from, no_validate, enum_discriminant_type = <$ty:ty>, account_info = <$ty:ty>, generics = [$(<$($gen:gen),*>)? $(where $($clause:where_clause),*)?])]
 /// struct Test;
 /// ```
 /// | Argument | Argument Type | Description |
@@ -67,6 +67,8 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 /// | `no_from` | presence | Presence of this means all `from` attributes are ignored and no default `FromAccounts` implementation is generated. |
 /// | `no_validate` | presence | Presence of this means all `validate` attributes are ignored and no default `ValidateArgument` implementation is generated. |
 /// | ~~`enum_discriminant_type = <$ty:ty>`~~ | optional | Sets the serialization type for the enum discriminant. Type must implement `CompressedNumber<Num = u64>`. Defaults to [`u64`]. Not yet implemented. |
+/// | `account_info` | required | Sets the type for this arguments accoutn info. Most library functions are writen with this as a generic but you an force it to be a specific type as well. |
+/// | `generics` | optional | Additional generics to apply to `AccountArgument`, `FromAccounts`, and `ValidateArgument` implementations. Can include generics and a where clause. |
 ///
 /// # `from`
 /// Arguments for `FromAccounts` implementation. Multiple `from` attributes can exist, each with a different id.
@@ -77,6 +79,7 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 ///     data = (<$($data_name:ident: $data_ty:ty),*>),
 ///     enum_discriminant = <$dis:expr>,
 ///     log_level: <$log_level:ident>,
+///     generics = [$(<$($gen:gen),*>)? $(where $($clause:where_clause),*)?],
 /// )]
 /// struct Test{
 ///     #[from(
@@ -94,6 +97,7 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 /// | `data = (<$($data_name:ident: $data_ty:ty),*>)` | optional | Data type coming in for the `FromAccounts` implementation. `$data_name` is the name that can be referenced. `$data_ty` is the type of the data argument. Type defaults to [`()`] and maps to a tupple of the types. If a single argument is present then both `FromAccounts<$data_ty>` and `FromAccounts<($data_ty,)>` are implemented. |
 /// | ~~`enum_discriminant = <$dis:expr>`~~ | optional | Sets the enum discriminant from the incoming data. Required if deriving on enum. Not yet implemented. |
 /// | `log_level = $<log_level:ident>` | optional | Sets the logging level for implementation. Valid are `none`, `error`, `warn`, `info`, `debug`, or `trace` |
+/// | `generics = [$(<$($gen:gen),*>)? $(where $($clause:where_clause),*)?]` | optional | Additional generics to apply to this `FromAccounts` implementation. Can include generics and a where clause. |
 ///
 /// ## Field Attribute
 /// | Argument | Argument Type | Description |
@@ -109,6 +113,7 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 ///     id = <$id:ident>,
 ///     data = (<$($data_name:ident: $data_ty:ty),*>),
 ///     log_level: <$log_level:ident>,
+///     generics = [$(<$($gen:gen),*>)? $(where $($clause:where_clause),*)?],
 /// )]
 /// struct Test{
 ///     #[validate(
@@ -128,6 +133,7 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 /// | `id = <$id:ident>` | optional | Sets the id for this attribute and for other to reference. Defaults to unique default id. |
 /// | `data = (<$($data_name:ident: $data_ty:ty),*>)` | optional | Data type coming in for the `ValidateArgument` implementation. `$data_name` is the name that can be referenced. `$data_ty` is the type of the data argument. Type defaults to [`()`] and maps to a tupple of the types. If a single argument is present then both `ValidateArgument<$data_ty>` and `ValidateArgument<($data_ty,)>` are implemented. |
 /// | `log_level = $<log_level:ident>` | optional | Sets the logging level for implementation. Valid are `none`, `error`, `warn`, `info`, `debug`, or `trace` |
+/// | `generics = [$(<$($gen:gen),*>)? $(where $($clause:where_clause),*)?]` | optional | Additional generics to apply to this `ValidateArgument` implementation. Can include generics and a where clause. |
 ///
 /// ## Field Attribute
 /// | Argument | Argument Type | Description |
@@ -202,7 +208,7 @@ fn get_crate_name() -> proc_macro2::TokenStream {
 }
 
 // /// Sets up an in-place struct
-// #[cfg(feature = "nightly")]
+// #[cfg(feature = "in_place")]
 // #[proc_macro_error]
 // #[proc_macro_attribute]
 // pub fn derive_in_place(args: TokenStream, tokens: TokenStream) -> TokenStream {

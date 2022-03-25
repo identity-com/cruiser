@@ -19,3 +19,74 @@ macro_rules! delegate_account_argument {
         }
     };
 }
+
+/// Implementations for a type that impls [`AccountInfo`](crate::AccountInfo).
+#[macro_export]
+macro_rules! impl_account_info {
+    ($account_info:ty $(, <$gen:tt>)?) => {
+        impl$(<$gen>)? AccountArgument<$account_info> for $account_info {
+            fn write_back(self, _program_id: &Pubkey) -> CruiserResult<()> {
+                Ok(())
+            }
+
+            fn add_keys(
+                &self,
+                mut add: impl FnMut(Pubkey) -> CruiserResult<()>,
+            ) -> CruiserResult<()> {
+                add(*$crate::AccountInfo::key(self))
+            }
+        }
+        impl$(<$gen>)? FromAccounts<$account_info, ()> for $account_info {
+            fn from_accounts(
+                _program_id: &Pubkey,
+                infos: &mut impl AccountInfoIterator<$account_info>,
+                _arg: (),
+            ) -> CruiserResult<Self> {
+                match infos.next() {
+                    None => Err(ProgramError::NotEnoughAccountKeys.into()),
+                    Some(info) => Ok(info),
+                }
+            }
+
+            fn accounts_usage_hint(_arg: &()) -> (usize, Option<usize>) {
+                (1, Some(1))
+            }
+        }
+        impl$(<$gen>)? ValidateArgument<$account_info, ()> for $account_info {
+            fn validate(&mut self, _program_id: &Pubkey, _arg: ()) -> CruiserResult<()> {
+                Ok(())
+            }
+        }
+        impl$(<$gen>)? MultiIndexable<$account_info, ()> for $account_info {
+            fn index_is_signer(&self, _indexer: ()) -> CruiserResult<bool> {
+                Ok($crate::AccountInfo::is_signer(self))
+            }
+
+            fn index_is_writable(&self, _indexer: ()) -> CruiserResult<bool> {
+                Ok($crate::AccountInfo::is_writable(self))
+            }
+
+            fn index_is_owner(&self, owner: &Pubkey, _indexer: ()) -> CruiserResult<bool> {
+                Ok(&*$crate::AccountInfo::owner(self) == owner)
+            }
+        }
+        impl$(<$gen>)? MultiIndexable<$account_info, AllAny> for $account_info {
+            fn index_is_signer(&self, indexer: AllAny) -> CruiserResult<bool> {
+                Ok(indexer.is_not() ^ MultiIndexable::index_is_signer(self, ())?)
+            }
+
+            fn index_is_writable(&self, indexer: AllAny) -> CruiserResult<bool> {
+                Ok(indexer.is_not() ^ MultiIndexable::index_is_writable(self, ())?)
+            }
+
+            fn index_is_owner(&self, owner: &Pubkey, indexer: AllAny) -> CruiserResult<bool> {
+                Ok(indexer.is_not() ^ self.index_is_owner(owner, ())?)
+            }
+        }
+        impl$(<$gen>)? SingleIndexable<$account_info, ()> for $account_info {
+            fn index_info(&self, _indexer: ()) -> CruiserResult<&$account_info> {
+                Ok(self)
+            }
+        }
+    };
+}

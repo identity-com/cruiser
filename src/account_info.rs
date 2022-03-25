@@ -1,5 +1,6 @@
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 use std::mem::{align_of, size_of, transmute};
+use std::ops::{Deref, DerefMut};
 use std::ptr::addr_of;
 use std::rc::Rc;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
@@ -8,19 +9,134 @@ use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
     ValidateArgument,
 };
-use crate::CruiserResult;
+use crate::{CruiserResult, GenericError, SolanaAccountInfo};
 use cruiser_derive::verify_account_arg_impl;
-use solana_program::account_info::AccountInfo as SolanaAccountInfo;
 use solana_program::clock::Epoch;
 use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
+use solana_program::msg;
 use solana_program::program_error::ProgramError;
+use solana_program::program_memory::sol_memset;
 use solana_program::pubkey::Pubkey;
+use solana_program::system_instruction::MAX_PERMITTED_DATA_LENGTH;
 
 use crate::AllAny;
 
+/// A trait representing accounts on Solana. Can take many different forms.
+#[allow(clippy::needless_lifetimes)]
+pub trait AccountInfo:
+    FromAccounts<Self, ()>
+    + ValidateArgument<Self, ()>
+    + MultiIndexable<Self, ()>
+    + MultiIndexable<Self, AllAny>
+    + SingleIndexable<Self, ()>
+{
+    /// The return of [`AccountInfo::lamports`]
+    type Lamports<'b>: Deref<Target = u64>
+    where
+        Self: 'b;
+    /// The return of [`AccountInfo::lamports_mut`]
+    type LamportsMut<'b>: DerefMut<Target = u64>
+    where
+        Self: 'b;
+    /// The return of [`AccountInfo::data`]
+    type Data<'b>: Deref<Target = [u8]>
+    where
+        Self: 'b;
+    /// The return of [`AccountInfo::data_mut`]
+    type DataMut<'b>: DerefMut<Target = [u8]>
+    where
+        Self: 'b;
+    /// The return of [`AccountInfo::owner`]
+    type Owner<'b>: Deref<Target = Pubkey>
+    where
+        Self: 'b;
+
+    /// Gets the key of the account
+    #[must_use]
+    fn key(&self) -> &Pubkey;
+    /// Returns true if this account is a signer
+    #[must_use]
+    fn is_signer(&self) -> bool;
+    /// Returns true if this account is writable
+    #[must_use]
+    fn is_writable(&self) -> bool;
+    /// Returns a shared ref to the lamports of this account
+    #[must_use]
+    fn lamports<'b>(&'b self) -> Self::Lamports<'b>;
+    /// Returns a mutable ref to the lamports of this account
+    #[must_use]
+    fn lamports_mut<'b>(&'b self) -> Self::LamportsMut<'b>;
+    /// Returns a shared ref to the data of this account
+    #[must_use]
+    fn data<'b>(&'b self) -> Self::Data<'b>;
+    /// Returns a mutable ref to the data of this account
+    #[must_use]
+    fn data_mut<'b>(&'b self) -> Self::DataMut<'b>;
+    /// Reallocates the data of this account allowing for size change after initialization. Must be done by the owning program.
+    /// Should use [`SafeRealloc`] whenever possible.
+    ///
+    /// # Safety
+    /// Not the worst for safety but there are ways that this function can cause you to write over data you didn't intend to.
+    /// [`SolanaAccountInfo`] has no way of tracking the original data size so doesn't track it and relies on transaction checking to keep the size increase bounded.
+    /// This means that a case can arise where the data is increased by a huge number, seeing memory of other accounts and their meta-data, written to, and then the data size shrunk back down.
+    /// This is an edge case but can happen if you shrink after growing an account.
+    /// Use of this function in this way should be considered a security bug (unless you guarentee that [`MAX_PERMITTED_DATA_INCREASE`] is not surpassed).
+    ///
+    /// [`CruiserAccountInfo`] avoids this by tracking the original size and therefore implements [`SafeRealloc`].
+    unsafe fn realloc_unsafe(&self, new_len: usize, zero_init: bool) -> CruiserResult;
+    /// Returns a shared ref to the owner of this account
+    #[must_use]
+    fn owner<'b>(&'b self) -> Self::Owner<'b>;
+    /// Unsafe access to changing the owner of this account. You should use [`SafeOwnerChange::owner_mut`] if possible.
+    ///
+    /// # Safety
+    /// Solana's way of doing this for [`SolanaAccountInfo`] is to use [`write_volatile`](std::ptr::write_volatile) on a shared ref (see [`SolanaAccountInfo::reassign`]).
+    /// This is wildly wrong and can be eviscerated by the optimizer (Rust has even more rules to follow than C in unsafe code).
+    /// The only way to prevent this is to set your opt level to 0, turn off LTO, and pray.
+    /// Even then LLVM can make a silent change (not tied to a new rust version) that suddenly opens your program to attack.
+    /// If this function is used from a [`SolanaAccountInfo`] it should be considered a security bug.
+    ///
+    /// [`CruiserAccountInfo`] avoids this by putting the owner in a [`RefCell`] allowing mutable access.
+    /// It therefore implements [`SafeOwnerChange`] and should be used wherever owner change is needed.
+    unsafe fn set_owner_unsafe(&self, new_owner: &Pubkey);
+    /// This account's data contains a loaded program (and is now read-only)
+    #[must_use]
+    fn executable(&self) -> bool;
+    /// The epoch at which this account will next owe rent
+    #[must_use]
+    fn rent_epoch(&self) -> Epoch;
+}
+/// Account info can safely assign the owner
+#[allow(clippy::needless_lifetimes)]
+pub trait SafeOwnerChange: AccountInfo {
+    /// The return value of [`SafeOwnerChange::owner_mut`]
+    type OwnerMut<'b>: DerefMut<Target = Pubkey>
+    where
+        Self: 'b;
+    /// Returns a mutable ref to the owner of this account
+    fn owner_mut<'b>(&'b self) -> Self::OwnerMut<'b>;
+}
+/// Account info can safely realloc
+pub trait SafeRealloc: AccountInfo {
+    /// Reallocates an account safely by checking data size.
+    /// If this can be called in a cpi from the same program or earlier owning program of this account you should use [`realloc_cpi_safe`].
+    fn realloc(&self, new_len: usize, zero_init: bool) -> CruiserResult;
+    /// Reallocates an account safely by checking data size, only allows for 1/4 the increase of [`MAX_PERMITTED_DATA_INCREASE`].
+    /// This limited growth means that a cpi call can never exceed [`MAX_PERMITTED_DATA_INCREASE`].
+    fn realloc_cpi_safe(&self, new_len: usize, zero_init: bool) -> CruiserResult;
+}
+/// Account info can be turned into a [`SolanaAccountInfo`].
+pub trait ToSolanaAccountInfo<'a>: AccountInfo {
+    /// Turns this into a solana account info for interoperability and CPI.
+    ///
+    /// # Safety
+    /// Only use this when the resulting account info will never be used after another use of self or any values stemming from self.
+    unsafe fn to_solana_account_info(&self) -> SolanaAccountInfo<'a>;
+}
+
 verify_account_arg_impl! {
-    mod account_info_check{
-        AccountInfo{
+    mod account_info_check<CruiserAccountInfo>{
+        CruiserAccountInfo{
             from: [()];
             validate: [()];
             multi: [(); AllAny];
@@ -31,7 +147,7 @@ verify_account_arg_impl! {
 
 /// A custom version of Solana's [`AccountInfo`](solana_program::account_info::AccountInfo) that allows for owner changes.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct AccountInfo {
+pub struct CruiserAccountInfo {
     /// The public key of the account.
     pub key: &'static Pubkey,
     /// Whether the account is a signer of the transaction
@@ -45,6 +161,7 @@ pub struct AccountInfo {
     /// - Lamports may only be subtracted from accounts owned by the subtracting program
     pub lamports: Rc<RefCell<&'static mut u64>>,
     /// The data the account stores. Public information, can be read by anyone on the network.
+    /// Also stores the starting length so can error if changed too far.
     ///
     /// # Change Limitations
     /// - Data size may only be changed by the system program
@@ -52,55 +169,58 @@ pub struct AccountInfo {
     /// - Data can only be changed by the owning program
     /// - Data will be wiped if there is no rent
     pub data: Rc<RefCell<&'static mut [u8]>>,
+    /// The original data size. Can  only see in it's own call meaning the parent CPI size won't be passed down.
+    pub original_data_len: &'static usize,
     /// The owning program of the account, defaults to the system program for new accounts
     ///
     /// # Change Limitations
     /// - Owner can only be changed by the owning program
     /// - All data must be zeroed to be transferred
-    pub owner: Rc<RefCell<&'static mut Pubkey>>,
+    pub owner: &'static RefCell<&'static mut Pubkey>,
     /// Whether or not the account is executable
     pub executable: bool,
     /// The next epoch this account owes rent. Can be rent free by giving two years of rent.
     pub rent_epoch: Epoch,
 }
-impl AccountInfo {
-    unsafe fn read_value<T: Copy>(input: *mut u8, offset: &mut usize) -> T {
-        let out = (input.add(*offset) as *const T).read_unaligned();
+impl CruiserAccountInfo {
+    unsafe fn read_value<T: Copy>(input: *mut u8, offset: &mut usize) -> &'static mut T {
+        let out = &mut *input.add(*offset).cast::<T>();
         *offset += size_of::<T>();
         out
     }
 
-    pub(crate) unsafe fn deserialize(
-        input: *mut u8,
-    ) -> (&'static Pubkey, Vec<Self>, &'static [u8]) {
+    /// Deserializes the program input
+    ///
+    /// # Safety
+    /// Must only be called on solana program input.
+    pub unsafe fn deserialize(input: *mut u8) -> (&'static Pubkey, Vec<Self>, &'static [u8]) {
         let mut offset = 0;
 
-        let num_accounts = Self::read_value::<u64>(input, &mut offset) as usize;
+        let num_accounts = *Self::read_value::<u64>(input, &mut offset) as usize;
         let mut accounts = Vec::with_capacity(num_accounts);
         for _ in 0..num_accounts {
-            let dup_info = Self::read_value::<u8>(input, &mut offset);
+            let dup_info = *Self::read_value::<u8>(input, &mut offset);
             if dup_info == u8::MAX {
-                let is_signer = Self::read_value::<u8>(input, &mut offset) != 0;
-                let is_writable = Self::read_value::<u8>(input, &mut offset) != 0;
-                let executable = Self::read_value::<u8>(input, &mut offset) != 0;
+                let is_signer = *Self::read_value::<u8>(input, &mut offset) != 0;
+                let is_writable = *Self::read_value::<u8>(input, &mut offset) != 0;
+                let executable = *Self::read_value::<u8>(input, &mut offset) != 0;
                 //padding to u64
                 offset += size_of::<u32>();
                 // Safe because Pubkey is transparent to [u8; 32]
-                let key = &*(input.add(offset) as *const [u8; 32]).cast::<Pubkey>();
-                offset += 32;
-                let owner = Rc::new(RefCell::new(&mut *(input.add(offset).cast())));
-                offset += size_of::<Pubkey>();
-                let lamports = Rc::new(RefCell::new(&mut *(input.add(offset).cast())));
-                offset += size_of::<u64>();
-                let data_len = Self::read_value::<u64>(input, &mut offset) as usize;
+                let key = &*Self::read_value::<Pubkey>(input, &mut offset);
+                let owner =
+                    &*Box::leak(Box::new(RefCell::new(Self::read_value(input, &mut offset))));
+                let lamports = Rc::new(RefCell::new(Self::read_value(input, &mut offset)));
+                let data_len = *Self::read_value::<u64>(input, &mut offset) as usize;
                 let data = Rc::new(RefCell::new(from_raw_parts_mut(
                     input.add(offset),
                     data_len,
                 )));
+                let original_data_len = &*Box::leak(Box::new(data_len));
                 offset += data_len + MAX_PERMITTED_DATA_INCREASE;
                 offset += (offset as *const u8).align_offset(align_of::<u128>());
 
-                let rent_epoch = Self::read_value::<Epoch>(input, &mut offset);
+                let rent_epoch = *Self::read_value::<Epoch>(input, &mut offset);
 
                 accounts.push(Self {
                     key,
@@ -108,6 +228,7 @@ impl AccountInfo {
                     is_writable,
                     lamports,
                     data,
+                    original_data_len,
                     owner,
                     executable,
                     rent_epoch,
@@ -119,11 +240,11 @@ impl AccountInfo {
             }
         }
 
-        let instruction_data_len = Self::read_value::<u64>(input, &mut offset) as usize;
+        let instruction_data_len = *Self::read_value::<u64>(input, &mut offset) as usize;
         let instruction_data = from_raw_parts(input.add(offset), instruction_data_len);
         offset += instruction_data_len;
 
-        let program_id = &*(input.add(offset) as *const Pubkey);
+        let program_id = &*(input.add(offset).cast::<Pubkey>());
         (program_id, accounts, instruction_data)
     }
 
@@ -133,7 +254,7 @@ impl AccountInfo {
     /// The resulting account info has owner as a shared reference that can be modified.
     /// Only use this when the resulting account info will never be used after another use of self or any values stemming from self.
     #[must_use]
-    pub unsafe fn to_solana_account_info<'a>(&'a self) -> SolanaAccountInfo<'a> {
+    pub unsafe fn to_solana_account_info<'a>(&self) -> SolanaAccountInfo<'a> {
         SolanaAccountInfo {
             key: self.key,
             is_signer: self.is_signer,
@@ -150,71 +271,232 @@ impl AccountInfo {
             rent_epoch: self.rent_epoch,
         }
     }
-}
-impl AccountArgument for AccountInfo {
-    fn write_back(self, _program_id: &Pubkey) -> CruiserResult<()> {
-        Ok(())
-    }
 
-    fn add_keys(
-        &self,
-        mut add: impl FnMut(&'static Pubkey) -> CruiserResult<()>,
-    ) -> CruiserResult<()> {
-        add(self.key)
-    }
-}
-impl FromAccounts<()> for AccountInfo {
-    fn from_accounts(
-        _program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        _arg: (),
-    ) -> CruiserResult<Self> {
-        match infos.next() {
-            None => Err(ProgramError::NotEnoughAccountKeys.into()),
-            Some(info) => Ok(info),
+    unsafe fn realloc_unchecked(&self, new_len: usize, zero_init: bool) {
+        // Copied from Solana's realloc code.
+        let mut self_data = self.data.borrow_mut();
+        let old_len = self_data.len();
+
+        // This part specifically is okay because alignment is designed in
+        #[allow(clippy::cast_ptr_alignment)]
+        self_data
+            .as_mut_ptr()
+            .offset(-8)
+            .cast::<u64>()
+            .write(new_len as u64);
+
+        // I did this part better
+        self.data.as_ptr().cast::<usize>().offset(1).write(new_len);
+
+        // No idea what sol_memset will silently break if I pass zero length so this check stays for now
+        if zero_init && new_len > old_len {
+            // Another function that is actually unsafe but isn't marked as so...
+            sol_memset(*self_data, 0, new_len.saturating_sub(old_len));
         }
     }
+}
+#[allow(clippy::needless_lifetimes)]
+impl AccountInfo for CruiserAccountInfo {
+    type Lamports<'b> = Ref<'b, u64> where Self: 'b;
+    type LamportsMut<'b> = RefMut<'b, u64> where Self: 'b;
+    type Data<'b> = Ref<'b, [u8]> where Self: 'b;
+    type DataMut<'b> = RefMut<'b, [u8]> where Self: 'b;
+    type Owner<'b> = Ref<'b, Pubkey> where Self: 'b;
 
-    fn accounts_usage_hint(_arg: &()) -> (usize, Option<usize>) {
-        (1, Some(1))
+    #[inline]
+    fn key(&self) -> &Pubkey {
+        self.key
+    }
+
+    #[inline]
+    fn is_signer(&self) -> bool {
+        self.is_signer
+    }
+
+    #[inline]
+    fn is_writable(&self) -> bool {
+        self.is_writable
+    }
+
+    #[inline]
+    fn lamports<'b>(&'b self) -> Self::Lamports<'b> {
+        Ref::map(self.lamports.borrow(), |val| &**val)
+    }
+
+    #[inline]
+    fn lamports_mut<'b>(&'b self) -> Self::LamportsMut<'b> {
+        RefMut::map(self.lamports.borrow_mut(), |val| *val)
+    }
+
+    #[inline]
+    fn data<'b>(&'b self) -> Self::Data<'b> {
+        Ref::map(self.data.borrow(), |val| &**val)
+    }
+
+    #[inline]
+    fn data_mut<'b>(&'b self) -> Self::DataMut<'b> {
+        RefMut::map(self.data.borrow_mut(), |val| *val)
+    }
+
+    #[inline]
+    unsafe fn realloc_unsafe(&self, new_len: usize, zero_init: bool) -> CruiserResult {
+        self.realloc(new_len, zero_init)
+    }
+
+    #[inline]
+    fn owner<'b>(&'b self) -> Self::Owner<'b> {
+        Ref::map(self.owner.borrow(), |owner| &**owner)
+    }
+
+    #[inline]
+    unsafe fn set_owner_unsafe(&self, new_owner: &Pubkey) {
+        **self.owner.borrow_mut() = *new_owner;
+    }
+
+    #[inline]
+    fn executable(&self) -> bool {
+        self.executable
+    }
+
+    #[inline]
+    fn rent_epoch(&self) -> Epoch {
+        self.rent_epoch
     }
 }
-impl ValidateArgument<()> for AccountInfo {
-    fn validate(&mut self, _program_id: &'static Pubkey, _arg: ()) -> CruiserResult<()> {
+#[allow(clippy::needless_lifetimes)]
+impl SafeOwnerChange for CruiserAccountInfo {
+    type OwnerMut<'b> = RefMut<'b, Pubkey>;
+
+    fn owner_mut<'b>(&'b self) -> Self::OwnerMut<'b> {
+        RefMut::map(self.owner.borrow_mut(), |val| *val)
+    }
+}
+impl SafeRealloc for CruiserAccountInfo {
+    fn realloc(&self, new_len: usize, zero_init: bool) -> CruiserResult {
+        let max_new_len = self
+            .original_data_len
+            .checked_add(MAX_PERMITTED_DATA_INCREASE)
+            .expect("Data is far too big")
+            .min(MAX_PERMITTED_DATA_LENGTH as usize);
+        if new_len > max_new_len {
+            return Err(GenericError::TooLargeDataIncrease {
+                original_len: *self.original_data_len,
+                new_len,
+                max_new_len,
+            }
+            .into());
+        }
+
+        // Safety: data length was checked
+        unsafe {
+            self.realloc_unchecked(new_len, zero_init);
+        }
+        Ok(())
+    }
+
+    fn realloc_cpi_safe(&self, new_len: usize, zero_init: bool) -> CruiserResult {
+        let max_new_len = self
+            .original_data_len
+            .checked_add(MAX_PERMITTED_DATA_INCREASE / 4)
+            .expect("Data is far too big")
+            .min(MAX_PERMITTED_DATA_LENGTH as usize);
+        if new_len > max_new_len {
+            return Err(GenericError::TooLargeDataIncrease {
+                original_len: *self.original_data_len,
+                new_len,
+                max_new_len,
+            }
+            .into());
+        }
+
+        // Safety: data length was checked
+        unsafe {
+            self.realloc_unchecked(new_len, zero_init);
+        }
         Ok(())
     }
 }
-impl MultiIndexable<()> for AccountInfo {
-    fn is_signer(&self, _indexer: ()) -> CruiserResult<bool> {
-        Ok(self.is_signer)
-    }
-
-    fn is_writable(&self, _indexer: ()) -> CruiserResult<bool> {
-        Ok(self.is_writable)
-    }
-
-    fn is_owner(&self, owner: &Pubkey, _indexer: ()) -> CruiserResult<bool> {
-        Ok(*self.owner.borrow() == owner)
+impl<'a> ToSolanaAccountInfo<'a> for CruiserAccountInfo {
+    unsafe fn to_solana_account_info(&self) -> SolanaAccountInfo<'a> {
+        self.to_solana_account_info()
     }
 }
-impl MultiIndexable<AllAny> for AccountInfo {
-    fn is_signer(&self, indexer: AllAny) -> CruiserResult<bool> {
-        Ok(indexer.is_not() ^ self.is_signer(())?)
+#[allow(clippy::needless_lifetimes)]
+impl<'a> AccountInfo for SolanaAccountInfo<'a> {
+    type Lamports<'b> = Ref<'b, u64> where Self: 'b;
+    type LamportsMut<'b> = RefMut<'b, u64> where Self: 'b;
+    type Data<'b> = Ref<'b, [u8]> where Self: 'b;
+    type DataMut<'b> = RefMut<'b, [u8]> where Self: 'b;
+    type Owner<'b> = &'b Pubkey where Self: 'b;
+
+    #[inline]
+    fn key(&self) -> &Pubkey {
+        self.key
     }
 
-    fn is_writable(&self, indexer: AllAny) -> CruiserResult<bool> {
-        Ok(indexer.is_not() ^ self.is_writable(())?)
+    #[inline]
+    fn is_signer(&self) -> bool {
+        self.is_signer
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: AllAny) -> CruiserResult<bool> {
-        Ok(indexer.is_not() ^ self.is_owner(owner, ())?)
+    #[inline]
+    fn is_writable(&self) -> bool {
+        self.is_writable
+    }
+
+    #[inline]
+    fn lamports<'b>(&'b self) -> Self::Lamports<'b> {
+        Ref::map(self.lamports.borrow(), |val| &**val)
+    }
+
+    #[inline]
+    fn lamports_mut<'b>(&'b self) -> Self::LamportsMut<'b> {
+        RefMut::map(self.lamports.borrow_mut(), |val| *val)
+    }
+
+    #[inline]
+    fn data<'b>(&'b self) -> Self::Data<'b> {
+        Ref::map(self.data.borrow(), |data| &**data)
+    }
+
+    #[inline]
+    fn data_mut<'b>(&'b self) -> Self::DataMut<'b> {
+        RefMut::map(self.data.borrow_mut(), |data| *data)
+    }
+
+    #[inline]
+    unsafe fn realloc_unsafe(&self, new_len: usize, zero_init: bool) -> CruiserResult {
+        Ok(self.realloc(new_len, zero_init)?)
+    }
+
+    #[inline]
+    fn owner<'b>(&'b self) -> Self::Owner<'b> {
+        self.owner
+    }
+
+    #[inline]
+    unsafe fn set_owner_unsafe(&self, new_owner: &Pubkey) {
+        msg!("Called `SolanaAccountInfo::assign`! This should be considered a security bug");
+        self.assign(new_owner);
+    }
+
+    #[inline]
+    fn executable(&self) -> bool {
+        self.executable
+    }
+
+    #[inline]
+    fn rent_epoch(&self) -> Epoch {
+        self.rent_epoch
     }
 }
-impl SingleIndexable<()> for AccountInfo {
-    fn info(&self, _indexer: ()) -> CruiserResult<&AccountInfo> {
-        Ok(self)
+impl<'a> ToSolanaAccountInfo<'a> for SolanaAccountInfo<'a> {
+    unsafe fn to_solana_account_info(&self) -> SolanaAccountInfo<'a> {
+        self.clone()
     }
 }
+impl_account_info!(CruiserAccountInfo);
+impl_account_info!(SolanaAccountInfo<'a>, <'a>);
 
 #[cfg(test)]
 pub mod account_info_test {
@@ -227,7 +509,7 @@ pub mod account_info_test {
 
     use crate::account_argument::{MultiIndexable, Single};
     use crate::AllAny;
-    use crate::{AccountInfo, Pubkey};
+    use crate::{CruiserAccountInfo, Pubkey};
 
     fn add<const N: usize>(data: &mut Vec<u8>, add: [u8; N]) {
         for item in IntoIterator::into_iter(add) {
@@ -337,7 +619,7 @@ pub mod account_info_test {
         assert!(solana_instruction_data.iter().all(|data| *data == 224));
 
         let (generator_program_id, generator_accounts, generator_instruction_data) =
-            unsafe { crate::AccountInfo::deserialize(data.as_mut_ptr()) };
+            unsafe { crate::CruiserAccountInfo::deserialize(data.as_mut_ptr()) };
         assert_eq!(generator_program_id, &program_id);
         assert_eq!(generator_accounts.len(), 3);
         assert!(generator_accounts[0].is_signer);
@@ -408,27 +690,28 @@ pub mod account_info_test {
         );
     }
 
-    fn random_account_info(rng: &mut impl Rng) -> AccountInfo {
+    fn random_account_info(rng: &mut impl Rng) -> CruiserAccountInfo {
         let data_len: usize = rng.gen_range(16..=1024);
         let mut data = vec![0; data_len];
         for val in &mut data {
             *val = rng.gen();
         }
-        AccountInfo {
+        CruiserAccountInfo {
             key: Box::leak(Box::new(Pubkey::new(&rng.gen::<[u8; 32]>()))),
             is_signer: rng.gen(),
             is_writable: rng.gen(),
             lamports: Rc::new(RefCell::new(Box::leak(Box::new(rng.gen())))),
+            original_data_len: Box::leak(Box::new(data.len())),
             data: Rc::new(RefCell::new(Box::leak(data.into_boxed_slice()))),
-            owner: Rc::new(RefCell::new(Box::leak(Box::new(Pubkey::new(
+            owner: Box::leak(Box::new(RefCell::new(Box::leak(Box::new(Pubkey::new(
                 &rng.gen::<[u8; 32]>(),
-            ))))),
+            )))))),
             executable: rng.gen(),
             rent_epoch: rng.gen(),
         }
     }
     #[must_use]
-    pub fn account_info_eq(first: &AccountInfo, second: &AccountInfo) -> bool {
+    pub fn account_info_eq(first: &CruiserAccountInfo, second: &CruiserAccountInfo) -> bool {
         first.key == second.key
             && first.is_signer == second.is_signer
             && first.is_writable == second.is_writable
@@ -443,40 +726,46 @@ pub mod account_info_test {
     fn is_signer_test() {
         let mut rng = thread_rng();
         let mut account_info = random_account_info(&mut rng);
-        assert_eq!(account_info.is_signer, account_info.is_signer(()).unwrap());
         assert_eq!(
             account_info.is_signer,
-            account_info.is_signer(AllAny::All).unwrap()
+            account_info.index_is_signer(()).unwrap()
         );
         assert_eq!(
             account_info.is_signer,
-            account_info.is_signer(AllAny::Any).unwrap()
+            account_info.index_is_signer(AllAny::All).unwrap()
+        );
+        assert_eq!(
+            account_info.is_signer,
+            account_info.index_is_signer(AllAny::Any).unwrap()
         );
         assert_eq!(
             !account_info.is_signer,
-            account_info.is_signer(AllAny::NotAll).unwrap()
+            account_info.index_is_signer(AllAny::NotAll).unwrap()
         );
         assert_eq!(
             !account_info.is_signer,
-            account_info.is_signer(AllAny::NotAny).unwrap()
+            account_info.index_is_signer(AllAny::NotAny).unwrap()
         );
         account_info.is_signer = !account_info.is_signer;
-        assert_eq!(account_info.is_signer, account_info.is_signer(()).unwrap());
         assert_eq!(
             account_info.is_signer,
-            account_info.is_signer(AllAny::All).unwrap()
+            account_info.index_is_signer(()).unwrap()
         );
         assert_eq!(
             account_info.is_signer,
-            account_info.is_signer(AllAny::Any).unwrap()
+            account_info.index_is_signer(AllAny::All).unwrap()
+        );
+        assert_eq!(
+            account_info.is_signer,
+            account_info.index_is_signer(AllAny::Any).unwrap()
         );
         assert_eq!(
             !account_info.is_signer,
-            account_info.is_signer(AllAny::NotAll).unwrap()
+            account_info.index_is_signer(AllAny::NotAll).unwrap()
         );
         assert_eq!(
             !account_info.is_signer,
-            account_info.is_signer(AllAny::NotAny).unwrap()
+            account_info.index_is_signer(AllAny::NotAny).unwrap()
         );
     }
 
@@ -486,44 +775,44 @@ pub mod account_info_test {
         let mut account_info = random_account_info(&mut rng);
         assert_eq!(
             account_info.is_writable,
-            account_info.is_writable(()).unwrap()
+            account_info.index_is_writable(()).unwrap()
         );
         assert_eq!(
             account_info.is_writable,
-            account_info.is_writable(AllAny::All).unwrap()
+            account_info.index_is_writable(AllAny::All).unwrap()
         );
         assert_eq!(
             account_info.is_writable,
-            account_info.is_writable(AllAny::Any).unwrap()
+            account_info.index_is_writable(AllAny::Any).unwrap()
         );
         assert_eq!(
             !account_info.is_writable,
-            account_info.is_writable(AllAny::NotAll).unwrap()
+            account_info.index_is_writable(AllAny::NotAll).unwrap()
         );
         assert_eq!(
             !account_info.is_writable,
-            account_info.is_writable(AllAny::NotAny).unwrap()
+            account_info.index_is_writable(AllAny::NotAny).unwrap()
         );
         account_info.is_signer = !account_info.is_signer;
         assert_eq!(
             account_info.is_writable,
-            account_info.is_writable(()).unwrap()
+            account_info.index_is_writable(()).unwrap()
         );
         assert_eq!(
             account_info.is_writable,
-            account_info.is_writable(AllAny::All).unwrap()
+            account_info.index_is_writable(AllAny::All).unwrap()
         );
         assert_eq!(
             account_info.is_writable,
-            account_info.is_writable(AllAny::Any).unwrap()
+            account_info.index_is_writable(AllAny::Any).unwrap()
         );
         assert_eq!(
             !account_info.is_writable,
-            account_info.is_writable(AllAny::NotAll).unwrap()
+            account_info.index_is_writable(AllAny::NotAll).unwrap()
         );
         assert_eq!(
             !account_info.is_writable,
-            account_info.is_writable(AllAny::NotAny).unwrap()
+            account_info.index_is_writable(AllAny::NotAny).unwrap()
         );
     }
 
@@ -532,34 +821,34 @@ pub mod account_info_test {
         let mut rng = thread_rng();
         let account_info = random_account_info(&mut rng);
         assert!(account_info
-            .is_owner(*account_info.owner.borrow(), ())
+            .index_is_owner(*account_info.owner.borrow(), ())
             .unwrap());
         assert!(account_info
-            .is_owner(*account_info.owner.borrow(), AllAny::All)
+            .index_is_owner(*account_info.owner.borrow(), AllAny::All)
             .unwrap());
         assert!(account_info
-            .is_owner(*account_info.owner.borrow(), AllAny::Any)
+            .index_is_owner(*account_info.owner.borrow(), AllAny::Any)
             .unwrap());
         assert!(!account_info
-            .is_owner(*account_info.owner.borrow(), AllAny::NotAll)
+            .index_is_owner(*account_info.owner.borrow(), AllAny::NotAll)
             .unwrap());
         assert!(!account_info
-            .is_owner(*account_info.owner.borrow(), AllAny::NotAny)
+            .index_is_owner(*account_info.owner.borrow(), AllAny::NotAny)
             .unwrap());
         assert!(!account_info
-            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), ())
+            .index_is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), ())
             .unwrap());
         assert!(!account_info
-            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::All)
+            .index_is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::All)
             .unwrap());
         assert!(!account_info
-            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::Any)
+            .index_is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::Any)
             .unwrap());
         assert!(account_info
-            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::NotAll)
+            .index_is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::NotAll)
             .unwrap());
         assert!(account_info
-            .is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::NotAny)
+            .index_is_owner(&Pubkey::new(&rng.gen::<[u8; 32]>()), AllAny::NotAny)
             .unwrap());
     }
 
@@ -567,6 +856,6 @@ pub mod account_info_test {
     fn get_inf0_test() {
         let mut rng = thread_rng();
         let account_info = random_account_info(&mut rng);
-        assert_eq!(account_info.get_info(), &account_info);
+        assert_eq!(account_info.info(), &account_info);
     }
 }

@@ -4,6 +4,7 @@ use crate::account_argument::{
     AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable, ValidateArgument,
 };
 use crate::{AccountInfo, CruiserResult, GenericError};
+use cruiser::account_argument::AccountArgument;
 use cruiser_derive::verify_account_arg_impl;
 use solana_program::program_pack::Pack;
 use solana_program::pubkey::Pubkey;
@@ -11,48 +12,65 @@ use solana_program::pubkey::Pubkey;
 use crate::spl::token::TokenProgramAccount;
 
 verify_account_arg_impl! {
-    mod token_account_check{
-        TokenAccount{
+    mod token_account_check<AI>{
+        <AI> TokenAccount<AI> where AI: AccountInfo{
             from: [()];
             validate: [(); <'a> Owner<'a>];
-            multi: [<I> I where TokenProgramAccount: MultiIndexable<I>];
-            single: [<I> I where TokenProgramAccount: SingleIndexable<I>];
+            multi: [<I> I where TokenProgramAccount<AI>: MultiIndexable<AI, I>];
+            single: [<I> I where TokenProgramAccount<AI>: SingleIndexable<AI, I>];
         }
     }
 }
 
 /// A token account owned by the token program
 #[derive(Debug)]
-pub struct TokenAccount {
+pub struct TokenAccount<AI> {
     data: spl_token::state::Account,
     /// The account associated
-    pub account: TokenProgramAccount,
+    pub account: TokenProgramAccount<AI>,
 }
-impl Deref for TokenAccount {
+impl<AI> Deref for TokenAccount<AI> {
     type Target = spl_token::state::Account;
 
     fn deref(&self) -> &Self::Target {
         &self.data
     }
 }
-delegate_account_argument!(TokenAccount, (account));
-impl FromAccounts<()> for TokenAccount {
+impl<AI> AccountArgument<AI> for TokenAccount<AI>
+where
+    AI: AccountInfo,
+{
+    fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
+        self.account.write_back(program_id)
+    }
+
+    fn add_keys(&self, add: impl FnMut(Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
+        self.account.add_keys(add)
+    }
+}
+impl<AI> FromAccounts<AI, ()> for TokenAccount<AI>
+where
+    AI: AccountInfo,
+{
     fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
+        program_id: &Pubkey,
+        infos: &mut impl AccountInfoIterator<AI>,
         arg: (),
     ) -> CruiserResult<Self> {
-        let account: TokenProgramAccount = FromAccounts::from_accounts(program_id, infos, arg)?;
-        let data = spl_token::state::Account::unpack(&**account.data.borrow())?;
+        let account: TokenProgramAccount<AI> = FromAccounts::from_accounts(program_id, infos, arg)?;
+        let data = spl_token::state::Account::unpack(&*account.data())?;
         Ok(Self { data, account })
     }
 
     fn accounts_usage_hint(arg: &()) -> (usize, Option<usize>) {
-        TokenProgramAccount::accounts_usage_hint(arg)
+        TokenProgramAccount::<AI>::accounts_usage_hint(arg)
     }
 }
-impl ValidateArgument<()> for TokenAccount {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: ()) -> CruiserResult<()> {
+impl<AI> ValidateArgument<AI, ()> for TokenAccount<AI>
+where
+    AI: AccountInfo,
+{
+    fn validate(&mut self, program_id: &Pubkey, arg: ()) -> CruiserResult<()> {
         self.account.validate(program_id, arg)?;
         Ok(())
     }
@@ -60,8 +78,11 @@ impl ValidateArgument<()> for TokenAccount {
 /// Validates that the given key is the owner of the [`TokenAccount`]
 #[derive(Debug)]
 pub struct Owner<'a>(pub &'a Pubkey);
-impl ValidateArgument<Owner<'_>> for TokenAccount {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: Owner) -> CruiserResult<()> {
+impl<AI> ValidateArgument<AI, Owner<'_>> for TokenAccount<AI>
+where
+    AI: AccountInfo,
+{
+    fn validate(&mut self, program_id: &Pubkey, arg: Owner) -> CruiserResult<()> {
         self.validate(program_id, ())?;
         if &self.data.owner == arg.0 {
             Ok(())
@@ -74,27 +95,29 @@ impl ValidateArgument<Owner<'_>> for TokenAccount {
         }
     }
 }
-impl<I> MultiIndexable<I> for TokenAccount
+impl<AI, I> MultiIndexable<AI, I> for TokenAccount<AI>
 where
-    TokenProgramAccount: MultiIndexable<I>,
+    AI: AccountInfo,
+    TokenProgramAccount<AI>: MultiIndexable<AI, I>,
 {
-    fn is_signer(&self, indexer: I) -> CruiserResult<bool> {
-        self.account.is_signer(indexer)
+    fn index_is_signer(&self, indexer: I) -> CruiserResult<bool> {
+        self.account.index_is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: I) -> CruiserResult<bool> {
-        self.account.is_writable(indexer)
+    fn index_is_writable(&self, indexer: I) -> CruiserResult<bool> {
+        self.account.index_is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: I) -> CruiserResult<bool> {
-        self.account.is_owner(owner, indexer)
+    fn index_is_owner(&self, owner: &Pubkey, indexer: I) -> CruiserResult<bool> {
+        self.account.index_is_owner(owner, indexer)
     }
 }
-impl<I> SingleIndexable<I> for TokenAccount
+impl<AI, I> SingleIndexable<AI, I> for TokenAccount<AI>
 where
-    TokenProgramAccount: SingleIndexable<I>,
+    AI: AccountInfo,
+    TokenProgramAccount<AI>: SingleIndexable<AI, I>,
 {
-    fn info(&self, indexer: I) -> CruiserResult<&AccountInfo> {
-        self.account.info(indexer)
+    fn index_info(&self, indexer: I) -> CruiserResult<&AI> {
+        self.account.index_info(indexer)
     }
 }

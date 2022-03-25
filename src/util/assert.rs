@@ -1,16 +1,20 @@
 //! Assertions used in generated code and standard types.
 
 use crate::account_argument::{MultiIndexable, SingleIndexable};
-use crate::{CruiserResult, GenericError};
+use crate::{AccountInfo, CruiserResult, GenericError};
 use solana_program::pubkey::Pubkey;
 use std::fmt::Debug;
 
 /// Asserts that the account at index `indexer` is a signer.
-pub fn assert_is_signer<I>(argument: &impl MultiIndexable<I>, indexer: I) -> CruiserResult<()>
+pub fn assert_is_signer<AI, I>(
+    argument: &impl MultiIndexable<AI, I>,
+    indexer: I,
+) -> CruiserResult<()>
 where
+    AI: AccountInfo,
     I: Debug + Clone,
 {
-    if argument.is_signer(indexer.clone())? {
+    if argument.index_is_signer(indexer.clone())? {
         Ok(())
     } else {
         Err(GenericError::AccountsSignerError {
@@ -22,11 +26,15 @@ where
 }
 
 /// Asserts that the account at index `indexer` is writable.
-pub fn assert_is_writable<I>(argument: &impl MultiIndexable<I>, indexer: I) -> CruiserResult<()>
+pub fn assert_is_writable<AI, I>(
+    argument: &impl MultiIndexable<AI, I>,
+    indexer: I,
+) -> CruiserResult<()>
 where
+    AI: AccountInfo,
     I: Debug + Clone,
 {
-    if argument.is_writable(indexer.clone())? {
+    if argument.index_is_writable(indexer.clone())? {
         Ok(())
     } else {
         Err(GenericError::AccountsWritableError {
@@ -38,15 +46,16 @@ where
 }
 
 /// Asserts that the account at index `indexer` is a certain key.
-pub fn assert_is_key<I>(
-    argument: &impl SingleIndexable<I>,
+pub fn assert_is_key<AI, I>(
+    argument: &impl SingleIndexable<AI, I>,
     key: &Pubkey,
     indexer: I,
 ) -> CruiserResult<()>
 where
+    AI: AccountInfo,
     I: Debug + Clone,
 {
-    let account = argument.info(indexer)?.key;
+    let account = argument.index_info(indexer)?.key();
     if account == key {
         Ok(())
     } else {
@@ -59,15 +68,16 @@ where
 }
 
 /// Asserts that the account at index `indexer`'s owner is `owner`.
-pub fn assert_is_owner<I>(
-    argument: &impl MultiIndexable<I>,
+pub fn assert_is_owner<AI, I>(
+    argument: &impl MultiIndexable<AI, I>,
     owner: &Pubkey,
     indexer: I,
 ) -> CruiserResult<()>
 where
+    AI: AccountInfo,
     I: Debug + Clone,
 {
-    if argument.is_owner(owner, indexer.clone())? {
+    if argument.index_is_owner(owner, indexer.clone())? {
         Ok(())
     } else {
         Err(GenericError::AccountsOwnerError {

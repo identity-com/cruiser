@@ -1,6 +1,6 @@
 //! Contains all the entrypoint functions to start a program.
 
-use crate::AccountInfo;
+use crate::CruiserAccountInfo;
 use solana_program::entrypoint::SUCCESS;
 use solana_program::msg;
 use solana_program::pubkey::Pubkey;
@@ -75,9 +75,13 @@ macro_rules! entrypoint_list {
 /// This must be called with the input from `pub unsafe extern "C" fn entrypoint`
 pub unsafe fn entry(
     input: *mut u8,
-    function: impl FnOnce(&'static Pubkey, &mut IntoIter<AccountInfo>, &[u8]) -> CruiserResult<()>,
+    function: impl FnOnce(
+        &'static Pubkey,
+        &mut IntoIter<CruiserAccountInfo>,
+        &[u8],
+    ) -> CruiserResult<()>,
 ) -> u64 {
-    let (program_id, accounts, instruction_data) = AccountInfo::deserialize(input);
+    let (program_id, accounts, instruction_data) = CruiserAccountInfo::deserialize(input);
     match function(program_id, &mut accounts.into_iter(), instruction_data) {
         Ok(()) => SUCCESS,
         Err(error) => {

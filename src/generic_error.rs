@@ -20,7 +20,7 @@ pub enum GenericError {
     #[error_msg("`{:?}` is an invalid sysvar", actual)]
     InvalidSysVar {
         /// The invalid sysvar
-        actual: &'static Pubkey,
+        actual: Pubkey,
     },
     /// Discriminant mismatch for accounts. Usually caused by passing the wrong account for a slot
     #[error_msg(
@@ -31,7 +31,7 @@ pub enum GenericError {
     )]
     MismatchedDiscriminant {
         /// The account that has the discriminant mismatch
-        account: &'static Pubkey,
+        account: Pubkey,
         /// The discriminant of the account
         received: u64,
         /// The discriminant that was expected
@@ -45,7 +45,7 @@ pub enum GenericError {
     )]
     AccountsWritableError {
         /// The accounts that are indexed
-        accounts: Vec<&'static Pubkey>,
+        accounts: Vec<Pubkey>,
         /// The index of the accounts
         indexer: String,
     },
@@ -53,7 +53,7 @@ pub enum GenericError {
     #[error_msg("Cannot write to account `{}` when should be able to", account)]
     CannotWrite {
         /// The account that is not writable
-        account: &'static Pubkey,
+        account: Pubkey,
     },
     /// Accounts are either singing when should not be or not signing when should be depending on the indexer
     #[error_msg(
@@ -63,7 +63,7 @@ pub enum GenericError {
     )]
     AccountsSignerError {
         /// The accounts that are indexed
-        accounts: Vec<&'static Pubkey>,
+        accounts: Vec<Pubkey>,
         /// The index of the accounts
         indexer: String,
     },
@@ -71,7 +71,7 @@ pub enum GenericError {
     #[error_msg("Account `{}` is not signer when should be", account)]
     AccountIsNotSigner {
         /// Account that is not a signer
-        account: &'static Pubkey,
+        account: Pubkey,
     },
     /// System program is missing when required.
     #[error_msg("Missing SystemProgram")]
@@ -80,7 +80,7 @@ pub enum GenericError {
     #[error_msg("Not enough space for initialization of account `{}`. Space Given: `{}`, Space Needed: `{}`", account, space_given, space_needed)]
     NotEnoughSpaceInit {
         /// The account that would have been initialized
-        account: &'static Pubkey,
+        account: Pubkey,
         /// The space the account was given
         space_given: u64,
         /// The space the account needed
@@ -90,7 +90,7 @@ pub enum GenericError {
     #[error_msg("Account data was not zeroed for account `{}`", account)]
     NonZeroedData {
         /// The account with non-zero data
-        account: &'static Pubkey,
+        account: Pubkey,
     },
     /// Account has wrong owner based on index. May be caused by owner matching or not matching.
     #[error_msg(
@@ -101,7 +101,7 @@ pub enum GenericError {
     )]
     AccountsOwnerError {
         /// The accounts indexed
-        accounts: Vec<&'static Pubkey>,
+        accounts: Vec<Pubkey>,
         /// The indexer for the accounts
         indexer: String,
         /// The owner the indexer was matching against
@@ -116,7 +116,7 @@ pub enum GenericError {
     )]
     AccountOwnerNotEqual {
         /// Account whose owner is wrong
-        account: &'static Pubkey,
+        account: Pubkey,
         /// The owner of the account
         owner: Pubkey,
         /// The expected possible owners that were not matched
@@ -152,7 +152,7 @@ pub enum GenericError {
     #[error_msg("No payer to init account: `{}`", account)]
     NoPayerForInit {
         /// The account needing a payer
-        account: &'static Pubkey,
+        account: Pubkey,
     },
     /// Not enough lamports in an account
     #[error_msg(
@@ -163,7 +163,7 @@ pub enum GenericError {
     )]
     NotEnoughLamports {
         /// Account with not enough lamports
-        account: &'static Pubkey,
+        account: Pubkey,
         /// Lamports in `account`
         lamports: u64,
         /// Lamports needed
@@ -203,7 +203,7 @@ pub enum GenericError {
         what: String,
     },
     /// Size was invalid
-    #[error_msg("Size mismatch for range [`{}`, `{}`]. Got: {}", min, max, value)]
+    #[error_msg("Size mismatch for range [`{}`, `{}`]. Got: `{}`", min, max, value)]
     SizeInvalid {
         /// Min valid (inclusive)
         min: usize,
@@ -214,7 +214,7 @@ pub enum GenericError {
     },
     /// Not enough data left for deserialization
     #[error_msg(
-        "Not enough data left for deserialization, needed: {}, remaining: {}",
+        "Not enough data left for deserialization, needed: `{}`, remaining: `{}`",
         needed,
         remaining
     )]
@@ -223,5 +223,20 @@ pub enum GenericError {
         needed: usize,
         /// Amount of data remaining
         remaining: usize,
+    },
+    /// Data was reallocated too large
+    #[error_msg(
+        "Data was reallocated too large, original_len: `{}`, new_len: `{}`, max_new_len: `{}`",
+        original_len,
+        new_len,
+        max_new_len
+    )]
+    TooLargeDataIncrease {
+        /// The original data size
+        original_len: usize,
+        /// The new length requested
+        new_len: usize,
+        /// The maximum new data length
+        max_new_len: usize,
     },
 }

@@ -18,13 +18,13 @@ use crate::CruiserResult;
 
 /// An argument that can come from [`AccountInfo`](crate::AccountInfo)s and data using [`FromAccounts`].
 /// Can be automatically derived.
-pub trait AccountArgument: Sized {
+pub trait AccountArgument<AI>: Sized {
     /// The final step in the instruction lifecycle, performing any cleanup operations or writes back.
-    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()>;
+    fn write_back(self, program_id: &Pubkey) -> CruiserResult<()>;
     /// Passes all the account keys to a given function.
-    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()>;
+    fn add_keys(&self, add: impl FnMut(Pubkey) -> CruiserResult<()>) -> CruiserResult<()>;
     /// Collects all the account keys into a [`Vec`].
-    fn keys(&self) -> CruiserResult<Vec<&'static Pubkey>> {
+    fn keys(&self) -> CruiserResult<Vec<Pubkey>> {
         let mut out = Vec::new();
         self.add_keys(|key| {
             out.push(key);

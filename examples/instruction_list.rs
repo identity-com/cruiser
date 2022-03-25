@@ -18,20 +18,18 @@ pub enum TestList {
     TestInstruction3,
 }
 
-::static_assertions::const_assert_ne!(0, 1);
-
 pub struct TestInstruction1;
-impl Instruction for TestInstruction1 {
+impl<AI> Instruction<AI> for TestInstruction1 {
     type Data = ();
     type Accounts = ();
 }
-impl InstructionProcessor<TestInstruction1> for TestInstruction1 {
+impl<AI> InstructionProcessor<AI, TestInstruction1> for TestInstruction1 {
     type FromAccountsData = ();
     type ValidateData = ();
     type InstructionData = ();
 
     fn data_to_instruction_arg(
-        _data: <Self as Instruction>::Data,
+        _data: <Self as Instruction<AI>>::Data,
     ) -> CruiserResult<(
         Self::FromAccountsData,
         Self::ValidateData,
@@ -41,9 +39,9 @@ impl InstructionProcessor<TestInstruction1> for TestInstruction1 {
     }
 
     fn process(
-        _program_id: &'static Pubkey,
-        _data: <TestInstruction1 as Instruction>::Data,
-        _accounts: &mut <TestInstruction1 as Instruction>::Accounts,
+        _program_id: &Pubkey,
+        _data: <TestInstruction1 as Instruction<AI>>::Data,
+        _accounts: &mut <TestInstruction1 as Instruction<AI>>::Accounts,
     ) -> CruiserResult<()> {
         panic!("This is never called")
     }

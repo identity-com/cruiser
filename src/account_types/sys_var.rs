@@ -9,11 +9,11 @@ use cruiser_derive::verify_account_arg_impl;
 use solana_program::sysvar::Sysvar;
 
 use crate::account_argument::{AccountArgument, SingleIndexable};
-use crate::{AccountInfo, AllAny, CruiserResult};
+use crate::{AccountInfo, AllAny, CruiserResult, ToSolanaAccountInfo};
 
 verify_account_arg_impl! {
-    mod sys_var_check{
-        <S> SysVar<S> where S: Sysvar{
+    mod sys_var_check<AI>{
+        <AI, S> SysVar<AI, S> where AI: AccountInfo, S: Sysvar{
             from: [()];
             validate: [()];
             multi: [(); AllAny];
@@ -24,14 +24,14 @@ verify_account_arg_impl! {
 
 /// A sysvar, checks the address is the same.
 #[derive(AccountArgument, Debug)]
-pub struct SysVar<S>(
-    #[validate(key = &S::id())] pub AccountInfo,
-    PhantomData<fn() -> S>,
-)
+#[account_argument(account_info = AI)]
+pub struct SysVar<AI, S>(#[validate(key = &S::id())] pub AI, PhantomData<fn() -> S>)
 where
+    AI: AccountInfo,
     S: Sysvar;
-impl<S> SysVar<S>
+impl<'a, AI, S> SysVar<AI, S>
 where
+    AI: ToSolanaAccountInfo<'a>,
     S: Sysvar,
 {
     /// Gets the sysvar, may be unsupported for large sys vars
@@ -39,39 +39,40 @@ where
         unsafe { Ok(S::from_account_info(&self.0.to_solana_account_info())?) }
     }
 }
-impl<S> Deref for SysVar<S>
+impl<AI, S> Deref for SysVar<AI, S>
 where
+    AI: AccountInfo,
     S: Sysvar,
 {
-    type Target = AccountInfo;
+    type Target = AI;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl<S, T> MultiIndexable<T> for SysVar<S>
+impl<AI, S, T> MultiIndexable<AI, T> for SysVar<AI, S>
 where
-    AccountInfo: MultiIndexable<T>,
+    AI: AccountInfo + MultiIndexable<AI, T>,
     S: Sysvar,
 {
-    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
-        self.0.is_signer(indexer)
+    fn index_is_signer(&self, indexer: T) -> CruiserResult<bool> {
+        self.0.index_is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
-        self.0.is_writable(indexer)
+    fn index_is_writable(&self, indexer: T) -> CruiserResult<bool> {
+        self.0.index_is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
-        self.0.is_owner(owner, indexer)
+    fn index_is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
+        self.0.index_is_owner(owner, indexer)
     }
 }
-impl<S, T> SingleIndexable<T> for SysVar<S>
+impl<AI, S, T> SingleIndexable<AI, T> for SysVar<AI, S>
 where
-    AccountInfo: SingleIndexable<T>,
+    AI: AccountInfo + SingleIndexable<AI, T>,
     S: Sysvar,
 {
-    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
-        self.0.info(indexer)
+    fn index_info(&self, indexer: T) -> CruiserResult<&AI> {
+        self.0.index_info(indexer)
     }
 }

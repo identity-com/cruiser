@@ -15,34 +15,32 @@ use crate::pda_seeds::{PDAGenerator, PDASeedSet, PDASeeder};
 use crate::{AccountInfo, CruiserResult};
 
 verify_account_arg_impl! {
-    mod seeds_check{
-        <A, S> Seeds<A, S> where A: AccountArgument, S: PDASeeder{
-            from: [<T> T where A: FromAccounts<T>];
+    mod seeds_check<AI>{
+        <AI, T, S> Seeds<T, S> where AI: AccountInfo, T: AccountArgument<AI>, S: PDASeeder{
+            from: [<Arg> Arg where T: FromAccounts<AI, Arg>];
             validate: [
-                <B> (S, B) where A: ValidateArgument<()> + SingleIndexable<()>, B: BumpSeed;
-                <B, V> (S, B, V) where A: ValidateArgument<V> + SingleIndexable<()>, B: BumpSeed;
-                <B, V, I> (S, B, V, I) where A: ValidateArgument<V> + SingleIndexable<I>, B: BumpSeed;
+                <B> (S, B) where T: ValidateArgument<AI, ()> + SingleIndexable<AI, ()>, B: BumpSeed;
+                <B, V> (S, B, V) where T: ValidateArgument<AI, V> + SingleIndexable<AI, ()>, B: BumpSeed;
+                <B, V, I> (S, B, V, I) where T: ValidateArgument<AI, V> + SingleIndexable<AI, I>, B: BumpSeed;
             ];
-            multi: [<T> T where A: MultiIndexable<T>];
-            single: [<T> T where A: SingleIndexable<T>];
+            multi: [<Arg> Arg where T: MultiIndexable<AI, Arg>];
+            single: [<Arg> Arg where T: SingleIndexable<AI, Arg>];
         }
     }
 }
 
 /// Requires that the address comes from a given seeder. Can use a given bump seed or find the bump seed.
 #[derive(Debug)]
-pub struct Seeds<A, S>
+pub struct Seeds<T, S>
 where
-    A: AccountArgument,
     S: PDASeeder,
 {
     /// The wrapped argument
-    argument: A,
+    argument: T,
     seeds: Option<(S, u8)>,
 }
-impl<'a, A, S> Seeds<A, S>
+impl<'a, T, S> Seeds<T, S>
 where
-    A: AccountArgument,
     S: PDASeeder + 'a,
 {
     /// Takes the seed set out of this.
@@ -52,118 +50,123 @@ where
         Some(PDASeedSet::new(seeds.0, seeds.1))
     }
 }
-impl<A, S> Deref for Seeds<A, S>
+impl<T, S> Deref for Seeds<T, S>
 where
-    A: AccountArgument,
     S: PDASeeder,
 {
-    type Target = A;
+    type Target = T;
 
     fn deref(&self) -> &Self::Target {
         &self.argument
     }
 }
-impl<A, S> DerefMut for Seeds<A, S>
+impl<T, S> DerefMut for Seeds<T, S>
 where
-    A: AccountArgument,
     S: PDASeeder,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.argument
     }
 }
-impl<A, S> AccountArgument for Seeds<A, S>
+impl<AI, T, S> AccountArgument<AI> for Seeds<T, S>
 where
-    A: AccountArgument,
+    AI: AccountInfo,
+    T: AccountArgument<AI>,
     S: PDASeeder,
 {
-    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
+    fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         self.argument.write_back(program_id)
     }
 
-    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
+    fn add_keys(&self, add: impl FnMut(Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
         self.argument.add_keys(add)
     }
 }
-impl<A, S, T> FromAccounts<T> for Seeds<A, S>
+impl<AI, T, S, Arg> FromAccounts<AI, Arg> for Seeds<T, S>
 where
-    A: FromAccounts<T>,
+    AI: AccountInfo,
+    T: FromAccounts<AI, Arg>,
     S: PDASeeder,
 {
     fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        arg: T,
+        program_id: &Pubkey,
+        infos: &mut impl AccountInfoIterator<AI>,
+        arg: Arg,
     ) -> CruiserResult<Self> {
         Ok(Self {
-            argument: A::from_accounts(program_id, infos, arg)?,
+            argument: T::from_accounts(program_id, infos, arg)?,
             seeds: None,
         })
     }
 
-    fn accounts_usage_hint(arg: &T) -> (usize, Option<usize>) {
-        A::accounts_usage_hint(arg)
+    fn accounts_usage_hint(arg: &Arg) -> (usize, Option<usize>) {
+        T::accounts_usage_hint(arg)
     }
 }
-impl<A, S, B> ValidateArgument<(S, B)> for Seeds<A, S>
+impl<AI, T, S, B> ValidateArgument<AI, (S, B)> for Seeds<T, S>
 where
-    A: ValidateArgument<()> + SingleIndexable<()>,
+    AI: AccountInfo,
+    T: ValidateArgument<AI, ()> + SingleIndexable<AI, ()>,
     S: PDASeeder,
     B: BumpSeed,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: (S, B)) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: (S, B)) -> CruiserResult<()> {
         self.validate(program_id, (arg.0, arg.1, (), ()))
     }
 }
-impl<A, S, B, V> ValidateArgument<(S, B, V)> for Seeds<A, S>
+impl<AI, T, S, B, V> ValidateArgument<AI, (S, B, V)> for Seeds<T, S>
 where
-    A: ValidateArgument<V> + SingleIndexable<()>,
+    AI: AccountInfo,
+    T: ValidateArgument<AI, V> + SingleIndexable<AI, ()>,
     S: PDASeeder,
     B: BumpSeed,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: (S, B, V)) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: (S, B, V)) -> CruiserResult<()> {
         self.validate(program_id, (arg.0, arg.1, arg.2, ()))
     }
 }
-impl<A, S, B, V, I> ValidateArgument<(S, B, V, I)> for Seeds<A, S>
+impl<AI, T, S, B, V, I> ValidateArgument<AI, (S, B, V, I)> for Seeds<T, S>
 where
-    A: ValidateArgument<V> + SingleIndexable<I>,
+    AI: AccountInfo,
+    T: ValidateArgument<AI, V> + SingleIndexable<AI, I>,
     S: PDASeeder,
     B: BumpSeed,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: (S, B, V, I)) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: (S, B, V, I)) -> CruiserResult<()> {
         self.argument.validate(program_id, arg.2)?;
         let bump_seed = arg
             .1
-            .verify_address(&arg.0, program_id, self.info(arg.3)?.key)?;
+            .verify_address(&arg.0, program_id, self.index_info(arg.3)?.key())?;
         self.seeds = Some((arg.0, bump_seed));
         Ok(())
     }
 }
-impl<A, S, T> MultiIndexable<T> for Seeds<A, S>
+impl<AI, T, S, Arg> MultiIndexable<AI, Arg> for Seeds<T, S>
 where
-    A: MultiIndexable<T>,
+    AI: AccountInfo,
+    T: MultiIndexable<AI, Arg>,
     S: PDASeeder,
 {
-    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
-        self.argument.is_signer(indexer)
+    fn index_is_signer(&self, indexer: Arg) -> CruiserResult<bool> {
+        self.argument.index_is_signer(indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
-        self.argument.is_writable(indexer)
+    fn index_is_writable(&self, indexer: Arg) -> CruiserResult<bool> {
+        self.argument.index_is_writable(indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
-        self.argument.is_owner(owner, indexer)
+    fn index_is_owner(&self, owner: &Pubkey, indexer: Arg) -> CruiserResult<bool> {
+        self.argument.index_is_owner(owner, indexer)
     }
 }
-impl<A, S, T> SingleIndexable<T> for Seeds<A, S>
+impl<AI, T, S, Arg> SingleIndexable<AI, Arg> for Seeds<T, S>
 where
-    A: SingleIndexable<T>,
+    AI: AccountInfo,
+    T: SingleIndexable<AI, Arg>,
     S: PDASeeder,
 {
-    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
-        self.argument.info(indexer)
+    fn index_info(&self, indexer: Arg) -> CruiserResult<&AI> {
+        self.argument.index_info(indexer)
     }
 }
 
@@ -173,7 +176,7 @@ pub trait BumpSeed {
     fn verify_address<S>(
         self,
         seeder: &S,
-        program_id: &'static Pubkey,
+        program_id: &Pubkey,
         address: &Pubkey,
     ) -> CruiserResult<u8>
     where
@@ -183,7 +186,7 @@ impl BumpSeed for u8 {
     fn verify_address<S>(
         self,
         seeder: &S,
-        program_id: &'static Pubkey,
+        program_id: &Pubkey,
         address: &Pubkey,
     ) -> CruiserResult<u8>
     where
@@ -200,7 +203,7 @@ impl BumpSeed for Find {
     fn verify_address<S>(
         self,
         seeder: &S,
-        program_id: &'static Pubkey,
+        program_id: &Pubkey,
         address: &Pubkey,
     ) -> CruiserResult<u8>
     where

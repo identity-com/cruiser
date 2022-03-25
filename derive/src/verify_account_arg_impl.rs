@@ -14,6 +14,11 @@ pub struct VerifyAccountArgs {
     vis: Visibility,
     mod_token: Token![mod],
     mod_ident: Ident,
+    #[allow(dead_code)]
+    lt: Token![<],
+    account_info_gen: Ident,
+    #[allow(dead_code)]
+    gt: Token![>],
     brace: token::Brace,
     args: Punctuated<VerifyAccountArg, Token![;]>,
 }
@@ -28,7 +33,7 @@ impl VerifyAccountArgs {
         let sub_mods = self
             .args
             .into_iter()
-            .map(|arg| arg.into_token_stream(&crate_name))
+            .map(|arg| arg.into_token_stream(&crate_name, &self.account_info_gen))
             .enumerate()
             .map(|(index, ts)| {
                 let sub_name = format_ident!("sub_mod{}", index);
@@ -54,6 +59,9 @@ impl Parse for VerifyAccountArgs {
         let vis = input.parse()?;
         let mod_token = input.parse()?;
         let mod_ident = input.parse()?;
+        let lt = input.parse()?;
+        let account_info_gen = input.parse()?;
+        let gt = input.parse()?;
         let content;
         let brace = braced!(content in input);
         let args = content.parse_terminated(VerifyAccountArg::parse)?;
@@ -61,6 +69,9 @@ impl Parse for VerifyAccountArgs {
             vis,
             mod_token,
             mod_ident,
+            lt,
+            account_info_gen,
+            gt,
             brace,
             args,
         })
@@ -99,7 +110,11 @@ pub struct VerifyAccountArg {
     single: TypeList<kw::single>,
 }
 impl VerifyAccountArg {
-    pub fn into_token_stream(self, crate_name: &TokenStream) -> TokenStream {
+    pub fn into_token_stream(
+        self,
+        crate_name: &TokenStream,
+        account_info_gen: &Ident,
+    ) -> TokenStream {
         let mut generics = self.type_generics;
         if let Some(where_clause) = self.where_clause {
             generics
@@ -113,31 +128,35 @@ impl VerifyAccountArg {
             &ty,
             &generics,
             &quote! { #crate_name::account_argument::FromAccounts },
+            account_info_gen,
         );
         let validate = self.validate.into_token_stream(
             "Validate",
             &ty,
             &generics,
             &quote! { #crate_name::account_argument::ValidateArgument },
+            account_info_gen,
         );
         let multi = self.multi.into_token_stream(
             "Multi",
             &ty,
             &generics,
             &quote! { #crate_name::account_argument::MultiIndexable },
+            account_info_gen,
         );
         let single = self.single.into_token_stream(
             "Single",
             &ty,
             &generics,
             &quote! { #crate_name::account_argument::SingleIndexable },
+            account_info_gen,
         );
 
         let (impl_gen, ty_gen, where_clause) = generics.split_for_impl();
         quote! {
             #[automatically_derived]
             #[allow(clippy::type_repetition_in_bounds)]
-            trait AccountArgumentTest #impl_gen: #crate_name::account_argument::AccountArgument #where_clause {}
+            trait AccountArgumentTest #impl_gen: #crate_name::account_argument::AccountArgument<#account_info_gen> #where_clause {}
             #[automatically_derived]
             #[allow(clippy::type_repetition_in_bounds)]
             impl #impl_gen AccountArgumentTest #ty_gen for #ty #where_clause {}
@@ -225,6 +244,7 @@ impl<T> TypeList<T> {
         ty: &Type,
         generics: &Generics,
         impl_type: &TokenStream,
+        account_info_gen: &Ident,
     ) -> TokenStream
     where
         T: ToTokens,
@@ -239,6 +259,7 @@ impl<T> TypeList<T> {
                     ty,
                     generics,
                     impl_type,
+                    account_info_gen,
                 )
             })
             .collect();
@@ -294,6 +315,7 @@ impl TypeListItem {
         ty: &Type,
         generics: &Generics,
         impl_type: &TokenStream,
+        account_info_gen: &Ident,
     ) -> TokenStream {
         let mut generics = generics.clone();
         generics.params.extend(self.generics.params.into_iter());
@@ -320,7 +342,7 @@ impl TypeListItem {
         quote! {
             #[automatically_derived]
             #[allow(clippy::type_repetition_in_bounds)]
-            trait #trait_ident #impl_gen: #impl_type<#self_ty> #where_clause {}
+            trait #trait_ident #impl_gen: #impl_type<#account_info_gen, #self_ty> #where_clause {}
             #[automatically_derived]
             #[allow(clippy::type_repetition_in_bounds)]
             impl #impl_gen #trait_ident #ty_gen for #ty #where_clause {}

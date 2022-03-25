@@ -4,79 +4,79 @@ use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
     ValidateArgument,
 };
-use crate::{AccountInfo, CruiserResult};
+use crate::CruiserResult;
 use cruiser_derive::verify_account_arg_impl;
 
 verify_account_arg_impl! {
-    mod box_checks{
-        <A> Box<A> where A: AccountArgument{
-            from: [<T> T where A: FromAccounts<T>];
-            validate: [<T> T where A: ValidateArgument<T>];
-            multi: [<T> T where A: MultiIndexable<T>];
-            single: [<T> T where A: SingleIndexable<T>];
+    mod box_checks<AI>{
+        <AI, T> Box<T> where T: AccountArgument<AI>{
+            from: [<Arg> Arg where T: FromAccounts<AI, Arg>];
+            validate: [<Arg> Arg where T: ValidateArgument<AI, Arg>];
+            multi: [<Arg> Arg where T: MultiIndexable<AI, Arg>];
+            single: [<Arg> Arg where T: SingleIndexable<AI, Arg>];
         }
     }
 }
 
-impl<A> AccountArgument for Box<A>
+impl<AI, T> AccountArgument<AI> for Box<T>
 where
-    A: AccountArgument,
+    T: AccountArgument<AI>,
 {
     #[inline]
-    fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
-        A::write_back(*self, program_id)
+    fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
+        T::write_back(*self, program_id)
     }
 
     #[inline]
-    fn add_keys(&self, add: impl FnMut(&'static Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
-        A::add_keys(self, add)
+    fn add_keys(&self, add: impl FnMut(Pubkey) -> CruiserResult<()>) -> CruiserResult<()> {
+        T::add_keys(self, add)
     }
 }
-impl<A, T> FromAccounts<T> for Box<A>
+impl<AI, Arg, T> FromAccounts<AI, Arg> for Box<T>
 where
-    A: FromAccounts<T>,
+    T: FromAccounts<AI, Arg>,
 {
     fn from_accounts(
-        program_id: &'static Pubkey,
-        infos: &mut impl AccountInfoIterator,
-        arg: T,
+        program_id: &Pubkey,
+        infos: &mut impl AccountInfoIterator<AI>,
+        arg: Arg,
     ) -> CruiserResult<Self> {
-        A::from_accounts(program_id, infos, arg).map(Box::new)
+        T::from_accounts(program_id, infos, arg).map(Box::new)
     }
 
-    fn accounts_usage_hint(arg: &T) -> (usize, Option<usize>) {
-        A::accounts_usage_hint(arg)
+    fn accounts_usage_hint(arg: &Arg) -> (usize, Option<usize>) {
+        T::accounts_usage_hint(arg)
     }
 }
-impl<A, T> ValidateArgument<T> for Box<A>
+impl<AI, Arg, T> ValidateArgument<AI, Arg> for Box<T>
 where
-    A: ValidateArgument<T>,
+    T: ValidateArgument<AI, Arg>,
 {
-    fn validate(&mut self, program_id: &'static Pubkey, arg: T) -> CruiserResult<()> {
-        A::validate(self, program_id, arg)
+    fn validate(&mut self, program_id: &Pubkey, arg: Arg) -> CruiserResult<()> {
+        T::validate(self, program_id, arg)
     }
 }
-impl<A, T> MultiIndexable<T> for Box<A>
+impl<AI, T, Arg> MultiIndexable<AI, Arg> for Box<T>
 where
-    A: MultiIndexable<T>,
+    T: MultiIndexable<AI, Arg>,
 {
-    fn is_signer(&self, indexer: T) -> CruiserResult<bool> {
-        A::is_signer(self, indexer)
+    fn index_is_signer(&self, indexer: Arg) -> CruiserResult<bool> {
+        T::index_is_signer(self, indexer)
     }
 
-    fn is_writable(&self, indexer: T) -> CruiserResult<bool> {
-        A::is_writable(self, indexer)
+    fn index_is_writable(&self, indexer: Arg) -> CruiserResult<bool> {
+        T::index_is_writable(self, indexer)
     }
 
-    fn is_owner(&self, owner: &Pubkey, indexer: T) -> CruiserResult<bool> {
-        A::is_owner(self, owner, indexer)
+    fn index_is_owner(&self, owner: &Pubkey, indexer: Arg) -> CruiserResult<bool> {
+        T::index_is_owner(self, owner, indexer)
     }
 }
-impl<A, T> SingleIndexable<T> for Box<A>
+impl<AI, T, Arg> SingleIndexable<AI, Arg> for Box<T>
 where
-    A: SingleIndexable<T>,
+    T: SingleIndexable<AI, Arg>,
 {
-    fn info(&self, indexer: T) -> CruiserResult<&AccountInfo> {
-        A::info(self, indexer)
+    fn index_info(&self, indexer: Arg) -> CruiserResult<&AI> {
+        T::index_info(self, indexer)
     }
 }

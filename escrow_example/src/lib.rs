@@ -15,7 +15,10 @@ use cruiser::instruction_list::InstructionList;
 use cruiser::on_chain_size::{OnChainSize, OnChainStaticSize};
 use cruiser::pda_seeds::{PDAGenerator, PDASeed, PDASeeder};
 use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
-use cruiser::{entrypoint_list, msg, AccountInfo, CruiserResult, GenericError, Pubkey};
+use cruiser::{
+    entrypoint_list, msg, AccountInfo, CPIChecked, CruiserResult, GenericError, Pubkey,
+    ToSolanaAccountInfo,
+};
 use std::iter::empty;
 
 entrypoint_list!(EscrowInstructions, EscrowInstructions);
@@ -56,17 +59,23 @@ impl PDASeeder for EscrowPDASeeder {
 }
 
 pub struct InitEscrow;
-impl Instruction for InitEscrow {
+impl<AI> Instruction<AI> for InitEscrow
+where
+    AI: AccountInfo,
+{
     type Data = InitEscrowData;
-    type Accounts = InitEscrowAccounts;
+    type Accounts = InitEscrowAccounts<AI>;
 }
-impl InstructionProcessor<InitEscrow> for InitEscrow {
+impl<'a, AI> InstructionProcessor<AI, InitEscrow> for InitEscrow
+where
+    AI: ToSolanaAccountInfo<'a>,
+{
     type FromAccountsData = ();
     type ValidateData = ();
-    type InstructionData = <InitEscrow as Instruction>::Data;
+    type InstructionData = <InitEscrow as Instruction<AI>>::Data;
 
     fn data_to_instruction_arg(
-        data: <InitEscrow as Instruction>::Data,
+        data: <InitEscrow as Instruction<AI>>::Data,
     ) -> CruiserResult<(
         Self::FromAccountsData,
         Self::ValidateData,
@@ -76,21 +85,22 @@ impl InstructionProcessor<InitEscrow> for InitEscrow {
     }
 
     fn process(
-        program_id: &'static Pubkey,
+        program_id: &Pubkey,
         data: Self::InstructionData,
-        accounts: &mut <Self as Instruction>::Accounts,
+        accounts: &mut <Self as Instruction<AI>>::Accounts,
     ) -> CruiserResult<()> {
         let escrow_account = &mut accounts.escrow_account;
-        escrow_account.initializer = *accounts.initializer.key;
-        escrow_account.temp_token_account = *accounts.temp_token_account.get_info().key;
+        escrow_account.initializer = *accounts.initializer.key();
+        escrow_account.temp_token_account = *accounts.temp_token_account.info().key();
         escrow_account.initializer_token_to_receive =
-            *accounts.initializer_token_account.get_info().key;
+            *accounts.initializer_token_account.info().key();
         escrow_account.expected_amount = data.amount;
 
         let (pda, _) = EscrowPDASeeder.find_address(program_id);
 
         msg!("Calling the token program to transfer token account ownership...");
         accounts.token_program.set_authority(
+            CPIChecked,
             &accounts.temp_token_account,
             &pda,
             &accounts.initializer,
@@ -105,12 +115,14 @@ pub struct InitEscrowData {
     amount: u64,
 }
 #[derive(AccountArgument)]
-pub struct InitEscrowAccounts {
+#[account_argument(account_info = AI, generics = [where AI: AccountInfo])]
+#[validate(generics = [<'a> where AI: ToSolanaAccountInfo<'a>])]
+pub struct InitEscrowAccounts<AI> {
     #[validate(signer)]
-    initializer: AccountInfo,
-    #[validate(writable, data = Owner(self.initializer.key))]
-    temp_token_account: TokenAccount,
-    initializer_token_account: TokenAccount,
+    initializer: AI,
+    #[validate(writable, data = Owner(self.initializer.key()))]
+    temp_token_account: TokenAccount<AI>,
+    initializer_token_account: TokenAccount<AI>,
     #[from(data = EscrowAccount::default())]
     #[validate(writable, data = (InitArgs{
         funder: &self.initializer,
@@ -119,24 +131,31 @@ pub struct InitEscrowAccounts {
         space: EscrowAccount::on_chain_static_size(),
         system_program: &self.system_program,
         account_seeds: None,
+        cpi: CPIChecked,
     },))]
-    escrow_account: RentExempt<InitOrZeroedAccount<EscrowAccounts, EscrowAccount>>,
-    token_program: TokenProgram,
-    system_program: SystemProgram,
+    escrow_account: RentExempt<InitOrZeroedAccount<AI, EscrowAccounts, EscrowAccount>>,
+    token_program: TokenProgram<AI>,
+    system_program: SystemProgram<AI>,
 }
 
 pub struct Exchange;
-impl Instruction for Exchange {
+impl<AI> Instruction<AI> for Exchange
+where
+    AI: AccountInfo,
+{
     type Data = ExchangeData;
-    type Accounts = ExchangeAccounts;
+    type Accounts = ExchangeAccounts<AI>;
 }
-impl InstructionProcessor<Exchange> for Exchange {
+impl<'a, AI> InstructionProcessor<AI, Exchange> for Exchange
+where
+    AI: ToSolanaAccountInfo<'a> + Clone,
+{
     type FromAccountsData = ();
     type ValidateData = ();
-    type InstructionData = <Self as Instruction>::Data;
+    type InstructionData = <Self as Instruction<AI>>::Data;
 
     fn data_to_instruction_arg(
-        data: <Self as Instruction>::Data,
+        data: <Self as Instruction<AI>>::Data,
     ) -> CruiserResult<(
         Self::FromAccountsData,
         Self::ValidateData,
@@ -146,9 +165,9 @@ impl InstructionProcessor<Exchange> for Exchange {
     }
 
     fn process(
-        _program_id: &'static Pubkey,
-        data: <Self as Instruction>::Data,
-        accounts: &mut <Self as Instruction>::Accounts,
+        _program_id: &Pubkey,
+        data: <Self as Instruction<AI>>::Data,
+        accounts: &mut <Self as Instruction<AI>>::Accounts,
     ) -> CruiserResult<()> {
         if data.amount != accounts.escrow_account.expected_amount {
             return Err(GenericError::Custom {
@@ -162,6 +181,7 @@ impl InstructionProcessor<Exchange> for Exchange {
 
         msg!("Calling the token program to transfer tokens to the escrow's initializer...");
         accounts.token_program.transfer(
+            CPIChecked,
             &accounts.taker_send_token_account,
             &accounts.initializer_token_account,
             &accounts.taker,
@@ -172,18 +192,20 @@ impl InstructionProcessor<Exchange> for Exchange {
         let seeds = accounts.pda_account.take_seed_set().unwrap();
         msg!("Calling the token program to transfer tokens to the taker...");
         accounts.token_program.transfer(
+            CPIChecked,
             &accounts.temp_token_account,
             &accounts.taker_receive_token_account,
-            accounts.pda_account.get_info(),
+            accounts.pda_account.info(),
             accounts.temp_token_account.amount,
             [&seeds],
         )?;
 
         msg!("Calling the token program to close pda's temp account...");
         accounts.token_program.close_account(
+            CPIChecked,
             &accounts.temp_token_account,
             &accounts.initializer,
-            accounts.pda_account.get_info(),
+            accounts.pda_account.info(),
             [&seeds],
         )?;
 
@@ -199,22 +221,26 @@ pub struct ExchangeData {
     amount: u64,
 }
 #[derive(AccountArgument)]
-pub struct ExchangeAccounts {
+#[account_argument(account_info = AI)]
+pub struct ExchangeAccounts<AI>
+where
+    AI: AccountInfo,
+{
     #[validate(signer)]
-    taker: AccountInfo,
-    #[validate(writable, data = Owner(self.taker.key))]
-    taker_send_token_account: TokenAccount,
+    taker: AI,
+    #[validate(writable, data = Owner(self.taker.key()))]
+    taker_send_token_account: TokenAccount<AI>,
     #[validate(writable)]
-    taker_receive_token_account: TokenAccount,
+    taker_receive_token_account: TokenAccount<AI>,
     #[validate(writable, key = &self.escrow_account.temp_token_account)]
-    temp_token_account: TokenAccount,
+    temp_token_account: TokenAccount<AI>,
     #[validate(writable, key = &self.escrow_account.initializer)]
-    initializer: AccountInfo,
+    initializer: AI,
     #[validate(writable, key = &self.escrow_account.initializer_token_to_receive)]
-    initializer_token_account: TokenAccount,
+    initializer_token_account: TokenAccount<AI>,
     #[validate(writable)]
-    escrow_account: CloseAccount<ProgramAccount<EscrowAccounts, EscrowAccount>>,
-    token_program: TokenProgram,
+    escrow_account: CloseAccount<AI, ProgramAccount<AI, EscrowAccounts, EscrowAccount>>,
+    token_program: TokenProgram<AI>,
     #[validate(data = (EscrowPDASeeder, Find))]
-    pda_account: Seeds<AccountInfo, EscrowPDASeeder>,
+    pda_account: Seeds<AI, EscrowPDASeeder>,
 }

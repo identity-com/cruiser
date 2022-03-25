@@ -1,22 +1,24 @@
 //! An individual instruction for a program.
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::BorshDeserialize;
 
-use crate::account_argument::{AccountArgument, FromAccounts, ValidateArgument};
-use crate::{CruiserResult, Pubkey, SolanaAccountMeta};
+use crate::account_argument::{FromAccounts, ValidateArgument};
+use crate::{CruiserResult, Pubkey};
 
 /// An instruction for a program with it's accounts and data.
-pub trait Instruction: Sized {
+pub trait Instruction<AI>: Sized {
     /// The instruction data minus the instruction discriminant.
-    type Data: BorshDeserialize;
+    type Data;
     /// The account argument for this instruction.
-    type Accounts: AccountArgument;
+    type Accounts;
 }
 
 /// A processor for a given instruction `I`
-pub trait InstructionProcessor<I: Instruction>
+pub trait InstructionProcessor<AI, I: Instruction<AI>>
 where
-    I::Accounts: FromAccounts<Self::FromAccountsData> + ValidateArgument<Self::ValidateData>,
+    I::Data: BorshDeserialize,
+    I::Accounts:
+        FromAccounts<AI, Self::FromAccountsData> + ValidateArgument<AI, Self::ValidateData>,
 {
     /// The data passed to [`FromAccounts::from_accounts`].
     type FromAccountsData;
@@ -36,20 +38,8 @@ where
 
     /// Processes the instruction
     fn process(
-        program_id: &'static Pubkey,
+        program_id: &Pubkey,
         data: Self::InstructionData,
         accounts: &mut I::Accounts,
     ) -> CruiserResult<()>;
-}
-
-/// This instruction supports building from a given build arg
-pub trait InstructionBuilder<I: Instruction, B>
-where
-    I::Data: BorshSerialize,
-{
-    /// Creates this instruction from a given argument
-    fn build_instruction(
-        program_id: &'static Pubkey,
-        arg: B,
-    ) -> CruiserResult<(Vec<SolanaAccountMeta>, I::Data)>;
 }
