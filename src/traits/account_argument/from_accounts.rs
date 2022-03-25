@@ -3,12 +3,13 @@ use crate::CruiserResult;
 use solana_program::pubkey::Pubkey;
 use std::iter::FusedIterator;
 
-/// Allows an account argument to be made from the account iterator and data `A`.
+/// Allows an account argument to be made from the account iterator and data `Arg`.
+/// `AI` is the [`AccountInfo`](crate::AccountInfo) type.
 /// This is the first step in the instruction lifecycle.
 pub trait FromAccounts<AI, Arg>: Sized + AccountArgument<AI> {
-    /// Creates this argument from an [`AccountInfo`] iterator and data `A`.
+    /// Creates this argument from an `AI` iterator and data `Arg`.
     /// - `program_id` is the current program's id.
-    /// - `infos` is the iterator of [`AccountInfo`]s
+    /// - `infos` is the iterator of `AI`s
     /// - `arg` is the data argument
     fn from_accounts(
         program_id: &Pubkey,

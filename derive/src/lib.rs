@@ -59,7 +59,13 @@ pub fn derive_error(ts: TokenStream) -> TokenStream {
 /// Arguments for the whole struct
 /// ```ignore
 /// #[derive(AccountArgument)]
-/// #[account_argument(no_from, no_validate, enum_discriminant_type = <$ty:ty>, account_info = <$ty:ty>, generics = [$(<$($gen:gen),*>)? $(where $($clause:where_clause),*)?])]
+/// #[account_argument(
+///     no_from,
+///     no_validate,
+///     enum_discriminant_type = <$ty:ty>,
+///     account_info = <$ty:ty>,
+///     generics = [$(<$($gen:gen),*>)? $(where $($clause:where_clause),*)?],
+/// )]
 /// struct Test;
 /// ```
 /// | Argument | Argument Type | Description |

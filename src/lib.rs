@@ -24,17 +24,18 @@
 //! # How it works
 //! The standard lifecycle of an instruction (standard derive of [`InstructionListProcessor`]):
 //! 1. [`Instruction::Data`] is deserialized with [`BorshDeserialize::deserialize`] from incoming data
-//! 1. [`Instruction::Data`] is split into [`Instruction::FromAccountsData`] and [`Instruction::InstructionData`] with [`Instruction::data_to_instruction_arg`]
-//! 1. [`Instruction::Accounts`] is created from [`Instruction::FromAccountsData`] by [`FromAccounts::from_accounts`]
-//! 1. [`InstructionProcessor::process`] is called with [`Instruction::InstructionData`] and [`Instruction::Accounts`]
+//! 1. [`Instruction::Data`] is split into [`InstructionProcessor::FromAccountsData`], [`InstructionProcessor::ValidateData`], and [`InstructionProcessor::InstructionData`] with [`InstructionProcessor::data_to_instruction_arg`]
+//! 1. [`Instruction::Accounts`] is created from [`InstructionProcessor::FromAccountsData`] by [`FromAccounts::from_accounts`]
+//! 1. [`InstructionProcessor::process`] is called with [`InstructionProcessor::InstructionData`] and [`Instruction::Accounts`]
 //! 1. [`Instruction::Accounts`] is cleaned up by with [`AccountArgument::write_back`]
 //!
 //! [`InstructionListProcessor`]: crate::instruction_list::InstructionListProcessor
 //! [`BorshDeserialize::deserialize`]: crate::borsh::BorshDeserialize::deserialize
 //! [`Instruction::Data`]: crate::instruction::Instruction::Data
-//! [`Instruction::FromAccountsData`]: crate::instruction::Instruction::FromAccountsData
-//! [`Instruction::InstructionData`]: crate::instruction::Instruction::InstructionData
-//! [`Instruction::data_to_instruction_arg`]: crate::instruction::Instruction::data_to_instruction_arg
+//! [`InstructionProcessor::FromAccountsData`]: crate::instruction::InstructionProcessor::FromAccountsData
+//! [`InstructionProcessor::ValidateData`]: crate::instruction::InstructionProcessor::ValidateData
+//! [`InstructionProcessor::InstructionData`]: crate::instruction::InstructionProcessor::InstructionData
+//! [`InstructionProcessor::data_to_instruction_arg`]: crate::instruction::InstructionProcessor::data_to_instruction_arg
 //! [`Instruction::Accounts`]: crate::instruction::Instruction::Accounts
 //! [`FromAccounts::from_accounts`]: crate::account_argument::FromAccounts::from_accounts
 //! [`InstructionProcessor::process`]: crate::instruction::InstructionProcessor::process
@@ -141,8 +142,7 @@ pub trait CPI: Sized {
     }
 
     /// Invokes another solana program with a variable number of accounts, signing with seeds.
-    /// Less efficient than [`invoke_signed`].
-    /// Equivalent to [`solana_program::program::invoke_signed`] but with custom [`AccountInfo`].
+    /// Less efficient than [`CPI::invoke_signed`].
     fn invoke_signed_variable_size<'a, 'b, AI, I>(
         self,
         instruction: &SolanaInstruction,

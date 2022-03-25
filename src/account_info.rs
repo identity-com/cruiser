@@ -90,7 +90,7 @@ pub trait AccountInfo:
     /// Unsafe access to changing the owner of this account. You should use [`SafeOwnerChange::owner_mut`] if possible.
     ///
     /// # Safety
-    /// Solana's way of doing this for [`SolanaAccountInfo`] is to use [`write_volatile`](std::ptr::write_volatile) on a shared ref (see [`SolanaAccountInfo::reassign`]).
+    /// Solana's way of doing this for [`SolanaAccountInfo`] is to use [`write_volatile`](std::ptr::write_volatile) on a shared ref (see [`SolanaAccountInfo::assign`]).
     /// This is wildly wrong and can be eviscerated by the optimizer (Rust has even more rules to follow than C in unsafe code).
     /// The only way to prevent this is to set your opt level to 0, turn off LTO, and pray.
     /// Even then LLVM can make a silent change (not tied to a new rust version) that suddenly opens your program to attack.
@@ -119,7 +119,7 @@ pub trait SafeOwnerChange: AccountInfo {
 /// Account info can safely realloc
 pub trait SafeRealloc: AccountInfo {
     /// Reallocates an account safely by checking data size.
-    /// If this can be called in a cpi from the same program or earlier owning program of this account you should use [`realloc_cpi_safe`].
+    /// If this can be called in a cpi from the same program or earlier owning program of this account you should use [`SafeRealloc::realloc_cpi_safe`].
     fn realloc(&self, new_len: usize, zero_init: bool) -> CruiserResult;
     /// Reallocates an account safely by checking data size, only allows for 1/4 the increase of [`MAX_PERMITTED_DATA_INCREASE`].
     /// This limited growth means that a cpi call can never exceed [`MAX_PERMITTED_DATA_INCREASE`].
