@@ -3,8 +3,8 @@
 use std::iter::once;
 use std::ops::{Deref, DerefMut};
 
+use crate::cpi::CPI;
 use borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::CPI;
 use solana_program::pubkey::Pubkey;
 
 use crate::account_argument::{
@@ -15,31 +15,30 @@ use crate::account_list::AccountListItem;
 use crate::account_types::discriminant_account::DiscriminantAccount;
 use crate::account_types::init_account::{InitAccount, InitArgs};
 use crate::account_types::zeroed_account::{CheckAll, ZeroedAccount};
-use crate::{AccountInfo, AllAny};
+use crate::AccountInfo;
 use crate::{CruiserResult, ToSolanaAccountInfo};
-use cruiser_derive::verify_account_arg_impl;
 
-verify_account_arg_impl! {
-    mod init_account_check<AI>{
-        <AI, AL, D> InitOrZeroedAccount<AI, AL, D>
-        where
-            AI: AccountInfo,
-            AL: AccountListItem<D>,
-            D: BorshSerialize + BorshDeserialize,
-        {
-            from: [
-                /// The initial value of this account
-                D;
-            ];
-            validate: [
-                <'a, 'b, C> InitArgs<'a, AI, C> where AI: 'a + ToSolanaAccountInfo<'b>, C: CPI;
-                <'a, 'b, C> (InitArgs<'a, AI, C>, CheckAll) where AI: 'a + ToSolanaAccountInfo<'b>, C: CPI;
-            ];
-            multi: [(); AllAny];
-            single: [()];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod init_account_check<AI>{
+//         <AI, AL, D> InitOrZeroedAccount<AI, AL, D>
+//         where
+//             AI: AccountInfo,
+//             AL: AccountListItem<D>,
+//             D: BorshSerialize + BorshDeserialize,
+//         {
+//             from: [
+//                 /// The initial value of this account
+//                 D;
+//             ];
+//             validate: [
+//                 <'a, 'b, C> InitArgs<'a, AI, C> where AI: 'a + ToSolanaAccountInfo<'b>, C: CPI;
+//                 <'a, 'b, C> (InitArgs<'a, AI, C>, CheckAll) where AI: 'a + ToSolanaAccountInfo<'b>, C: CPI;
+//             ];
+//             multi: [(); AllAny];
+//             single: [()];
+//         }
+//     }
+// }
 
 /// A combination of [`InitAccount`] and [`ZeroedAccount`] accepting either based on owner.
 // TODO: impl Debug for this
@@ -81,12 +80,14 @@ where
         }
     }
 }
-impl<AI, AL, D> AccountArgument<AI> for InitOrZeroedAccount<AI, AL, D>
+impl<AI, AL, D> AccountArgument for InitOrZeroedAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
 {
+    type AccountInfo = AI;
+
     fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.write_back(program_id),
@@ -101,7 +102,7 @@ where
         }
     }
 }
-impl<'a, AI, AL, D> FromAccounts<AI, D> for InitOrZeroedAccount<AI, AL, D>
+impl<'a, AI, AL, D> FromAccounts<D> for InitOrZeroedAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
@@ -109,7 +110,7 @@ where
 {
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = AI>,
         arg: D,
     ) -> CruiserResult<Self> {
         let info = AI::from_accounts(program_id, infos, ())?;
@@ -132,8 +133,7 @@ where
         AI::accounts_usage_hint(&())
     }
 }
-impl<'a, 'b, AI, AL, D, C> ValidateArgument<AI, InitArgs<'a, AI, C>>
-    for InitOrZeroedAccount<AI, AL, D>
+impl<'a, 'b, AI, AL, D, C> ValidateArgument<InitArgs<'a, AI, C>> for InitOrZeroedAccount<AI, AL, D>
 where
     AI: ToSolanaAccountInfo<'b>,
     AL: AccountListItem<D>,
@@ -147,7 +147,7 @@ where
         }
     }
 }
-impl<'a, 'b, AI, AL, D, C> ValidateArgument<AI, (InitArgs<'a, AI, C>, CheckAll)>
+impl<'a, 'b, AI, AL, D, C> ValidateArgument<(InitArgs<'a, AI, C>, CheckAll)>
     for InitOrZeroedAccount<AI, AL, D>
 where
     AI: ToSolanaAccountInfo<'b>,
@@ -166,9 +166,9 @@ where
         }
     }
 }
-impl<AI, AL, D, T> MultiIndexable<AI, T> for InitOrZeroedAccount<AI, AL, D>
+impl<AI, AL, D, T> MultiIndexable<T> for InitOrZeroedAccount<AI, AL, D>
 where
-    AI: AccountInfo + MultiIndexable<AI, T>,
+    AI: AccountInfo + MultiIndexable<T>,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
 {
@@ -184,9 +184,9 @@ where
         self.info.index_is_owner(owner, indexer)
     }
 }
-impl<AI, AL, D, T> SingleIndexable<AI, T> for InitOrZeroedAccount<AI, AL, D>
+impl<AI, AL, D, T> SingleIndexable<T> for InitOrZeroedAccount<AI, AL, D>
 where
-    AI: AccountInfo + SingleIndexable<AI, T>,
+    AI: AccountInfo + SingleIndexable<T>,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
 {

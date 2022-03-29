@@ -1,17 +1,46 @@
 //! Helper utility functions
 
+use borsh::BorshDeserialize;
+use cruiser::account_argument::AccountInfoIterator;
+use cruiser::instruction::Instruction;
+use solana_program::pubkey::Pubkey;
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::num::NonZeroU64;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::ptr::slice_from_raw_parts_mut;
 
+use crate::account_argument::{AccountArgument, FromAccounts, ValidateArgument};
+use crate::instruction::InstructionProcessor;
 use crate::{CruiserResult, GenericError};
 
 pub mod assert;
 pub(crate) mod bytes_ext;
 pub mod short_iter;
 pub mod short_vec;
+
+/// The processing function used for [`InstructionProcessor`]
+pub fn process_instruction<AI, I: Instruction<AI>, P: InstructionProcessor<AI, I>, Iter>(
+    program_id: &Pubkey,
+    accounts: &mut Iter,
+    mut data: &[u8],
+) -> CruiserResult
+where
+    I::Data: BorshDeserialize,
+    I::Accounts: AccountArgument<AccountInfo = AI>
+        + FromAccounts<P::FromAccountsData>
+        + ValidateArgument<P::ValidateData>,
+    Iter: AccountInfoIterator<Item = AI>,
+{
+    let data = <I::Data as BorshDeserialize>::deserialize(&mut data)?;
+    let (from_data, validate_data, instruction_data) = P::data_to_instruction_arg(data)?;
+    let mut accounts =
+        <I::Accounts as FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
+    ValidateArgument::validate(&mut accounts, program_id, validate_data)?;
+    P::process(program_id, instruction_data, &mut accounts)?;
+    <I::Accounts as AccountArgument>::write_back(accounts, program_id)?;
+    Ok(())
+}
 
 /// (start, end), inclusive
 pub fn convert_range(

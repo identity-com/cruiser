@@ -3,9 +3,9 @@
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
+use crate::cpi::CPI;
 use borsh::{BorshDeserialize, BorshSerialize};
 use cruiser::util::short_iter::ShortIter;
-use cruiser::CPI;
 use solana_program::pubkey::Pubkey;
 use solana_program::rent::Rent;
 use solana_program::sysvar::Sysvar;
@@ -19,27 +19,26 @@ use crate::account_types::discriminant_account::{DiscriminantAccount, WriteDiscr
 use crate::account_types::system_program::{Create, SystemProgram};
 use crate::compressed_numbers::CompressedNumber;
 use crate::pda_seeds::PDASeedSet;
-use crate::{AccountInfo, AllAny, ToSolanaAccountInfo};
+use crate::{AccountInfo, ToSolanaAccountInfo};
 use crate::{CruiserAccountInfo, CruiserResult};
-use cruiser_derive::verify_account_arg_impl;
 
-verify_account_arg_impl! {
-    mod init_account_check <AI> {
-        <AI, AL, D> InitAccount<AI, AL, D>
-        where
-            AI: AccountInfo,
-            AL: AccountListItem<D>,
-            D: BorshSerialize + BorshDeserialize{
-            from: [
-                /// The initial value for the account's data
-                D;
-            ];
-            validate: [<'a, 'b, C> InitArgs<'a, AI, C> where AI: 'a + ToSolanaAccountInfo<'b>, C: CPI];
-            multi: [(); AllAny];
-            single: [()];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod init_account_check <AI> {
+//         <AI, AL, D> InitAccount<AI, AL, D>
+//         where
+//             AI: AccountInfo,
+//             AL: AccountListItem<D>,
+//             D: BorshSerialize + BorshDeserialize{
+//             from: [
+//                 /// The initial value for the account's data
+//                 D;
+//             ];
+//             validate: [<'a, 'b, C> InitArgs<'a, AI, C> where AI: 'a + ToSolanaAccountInfo<'b>, C: CPI];
+//             multi: [(); AllAny];
+//             single: [()];
+//         }
+//     }
+// }
 
 /// The arguments for initializing an account
 #[derive(Debug)]
@@ -109,7 +108,7 @@ where
         &mut self.account
     }
 }
-impl<'a, AI, AL, D> FromAccounts<AI, D> for InitAccount<AI, AL, D>
+impl<'a, AI, AL, D> FromAccounts<D> for InitAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
@@ -117,7 +116,7 @@ where
 {
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = AI>,
         arg: D,
     ) -> CruiserResult<Self> {
         Ok(Self {
@@ -129,7 +128,7 @@ where
         CruiserAccountInfo::accounts_usage_hint(&())
     }
 }
-impl<'a, 'b, AI, AL, D, C> ValidateArgument<AI, InitArgs<'a, AI, C>> for InitAccount<AI, AL, D>
+impl<'a, 'b, AI, AL, D, C> ValidateArgument<InitArgs<'a, AI, C>> for InitAccount<AI, AL, D>
 where
     AI: ToSolanaAccountInfo<'b>,
     AL: AccountListItem<D>,
@@ -165,12 +164,12 @@ where
         self.account.validate(program_id, WriteDiscriminant)
     }
 }
-impl<'a, AI, AL, D, T> MultiIndexable<AI, T> for InitAccount<AI, AL, D>
+impl<'a, AI, AL, D, T> MultiIndexable<T> for InitAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
-    DiscriminantAccount<AI, AL, D>: MultiIndexable<AI, T>,
+    DiscriminantAccount<AI, AL, D>: MultiIndexable<T>,
 {
     fn index_is_signer(&self, indexer: T) -> CruiserResult<bool> {
         self.account.index_is_signer(indexer)
@@ -184,12 +183,12 @@ where
         self.account.index_is_owner(owner, indexer)
     }
 }
-impl<'a, AI, AL, D, T> SingleIndexable<AI, T> for InitAccount<AI, AL, D>
+impl<'a, AI, AL, D, T> SingleIndexable<T> for InitAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
-    DiscriminantAccount<AI, AL, D>: SingleIndexable<AI, T>,
+    DiscriminantAccount<AI, AL, D>: SingleIndexable<T, AccountInfo = AI>,
 {
     fn index_info(&self, indexer: T) -> CruiserResult<&AI> {
         self.account.index_info(indexer)

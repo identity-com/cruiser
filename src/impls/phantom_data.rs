@@ -1,23 +1,27 @@
 use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, ValidateArgument,
 };
-use crate::{AccountInfo, CruiserResult};
-use cruiser_derive::verify_account_arg_impl;
+use crate::CruiserResult;
 use solana_program::pubkey::Pubkey;
 use std::marker::PhantomData;
 
-verify_account_arg_impl! {
-    mod phantom_checks<AI> {
-        <AI, T> PhantomData<T> where AI: AccountInfo {
-            from: [()];
-            validate: [()];
-            multi: [];
-            single: [];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod phantom_checks<AI> {
+//         <T> PhantomData<T> where AI: AccountInfo {
+//             from: [()];
+//             validate: [()];
+//             multi: [];
+//             single: [];
+//         }
+//     }
+// }
 
-impl<AI, T> AccountArgument<AI> for PhantomData<T> {
+impl<T> AccountArgument for PhantomData<T>
+where
+    T: AccountArgument,
+{
+    type AccountInfo = T::AccountInfo;
+
     fn write_back(self, _program_id: &Pubkey) -> CruiserResult<()> {
         Ok(())
     }
@@ -26,10 +30,13 @@ impl<AI, T> AccountArgument<AI> for PhantomData<T> {
         Ok(())
     }
 }
-impl<AI, T> FromAccounts<AI, ()> for PhantomData<T> {
+impl<T> FromAccounts<()> for PhantomData<T>
+where
+    T: AccountArgument,
+{
     fn from_accounts(
         _program_id: &Pubkey,
-        _infos: &mut impl AccountInfoIterator<AI>,
+        _infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
         _arg: (),
     ) -> CruiserResult<Self> {
         Ok(PhantomData)
@@ -39,7 +46,10 @@ impl<AI, T> FromAccounts<AI, ()> for PhantomData<T> {
         (0, Some(0))
     }
 }
-impl<AI, T> ValidateArgument<AI, ()> for PhantomData<T> {
+impl<T> ValidateArgument<()> for PhantomData<T>
+where
+    T: AccountArgument,
+{
     fn validate(&mut self, _program_id: &Pubkey, _arg: ()) -> CruiserResult<()> {
         Ok(())
     }

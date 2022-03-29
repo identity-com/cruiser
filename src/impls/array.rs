@@ -6,39 +6,39 @@ use crate::util::{convert_range, mul_size_hint, sum_size_hints};
 use crate::AllAny;
 use crate::{CruiserResult, GenericError};
 use array_init::try_array_init;
-use cruiser_derive::verify_account_arg_impl;
 use solana_program::pubkey::Pubkey;
 use std::ops::RangeBounds;
 
-verify_account_arg_impl! {
-    mod array_checks<AI>{
-        <AI, T, const N: usize>[T; N]
-        where
-            T: AccountArgument<AI>{
-            from: [
-                () where T: FromAccounts<AI, ()>;
-                <Arg> (Arg,) where T: FromAccounts<AI, Arg>, Arg: Clone;
-                <Arg> [Arg; N] where T: FromAccounts<AI, Arg>;
-            ];
-            validate: [
-                () where T: ValidateArgument<AI, ()>;
-                <Arg> (Arg,) where T: ValidateArgument<AI, Arg>, Arg: Clone;
-                <Arg> [Arg; N] where T: ValidateArgument<AI, Arg>;
-            ];
-            multi: [
-                usize where T: MultiIndexable<AI, ()>;
-                <I> (usize, I) where T: MultiIndexable<AI, I>;
-                AllAny where T: MultiIndexable<AI, ()>;
-                <I> (AllAny, I) where T: MultiIndexable<AI, I>, I: Clone;
-                <R, I> (R, AllAny, I) where T: MultiIndexable<AI, I>, R: RangeBounds<usize>, I: Clone;
-            ];
-            single: [
-                usize where T: SingleIndexable<AI, ()>;
-                <I> (usize, I) where T: SingleIndexable<AI, I>;
-            ];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod array_checks<AI>{
+//         <T, const N: usize>[T; N]
+//         where
+//             T: AccountArgument<AI>{
+//             from: [
+//                 () where T: FromAccounts<()>;
+//                 <Arg> (Arg,) where T: FromAccounts<Arg>, Arg: Clone;
+//                 <Arg> [Arg; N] where T: FromAccounts<Arg>;
+//             ];
+//             validate: [
+//                 () where T: ValidateArgument<()>;
+//                 <Arg> (Arg,) where T: ValidateArgument<Arg>, Arg: Clone;
+//                 <Arg> [Arg; N] where T: ValidateArgument<Arg>;
+//             ];
+//             multi: [
+//                 usize where T: MultiIndexable<()>;
+//                 <I> (usize, I) where T: MultiIndexable<I>;
+//                 AllAny where T: MultiIndexable<()>;
+//                 <I> (AllAny, I) where T: MultiIndexable<I>, I: Clone;
+//                 <R, I> (R, AllAny, I) where T: MultiIndexable<I>, R: RangeBounds<usize>, I: Clone;
+//             ];
+//             single: [
+//                 usize where T: SingleIndexable<()>;
+//                 <I> (usize, I) where T: SingleIndexable<I>;
+//             ];
+//         }
+//     }
+// }
+
 fn get_index<T, const N: usize>(array: &[T; N], index: usize) -> CruiserResult<&T> {
     array.get(index).ok_or_else(|| {
         GenericError::IndexOutOfRange {
@@ -49,10 +49,12 @@ fn get_index<T, const N: usize>(array: &[T; N], index: usize) -> CruiserResult<&
     })
 }
 
-impl<AI, T, const N: usize> AccountArgument<AI> for [T; N]
+impl<T, const N: usize> AccountArgument for [T; N]
 where
-    T: AccountArgument<AI>,
+    T: AccountArgument,
 {
+    type AccountInfo = T::AccountInfo;
+
     fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         self.into_iter()
             .try_for_each(|item| item.write_back(program_id))
@@ -62,13 +64,13 @@ where
         self.iter().try_for_each(|inner| inner.add_keys(&mut add))
     }
 }
-impl<AI, T, const N: usize> FromAccounts<AI, ()> for [T; N]
+impl<T, const N: usize> FromAccounts<()> for [T; N]
 where
-    T: FromAccounts<AI, ()>,
+    T: FromAccounts<()>,
 {
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
         arg: (),
     ) -> CruiserResult<Self> {
         try_array_init(|_| T::from_accounts(program_id, infos, arg))
@@ -78,14 +80,14 @@ where
         mul_size_hint(T::accounts_usage_hint(arg), N)
     }
 }
-impl<AI, Arg, T, const N: usize> FromAccounts<AI, (Arg,)> for [T; N]
+impl<Arg, T, const N: usize> FromAccounts<(Arg,)> for [T; N]
 where
-    T: FromAccounts<AI, Arg>,
+    T: FromAccounts<Arg>,
     Arg: Clone,
 {
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
         arg: (Arg,),
     ) -> CruiserResult<Self> {
         try_array_init(|_| T::from_accounts(program_id, infos, arg.0.clone()))
@@ -95,13 +97,13 @@ where
         mul_size_hint(T::accounts_usage_hint(&arg.0), N)
     }
 }
-impl<AI, Arg, T, const N: usize> FromAccounts<AI, [Arg; N]> for [T; N]
+impl<Arg, T, const N: usize> FromAccounts<[Arg; N]> for [T; N]
 where
-    T: FromAccounts<AI, Arg>,
+    T: FromAccounts<Arg>,
 {
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
         arg: [Arg; N],
     ) -> CruiserResult<Self> {
         let mut iter = IntoIterator::into_iter(arg);
@@ -112,18 +114,18 @@ where
         sum_size_hints(arg.iter().map(|arg| T::accounts_usage_hint(arg)))
     }
 }
-impl<AI, T, const N: usize> ValidateArgument<AI, ()> for [T; N]
+impl<T, const N: usize> ValidateArgument<()> for [T; N]
 where
-    T: ValidateArgument<AI, ()>,
+    T: ValidateArgument<()>,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: ()) -> CruiserResult<()> {
         self.iter_mut()
             .try_for_each(|val| val.validate(program_id, arg))
     }
 }
-impl<AI, Arg, T, const N: usize> ValidateArgument<AI, (Arg,)> for [T; N]
+impl<Arg, T, const N: usize> ValidateArgument<(Arg,)> for [T; N]
 where
-    T: ValidateArgument<AI, Arg>,
+    T: ValidateArgument<Arg>,
     Arg: Clone,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: (Arg,)) -> CruiserResult<()> {
@@ -131,9 +133,9 @@ where
             .try_for_each(|val| val.validate(program_id, arg.0.clone()))
     }
 }
-impl<AI, Arg, T, const N: usize> ValidateArgument<AI, [Arg; N]> for [T; N]
+impl<Arg, T, const N: usize> ValidateArgument<[Arg; N]> for [T; N]
 where
-    T: ValidateArgument<AI, Arg>,
+    T: ValidateArgument<Arg>,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: [Arg; N]) -> CruiserResult<()> {
         self.iter_mut()
@@ -141,9 +143,9 @@ where
             .try_for_each(|(val, arg)| val.validate(program_id, arg))
     }
 }
-impl<AI, T, const N: usize> MultiIndexable<AI, usize> for [T; N]
+impl<T, const N: usize> MultiIndexable<usize> for [T; N]
 where
-    T: MultiIndexable<AI, ()>,
+    T: MultiIndexable<()>,
 {
     fn index_is_signer(&self, indexer: usize) -> CruiserResult<bool> {
         self.index_is_signer((indexer, ()))
@@ -157,9 +159,9 @@ where
         self.index_is_owner(owner, (indexer, ()))
     }
 }
-impl<AI, T, I, const N: usize> MultiIndexable<AI, (usize, I)> for [T; N]
+impl<T, I, const N: usize> MultiIndexable<(usize, I)> for [T; N]
 where
-    T: MultiIndexable<AI, I>,
+    T: MultiIndexable<I>,
 {
     fn index_is_signer(&self, indexer: (usize, I)) -> CruiserResult<bool> {
         self[indexer.0].index_is_signer(indexer.1)
@@ -173,9 +175,9 @@ where
         self[indexer.0].index_is_owner(owner, indexer.1)
     }
 }
-impl<AI, T, const N: usize> MultiIndexable<AI, AllAny> for [T; N]
+impl<T, const N: usize> MultiIndexable<AllAny> for [T; N]
 where
-    T: MultiIndexable<AI, ()>,
+    T: MultiIndexable<()>,
 {
     fn index_is_signer(&self, indexer: AllAny) -> CruiserResult<bool> {
         self.index_is_signer((indexer, ()))
@@ -189,9 +191,9 @@ where
         self.index_is_owner(owner, (indexer, ()))
     }
 }
-impl<AI, T, I, const N: usize> MultiIndexable<AI, (AllAny, I)> for [T; N]
+impl<T, I, const N: usize> MultiIndexable<(AllAny, I)> for [T; N]
 where
-    T: MultiIndexable<AI, I>,
+    T: MultiIndexable<I>,
     I: Clone,
 {
     fn index_is_signer(&self, indexer: (AllAny, I)) -> CruiserResult<bool> {
@@ -212,9 +214,9 @@ where
         })
     }
 }
-impl<AI, T, R, I, const N: usize> MultiIndexable<AI, (R, AllAny, I)> for [T; N]
+impl<T, R, I, const N: usize> MultiIndexable<(R, AllAny, I)> for [T; N]
 where
-    T: MultiIndexable<AI, I>,
+    T: MultiIndexable<I>,
     R: RangeBounds<usize>,
     I: Clone,
 {
@@ -239,19 +241,19 @@ where
         })
     }
 }
-impl<AI, T, const N: usize> SingleIndexable<AI, usize> for [T; N]
+impl<T, const N: usize> SingleIndexable<usize> for [T; N]
 where
-    T: SingleIndexable<AI, ()>,
+    T: SingleIndexable<()>,
 {
-    fn index_info(&self, indexer: usize) -> CruiserResult<&AI> {
+    fn index_info(&self, indexer: usize) -> CruiserResult<&Self::AccountInfo> {
         get_index(self, indexer)?.index_info(())
     }
 }
-impl<AI, T, I, const N: usize> SingleIndexable<AI, (usize, I)> for [T; N]
+impl<T, I, const N: usize> SingleIndexable<(usize, I)> for [T; N]
 where
-    T: SingleIndexable<AI, I>,
+    T: SingleIndexable<I>,
 {
-    fn index_info(&self, indexer: (usize, I)) -> CruiserResult<&AI> {
+    fn index_info(&self, indexer: (usize, I)) -> CruiserResult<&Self::AccountInfo> {
         get_index(self, indexer.0)?.index_info(indexer.1)
     }
 }

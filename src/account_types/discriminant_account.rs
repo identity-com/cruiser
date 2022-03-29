@@ -9,32 +9,31 @@ use crate::account_argument::{
 };
 use crate::account_list::AccountListItem;
 use crate::compressed_numbers::CompressedNumber;
-use crate::{AccountInfo, AllAny};
+use crate::AccountInfo;
 use crate::{CruiserAccountInfo, CruiserResult, GenericError};
 use borsh::{BorshDeserialize, BorshSerialize};
-use cruiser_derive::verify_account_arg_impl;
 use solana_program::pubkey::Pubkey;
 
-verify_account_arg_impl! {
-    mod discriminant_account_check <AI>{
-        <AI, AL, D> DiscriminantAccount<AI, AL, D> where AI: AccountInfo, AL: AccountListItem<D>, D: BorshSerialize{
-            from: [
-                /// Reads from the account for the value.
-                () where D: BorshDeserialize;
-                /// Uses this value rather than reading from the account.
-                (D,);
-            ];
-            validate: [
-                /// Verifies the discriminant on the account.
-                ();
-                /// Writes the discriminant to the account.
-                WriteDiscriminant;
-            ];
-            multi: [(); AllAny];
-            single: [()];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod discriminant_account_check <AI>{
+//         <AI, AL, D> DiscriminantAccount<AI, AL, D> where AI: AccountInfo, AL: AccountListItem<D>, D: BorshSerialize{
+//             from: [
+//                 /// Reads from the account for the value.
+//                 () where D: BorshDeserialize;
+//                 /// Uses this value rather than reading from the account.
+//                 (D,);
+//             ];
+//             validate: [
+//                 /// Verifies the discriminant on the account.
+//                 ();
+//                 /// Writes the discriminant to the account.
+//                 WriteDiscriminant;
+//             ];
+//             multi: [(); AllAny];
+//             single: [()];
+//         }
+//     }
+// }
 
 /// An account whose data is discriminated based on an account list.
 ///
@@ -85,12 +84,14 @@ where
             .finish()
     }
 }
-impl<AI, AL, D> AccountArgument<AI> for DiscriminantAccount<AI, AL, D>
+impl<AI, AL, D> AccountArgument for DiscriminantAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
     D: BorshSerialize,
 {
+    type AccountInfo = AI;
+
     fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         let mut data_ref = self.info.data_mut();
         let mut data = &mut data_ref[self.discriminant.num_bytes()..];
@@ -103,7 +104,7 @@ where
         self.info.add_keys(add)
     }
 }
-impl<AI, AL, D> FromAccounts<AI, ()> for DiscriminantAccount<AI, AL, D>
+impl<AI, AL, D> FromAccounts<()> for DiscriminantAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
@@ -111,7 +112,7 @@ where
 {
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = AI>,
         arg: (),
     ) -> CruiserResult<Self> {
         let info = AI::from_accounts(program_id, infos, arg)?;
@@ -131,7 +132,7 @@ where
         CruiserAccountInfo::accounts_usage_hint(arg)
     }
 }
-impl<AI, AL, D> FromAccounts<AI, (D,)> for DiscriminantAccount<AI, AL, D>
+impl<AI, AL, D> FromAccounts<(D,)> for DiscriminantAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
@@ -139,7 +140,7 @@ where
 {
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = AI>,
         arg: (D,),
     ) -> CruiserResult<Self> {
         let info = AI::from_accounts(program_id, infos, ())?;
@@ -157,7 +158,7 @@ where
         CruiserAccountInfo::accounts_usage_hint(&())
     }
 }
-impl<AI, AL, D> ValidateArgument<AI, ()> for DiscriminantAccount<AI, AL, D>
+impl<AI, AL, D> ValidateArgument<()> for DiscriminantAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
@@ -180,7 +181,7 @@ where
 /// Writes the discriminant to the account rather than verifying it
 #[derive(Debug, Copy, Clone)]
 pub struct WriteDiscriminant;
-impl<AI, AL, D> ValidateArgument<AI, WriteDiscriminant> for DiscriminantAccount<AI, AL, D>
+impl<AI, AL, D> ValidateArgument<WriteDiscriminant> for DiscriminantAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
@@ -193,9 +194,9 @@ where
         Ok(())
     }
 }
-impl<AI, AL, D, T> MultiIndexable<AI, T> for DiscriminantAccount<AI, AL, D>
+impl<AI, AL, D, T> MultiIndexable<T> for DiscriminantAccount<AI, AL, D>
 where
-    AI: AccountInfo + MultiIndexable<AI, T>,
+    AI: AccountInfo + MultiIndexable<T>,
     AL: AccountListItem<D>,
     D: BorshSerialize,
 {
@@ -211,9 +212,9 @@ where
         self.info.index_is_owner(owner, indexer)
     }
 }
-impl<AI, AL, D, T> SingleIndexable<AI, T> for DiscriminantAccount<AI, AL, D>
+impl<AI, AL, D, T> SingleIndexable<T> for DiscriminantAccount<AI, AL, D>
 where
-    AI: AccountInfo + SingleIndexable<AI, T>,
+    AI: AccountInfo + SingleIndexable<T>,
     AL: AccountListItem<D>,
     D: BorshSerialize,
 {

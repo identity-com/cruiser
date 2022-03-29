@@ -48,12 +48,12 @@ impl ErrorDerive {
                 Fields::Unit => (TokenStream::new(), TokenStream::new()),
             };
 
-            let message_enum = message_attr
-                .clone()
-                .map(|attr| attr.message)
-                .unwrap_or_else(|| ErrorMsg::Message {
+            let message_enum = message_attr.clone().map_or_else(
+                || ErrorMsg::Message {
                     message: LitStr::new(ident.to_string().as_str(), Span::call_site()),
-                });
+                },
+                |attr| attr.message,
+            );
 
             messages.push(match message_enum.clone() {
                 ErrorMsg::Message { message } => {
@@ -77,9 +77,9 @@ impl ErrorDerive {
                 }
             });
 
-            let index = index as u32;
+            let index = u32::try_from(index).expect("Could not convert index");
 
-            indexes.push(quote! {Self::#ident #fields_blank => #index + #start})
+            indexes.push(quote! {Self::#ident #fields_blank => #index + #start});
         }
 
         quote! {
@@ -195,7 +195,7 @@ impl Parse for ErrorAttribute {
 impl ToTokens for ErrorAttribute {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         self.paren
-            .surround(tokens, |tokens| self.arguments.to_tokens(tokens))
+            .surround(tokens, |tokens| self.arguments.to_tokens(tokens));
     }
 }
 

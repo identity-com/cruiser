@@ -1,31 +1,28 @@
 //! Sysvar support
 
+use crate::account_argument::{AccountArgument, SingleIndexable};
+use crate::account_types::PhantomAccount;
+use crate::{AccountInfo, CruiserResult, ToSolanaAccountInfo};
+use cruiser::account_argument::MultiIndexable;
 use solana_program::pubkey::Pubkey;
-use std::marker::PhantomData;
+use solana_program::sysvar::Sysvar;
 use std::ops::Deref;
 
-use cruiser::account_argument::MultiIndexable;
-use cruiser_derive::verify_account_arg_impl;
-use solana_program::sysvar::Sysvar;
-
-use crate::account_argument::{AccountArgument, SingleIndexable};
-use crate::{AccountInfo, AllAny, CruiserResult, ToSolanaAccountInfo};
-
-verify_account_arg_impl! {
-    mod sys_var_check<AI>{
-        <AI, S> SysVar<AI, S> where AI: AccountInfo, S: Sysvar{
-            from: [()];
-            validate: [()];
-            multi: [(); AllAny];
-            single: [()];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod sys_var_check<AI>{
+//         <AI, S> SysVar<AI, S> where AI: AccountInfo, S: Sysvar{
+//             from: [()];
+//             validate: [()];
+//             multi: [(); AllAny];
+//             single: [()];
+//         }
+//     }
+// }
 
 /// A sysvar, checks the address is the same.
 #[derive(AccountArgument, Debug)]
 #[account_argument(account_info = AI)]
-pub struct SysVar<AI, S>(#[validate(key = &S::id())] pub AI, PhantomData<fn() -> S>)
+pub struct SysVar<AI, S>(#[validate(key = &S::id())] pub AI, PhantomAccount<AI, S>)
 where
     AI: AccountInfo,
     S: Sysvar;
@@ -50,9 +47,9 @@ where
         &self.0
     }
 }
-impl<AI, S, T> MultiIndexable<AI, T> for SysVar<AI, S>
+impl<AI, S, T> MultiIndexable<T> for SysVar<AI, S>
 where
-    AI: AccountInfo + MultiIndexable<AI, T>,
+    AI: AccountInfo + MultiIndexable<T>,
     S: Sysvar,
 {
     fn index_is_signer(&self, indexer: T) -> CruiserResult<bool> {
@@ -67,9 +64,9 @@ where
         self.0.index_is_owner(owner, indexer)
     }
 }
-impl<AI, S, T> SingleIndexable<AI, T> for SysVar<AI, S>
+impl<AI, S, T> SingleIndexable<T> for SysVar<AI, S>
 where
-    AI: AccountInfo + SingleIndexable<AI, T>,
+    AI: AccountInfo + SingleIndexable<T>,
     S: Sysvar,
 {
     fn index_info(&self, indexer: T) -> CruiserResult<&AI> {

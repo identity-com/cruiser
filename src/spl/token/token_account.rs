@@ -5,22 +5,21 @@ use crate::account_argument::{
 };
 use crate::{AccountInfo, CruiserResult, GenericError};
 use cruiser::account_argument::AccountArgument;
-use cruiser_derive::verify_account_arg_impl;
 use solana_program::program_pack::Pack;
 use solana_program::pubkey::Pubkey;
 
 use crate::spl::token::TokenProgramAccount;
 
-verify_account_arg_impl! {
-    mod token_account_check<AI>{
-        <AI> TokenAccount<AI> where AI: AccountInfo{
-            from: [()];
-            validate: [(); <'a> Owner<'a>];
-            multi: [<I> I where TokenProgramAccount<AI>: MultiIndexable<AI, I>];
-            single: [<I> I where TokenProgramAccount<AI>: SingleIndexable<AI, I>];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod token_account_check<AI>{
+//         <AI> TokenAccount<AI> where AI: AccountInfo{
+//             from: [()];
+//             validate: [(); <'a> Owner<'a>];
+//             multi: [<I> I where TokenProgramAccount<AI>: MultiIndexable<AI, I>];
+//             single: [<I> I where TokenProgramAccount<AI>: SingleIndexable<AI, I>];
+//         }
+//     }
+// }
 
 /// A token account owned by the token program
 #[derive(Debug)]
@@ -36,10 +35,12 @@ impl<AI> Deref for TokenAccount<AI> {
         &self.data
     }
 }
-impl<AI> AccountArgument<AI> for TokenAccount<AI>
+impl<AI> AccountArgument for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
+    type AccountInfo = AI;
+
     fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         self.account.write_back(program_id)
     }
@@ -48,13 +49,13 @@ where
         self.account.add_keys(add)
     }
 }
-impl<AI> FromAccounts<AI, ()> for TokenAccount<AI>
+impl<AI> FromAccounts<()> for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = AI>,
         arg: (),
     ) -> CruiserResult<Self> {
         let account: TokenProgramAccount<AI> = FromAccounts::from_accounts(program_id, infos, arg)?;
@@ -66,7 +67,7 @@ where
         TokenProgramAccount::<AI>::accounts_usage_hint(arg)
     }
 }
-impl<AI> ValidateArgument<AI, ()> for TokenAccount<AI>
+impl<AI> ValidateArgument<()> for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
@@ -78,7 +79,7 @@ where
 /// Validates that the given key is the owner of the [`TokenAccount`]
 #[derive(Debug)]
 pub struct Owner<'a>(pub &'a Pubkey);
-impl<AI> ValidateArgument<AI, Owner<'_>> for TokenAccount<AI>
+impl<AI> ValidateArgument<Owner<'_>> for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
@@ -95,10 +96,10 @@ where
         }
     }
 }
-impl<AI, I> MultiIndexable<AI, I> for TokenAccount<AI>
+impl<AI, I> MultiIndexable<I> for TokenAccount<AI>
 where
     AI: AccountInfo,
-    TokenProgramAccount<AI>: MultiIndexable<AI, I>,
+    TokenProgramAccount<AI>: MultiIndexable<I>,
 {
     fn index_is_signer(&self, indexer: I) -> CruiserResult<bool> {
         self.account.index_is_signer(indexer)
@@ -112,10 +113,10 @@ where
         self.account.index_is_owner(owner, indexer)
     }
 }
-impl<AI, I> SingleIndexable<AI, I> for TokenAccount<AI>
+impl<AI, I> SingleIndexable<I> for TokenAccount<AI>
 where
     AI: AccountInfo,
-    TokenProgramAccount<AI>: SingleIndexable<AI, I>,
+    TokenProgramAccount<AI>: SingleIndexable<I, AccountInfo = AI>,
 {
     fn index_info(&self, indexer: I) -> CruiserResult<&AI> {
         self.account.index_info(indexer)

@@ -320,14 +320,16 @@ impl Parse for AccountArgumentDerive {
             derive_input.attrs.iter(),
             &format_ident!("{}", AccountArgumentAttribute::IDENT),
         )
-        .map(AccountArgumentAttribute::parse_arguments)
-        .unwrap_or_else(|| {
-            abort!(
-                derive_input.ident,
-                "Missing `{}` attribute",
-                AccountArgumentAttribute::IDENT
-            )
-        });
+        .map_or_else(
+            || {
+                abort!(
+                    derive_input.ident,
+                    "Missing `{}` attribute",
+                    AccountArgumentAttribute::IDENT
+                )
+            },
+            AccountArgumentAttribute::parse_arguments,
+        );
 
         let mut from_attributes =
             FromAttribute::read_all(&from_attribute_ident, derive_input.attrs.iter());
@@ -367,8 +369,8 @@ impl AccountArgumentDerive {
                     &self.ident,
                     &self.generics,
                     self.account_argument_attribute.generics.as_ref(),
-                    id,
-                    attr,
+                    &id,
+                    &attr,
                     &self.account_argument_attribute.account_info,
                 )
             });
@@ -383,9 +385,8 @@ impl AccountArgumentDerive {
                     &self.ident,
                     &self.generics,
                     self.account_argument_attribute.generics.as_ref(),
-                    id,
-                    attr,
-                    &self.account_argument_attribute.account_info,
+                    &id,
+                    &attr,
                 )
             });
             quote! { #(#validate_argument)* }
@@ -407,17 +408,15 @@ impl AccountArgumentDerive {
             once(self.account_argument_attribute.generics.as_ref()),
         );
 
-        let write_back = self
-            .derive_type
-            .write_back(&self.account_argument_attribute.account_info);
-        let add_keys = self
-            .derive_type
-            .add_keys(&self.account_argument_attribute.account_info);
+        let write_back = self.derive_type.write_back();
+        let add_keys = self.derive_type.add_keys();
         let account_info = &self.account_argument_attribute.account_info;
 
         quote! {
             #[automatically_derived]
-            impl #impl_gen #crate_name::account_argument::AccountArgument<#account_info> for #ident #ty_gen #where_clause {
+            impl #impl_gen #crate_name::account_argument::AccountArgument for #ident #ty_gen #where_clause {
+                type AccountInfo = #account_info;
+
                 fn write_back(
                     self,
                     program_id: &#crate_name::Pubkey,
@@ -492,15 +491,15 @@ impl AccountArgumentDeriveType {
                     argument_validate_field_attr_ident,
                     from_ids,
                     validate_ids,
-                )?))
+                )))
             }
             Data::Enum(data_enum) => Ok(Self::Enum(AccountArgumentDeriveEnum::from_enum(
                 data_enum,
                 argument_from_field_attr_ident,
                 argument_validate_field_attr_ident,
-                from_ids,
-                validate_ids,
-            )?)),
+                &from_ids,
+                &validate_ids,
+            ))),
             Data::Union(union) => {
                 abort!(
                     union.union_token.span.join(ident.span()).unwrap(),
@@ -511,21 +510,17 @@ impl AccountArgumentDeriveType {
         }
     }
 
-    fn write_back(&self, account_info: &Type) -> TokenStream {
+    fn write_back(&self) -> TokenStream {
         match self {
-            AccountArgumentDeriveType::Enum(data) => data.write_back(account_info),
-            AccountArgumentDeriveType::Struct(data) => {
-                data.write_back(&quote! { self. }, account_info)
-            }
+            AccountArgumentDeriveType::Enum(data) => data.write_back(),
+            AccountArgumentDeriveType::Struct(data) => data.write_back(&quote! { self. }),
         }
     }
 
-    fn add_keys(&self, account_info: &Type) -> TokenStream {
+    fn add_keys(&self) -> TokenStream {
         match self {
-            AccountArgumentDeriveType::Enum(data) => data.add_keys(account_info),
-            AccountArgumentDeriveType::Struct(data) => {
-                data.add_keys(&quote! { self. }, account_info)
-            }
+            AccountArgumentDeriveType::Enum(data) => data.add_keys(),
+            AccountArgumentDeriveType::Struct(data) => data.add_keys(&quote! { self. }),
         }
     }
 
@@ -536,8 +531,8 @@ impl AccountArgumentDeriveType {
         ident: &Ident,
         generics: &Generics,
         argument_generics: Option<&AdditionalGenerics>,
-        id: String,
-        attr: FromAttribute,
+        id: &str,
+        attr: &FromAttribute,
         account_info: &Type,
     ) -> TokenStream {
         let crate_name = get_crate_name();
@@ -553,15 +548,15 @@ impl AccountArgumentDeriveType {
             let inner = match self {
                 AccountArgumentDeriveType::Enum(_) => todo!(),
                 AccountArgumentDeriveType::Struct(data) => {
-                    data.from_accounts(&id, &program_id, &infos, account_info)
+                    data.from_accounts(id, &program_id, &infos)
                 }
             };
             out.push(quote! {
                 #[automatically_derived]
-                impl #impl_gen #crate_name::account_argument::FromAccounts<#account_info, #ty> for #ident #ty_gen #where_clause{
+                impl #impl_gen #crate_name::account_argument::FromAccounts<#ty> for #ident #ty_gen #where_clause{
                     fn from_accounts(
                         program_id: &#crate_name::Pubkey,
-                        __infos: &mut impl #crate_name::account_argument::AccountInfoIterator<#account_info>,
+                        __infos: &mut impl #crate_name::account_argument::AccountInfoIterator<Item = #account_info>,
                         __arg: #ty,
                     ) -> #crate_name::CruiserResult<Self>{
                         #(#accessors)*
@@ -585,9 +580,8 @@ impl AccountArgumentDeriveType {
         ident: &Ident,
         generics: &Generics,
         argument_generics: Option<&AdditionalGenerics>,
-        id: String,
-        attr: ValidateAttribute,
-        account_info: &Type,
+        id: &str,
+        attr: &ValidateAttribute,
     ) -> TokenStream {
         let crate_name = get_crate_name();
 
@@ -601,12 +595,12 @@ impl AccountArgumentDeriveType {
             let inner = match self {
                 AccountArgumentDeriveType::Enum(_) => todo!(),
                 AccountArgumentDeriveType::Struct(data) => {
-                    data.validate_argument(&id, &program_id, &quote! { self. }, account_info)
+                    data.validate_argument(id, &program_id, &quote! { self. })
                 }
             };
             out.push(quote! {
                 #[automatically_derived]
-                impl #impl_gen #crate_name::account_argument::ValidateArgument<#account_info, #ty> for #ident #ty_gen #where_clause{
+                impl #impl_gen #crate_name::account_argument::ValidateArgument<#ty> for #ident #ty_gen #where_clause{
                     fn validate(&mut self, program_id: &#crate_name::Pubkey, __arg: #ty) -> #crate_name::CruiserResult<()>{
                         #(#accessors)*
                         #inner
@@ -628,9 +622,9 @@ impl AccountArgumentDeriveEnum {
         value: DataEnum,
         argument_from_field_attr_ident: &Ident,
         argument_validate_field_attr_ident: &Ident,
-        from_ids: HashSet<String>,
-        validate_ids: HashSet<String>,
-    ) -> syn::Result<Self> {
+        from_ids: &HashSet<String>,
+        validate_ids: &HashSet<String>,
+    ) -> Self {
         let mut variants = Vec::with_capacity(value.variants.len());
         for variant in value.variants {
             variants.push(AccountArgumentEnumVariant {
@@ -641,15 +635,15 @@ impl AccountArgumentDeriveEnum {
                     argument_validate_field_attr_ident,
                     from_ids.clone(),
                     validate_ids.clone(),
-                )?,
+                ),
                 discriminant: variant.discriminant.map(|(_, discriminant)| discriminant),
-            })
+            });
         }
-        Ok(Self(variants))
+        Self(variants)
     }
 
-    fn write_back(&self, account_info: &Type) -> TokenStream {
-        let write_back = self.0.iter().map(|val| val.write_back(account_info));
+    fn write_back(&self) -> TokenStream {
+        let write_back = self.0.iter().map(AccountArgumentEnumVariant::write_back);
         quote! {
             match self {#(
                 #write_back
@@ -657,8 +651,8 @@ impl AccountArgumentDeriveEnum {
         }
     }
 
-    fn add_keys(&self, account_info: &Type) -> TokenStream {
-        let add_keys = self.0.iter().map(|val| val.add_keys(account_info));
+    fn add_keys(&self) -> TokenStream {
+        let add_keys = self.0.iter().map(AccountArgumentEnumVariant::add_keys);
         quote! {
             match self {#(
                 #add_keys
@@ -708,33 +702,34 @@ impl AccountArgumentEnumVariant {
         }
     }
 
-    fn write_back(&self, account_info: &Type) -> TokenStream {
+    fn write_back(&self) -> TokenStream {
         self.do_fields(
             |fields| {
                 let write_back = fields
                     .iter()
-                    .map(|field| field.write_back(&TokenStream::new(), account_info));
+                    .map(|field| field.write_back(&TokenStream::new()));
                 quote! { #(#write_back)* }
             },
             |fields| {
                 let field_names: Vec<_> = (0..fields.len())
                     .map(|index| format_ident!("val{}", index))
                     .collect();
-                let write_back = fields.iter().zip(field_names.iter()).map(|(field, ident)| {
-                    field.write_back(&ident.into_token_stream(), account_info)
-                });
+                let write_back = fields
+                    .iter()
+                    .zip(field_names.iter())
+                    .map(|(field, ident)| field.write_back(&ident.into_token_stream()));
                 quote! { #(#write_back)* }
             },
             TokenStream::new,
         )
     }
 
-    fn add_keys(&self, account_info: &Type) -> TokenStream {
+    fn add_keys(&self) -> TokenStream {
         self.do_fields(
             |fields| {
                 let add_keys = fields
                     .iter()
-                    .map(|field| field.add_keys(&TokenStream::new(), account_info));
+                    .map(|field| field.add_keys(&TokenStream::new()));
                 quote! { #(#add_keys)* }
             },
             |fields| {
@@ -744,7 +739,7 @@ impl AccountArgumentEnumVariant {
                 let add_keys = fields
                     .iter()
                     .zip(field_names.iter())
-                    .map(|(field, ident)| field.add_keys(&ident.into_token_stream(), account_info));
+                    .map(|(field, ident)| field.add_keys(&ident.into_token_stream()));
                 quote! { #(#add_keys)* }
             },
             TokenStream::new,
@@ -765,9 +760,9 @@ impl AccountArgumentDeriveStruct {
         argument_validate_field_attr_ident: &Ident,
         from_ids: HashSet<String>,
         validate_ids: HashSet<String>,
-    ) -> Result<Self, syn::Error> {
+    ) -> Self {
         match value {
-            Fields::Named(named) => Ok(Self::Named(
+            Fields::Named(named) => Self::Named(
                 Self::from_named(
                     named.named.into_iter(),
                     argument_from_field_attr_ident,
@@ -776,8 +771,8 @@ impl AccountArgumentDeriveStruct {
                     validate_ids,
                 )
                 .collect(),
-            )),
-            Fields::Unnamed(unnamed) => Ok(Self::Unnamed(
+            ),
+            Fields::Unnamed(unnamed) => Self::Unnamed(
                 Self::from_unnamed(
                     unnamed.unnamed.into_iter(),
                     argument_from_field_attr_ident,
@@ -786,8 +781,8 @@ impl AccountArgumentDeriveStruct {
                     validate_ids,
                 )
                 .collect(),
-            )),
-            Fields::Unit => Ok(Self::Unit),
+            ),
+            Fields::Unit => Self::Unit,
         }
     }
 
@@ -827,7 +822,7 @@ impl AccountArgumentDeriveStruct {
                 field.attrs.iter(),
             );
 
-            for (key, value) in from_attrs.iter() {
+            for (key, value) in &from_attrs {
                 if !from_ids.contains(key) {
                     match &value.id {
                         Some(id) => abort!(id, "Unknown id `{}`", id),
@@ -835,7 +830,7 @@ impl AccountArgumentDeriveStruct {
                     }
                 }
             }
-            for (key, value) in validate_attrs.iter() {
+            for (key, value) in &validate_attrs {
                 if !validate_ids.contains(key) {
                     match &value.id {
                         Some(id) => abort!(id, "Unknown id `{}`", id),
@@ -852,85 +847,55 @@ impl AccountArgumentDeriveStruct {
         })
     }
 
-    fn write_back(&self, self_access: &TokenStream, account_info: &Type) -> TokenStream {
+    fn write_back(&self, self_access: &TokenStream) -> TokenStream {
         match self {
-            AccountArgumentDeriveStruct::Named(named) => {
-                Self::write_back_named(named, self_access, account_info)
-            }
+            AccountArgumentDeriveStruct::Named(named) => Self::write_back_named(named, self_access),
             AccountArgumentDeriveStruct::Unnamed(unnamed) => {
-                Self::write_back_unnamed(unnamed, self_access, account_info)
+                Self::write_back_unnamed(unnamed, self_access)
             }
             AccountArgumentDeriveStruct::Unit => TokenStream::new(),
         }
     }
 
-    fn write_back_named(
-        named: &[NamedField],
-        self_access: &TokenStream,
-        account_info: &Type,
-    ) -> TokenStream {
-        let write_back = named
-            .iter()
-            .map(|field| field.write_back(self_access, account_info));
+    fn write_back_named(named: &[NamedField], self_access: &TokenStream) -> TokenStream {
+        let write_back = named.iter().map(|field| field.write_back(self_access));
 
         quote! { #(#write_back)* }
     }
 
-    fn write_back_unnamed(
-        unnamed: &[UnnamedField],
-        self_access: &TokenStream,
-        account_info: &Type,
-    ) -> TokenStream {
+    fn write_back_unnamed(unnamed: &[UnnamedField], self_access: &TokenStream) -> TokenStream {
         let write_back = unnamed.iter().enumerate().map(|(index, field)| {
-            field.write_back(
-                {
-                    let index = Index::from(index);
-                    &quote! { #self_access #index }
-                },
-                account_info,
-            )
+            field.write_back({
+                let index = Index::from(index);
+                &quote! { #self_access #index }
+            })
         });
 
         quote! { #(#write_back)* }
     }
 
-    fn add_keys(&self, self_access: &TokenStream, account_info: &Type) -> TokenStream {
+    fn add_keys(&self, self_access: &TokenStream) -> TokenStream {
         match self {
-            AccountArgumentDeriveStruct::Named(named) => {
-                Self::add_keys_named(named, self_access, account_info)
-            }
+            AccountArgumentDeriveStruct::Named(named) => Self::add_keys_named(named, self_access),
             AccountArgumentDeriveStruct::Unnamed(unnamed) => {
-                Self::add_keys_unnamed(unnamed, self_access, account_info)
+                Self::add_keys_unnamed(unnamed, self_access)
             }
             AccountArgumentDeriveStruct::Unit => TokenStream::new(),
         }
     }
 
-    fn add_keys_named(
-        named: &[NamedField],
-        self_access: &TokenStream,
-        account_info: &Type,
-    ) -> TokenStream {
-        let add_keys = named
-            .iter()
-            .map(|field| field.add_keys(self_access, account_info));
+    fn add_keys_named(named: &[NamedField], self_access: &TokenStream) -> TokenStream {
+        let add_keys = named.iter().map(|field| field.add_keys(self_access));
 
         quote! { #(#add_keys)* }
     }
 
-    fn add_keys_unnamed(
-        unnamed: &[UnnamedField],
-        self_access: &TokenStream,
-        account_info: &Type,
-    ) -> TokenStream {
+    fn add_keys_unnamed(unnamed: &[UnnamedField], self_access: &TokenStream) -> TokenStream {
         let add_keys = unnamed.iter().enumerate().map(|(index, field)| {
-            field.add_keys(
-                {
-                    let index = Index::from(index);
-                    &quote! { #self_access #index }
-                },
-                account_info,
-            )
+            field.add_keys({
+                let index = Index::from(index);
+                &quote! { #self_access #index }
+            })
         });
 
         quote! { #(#add_keys)* }
@@ -943,14 +908,13 @@ impl AccountArgumentDeriveStruct {
         id: &str,
         program_id: &TokenStream,
         infos: &TokenStream,
-        account_info: &Type,
     ) -> TokenStream {
         match self {
             AccountArgumentDeriveStruct::Named(named) => {
-                Self::from_accounts_named(named, id, program_id, infos, account_info)
+                Self::from_accounts_named(named, id, program_id, infos)
             }
             AccountArgumentDeriveStruct::Unnamed(unnamed) => {
-                Self::from_accounts_unnamed(unnamed, id, program_id, infos, account_info)
+                Self::from_accounts_unnamed(unnamed, id, program_id, infos)
             }
             AccountArgumentDeriveStruct::Unit => quote! { ::std::result::Result::Ok(Self) },
         }
@@ -962,11 +926,10 @@ impl AccountArgumentDeriveStruct {
         id: &str,
         program_id: &TokenStream,
         infos: &TokenStream,
-        account_info: &Type,
     ) -> TokenStream {
         let tokens = named
             .iter()
-            .map(|field| field.from_accounts(id, program_id, infos, account_info));
+            .map(|field| field.from_accounts(id, program_id, infos));
         quote! {
             ::std::result::Result::Ok(Self{
                 #(#tokens,)*
@@ -980,11 +943,10 @@ impl AccountArgumentDeriveStruct {
         id: &str,
         program_id: &TokenStream,
         infos: &TokenStream,
-        account_info: &Type,
     ) -> TokenStream {
         let tokens = unnamed
             .iter()
-            .map(|field| field.from_accounts(id, program_id, infos, account_info));
+            .map(|field| field.from_accounts(id, program_id, infos));
         quote! {
             ::std::result::Result::Ok(Self(#(#tokens,)*))
         }
@@ -995,14 +957,13 @@ impl AccountArgumentDeriveStruct {
         id: &str,
         program_id: &TokenStream,
         accessor: &TokenStream,
-        account_info: &Type,
     ) -> TokenStream {
         match self {
             AccountArgumentDeriveStruct::Named(named) => {
-                Self::validate_argument_named(named, id, program_id, accessor, account_info)
+                Self::validate_argument_named(named, id, program_id, accessor)
             }
             AccountArgumentDeriveStruct::Unnamed(unnamed) => {
-                Self::validate_argument_unnamed(unnamed, id, program_id, accessor, account_info)
+                Self::validate_argument_unnamed(unnamed, id, program_id, accessor)
             }
             AccountArgumentDeriveStruct::Unit => TokenStream::new(),
         }
@@ -1013,11 +974,10 @@ impl AccountArgumentDeriveStruct {
         id: &str,
         program_id: &TokenStream,
         accessor: &TokenStream,
-        account_info: &Type,
     ) -> TokenStream {
         let tokens = named
             .iter()
-            .map(|field| field.validate_argument(id, program_id, accessor, account_info));
+            .map(|field| field.validate_argument(id, program_id, accessor));
         quote! {
             #(#tokens)*
         }
@@ -1028,11 +988,10 @@ impl AccountArgumentDeriveStruct {
         id: &str,
         program_id: &TokenStream,
         accessor: &TokenStream,
-        account_info: &Type,
     ) -> TokenStream {
         let tokens = unnamed.iter().enumerate().map(|(index, field)| {
             let index = Index::from(index);
-            field.validate_argument(id, program_id, &quote! { #accessor #index }, account_info)
+            field.validate_argument(id, program_id, &quote! { #accessor #index })
         });
         quote! {
             #(#tokens)*
@@ -1046,16 +1005,14 @@ struct NamedField {
     field: UnnamedField,
 }
 impl NamedField {
-    fn write_back(&self, self_access: &TokenStream, account_info: &Type) -> TokenStream {
+    fn write_back(&self, self_access: &TokenStream) -> TokenStream {
         let ident = &self.ident;
-        self.field
-            .write_back(&quote! { #self_access #ident }, account_info)
+        self.field.write_back(&quote! { #self_access #ident })
     }
 
-    fn add_keys(&self, self_access: &TokenStream, account_info: &Type) -> TokenStream {
+    fn add_keys(&self, self_access: &TokenStream) -> TokenStream {
         let ident = &self.ident;
-        self.field
-            .add_keys(&quote! { #self_access #ident }, account_info)
+        self.field.add_keys(&quote! { #self_access #ident })
     }
 
     //noinspection RsSelfConvention
@@ -1065,12 +1022,9 @@ impl NamedField {
         id: &str,
         program_id: &TokenStream,
         infos: &TokenStream,
-        account_info: &Type,
     ) -> TokenStream {
         let ident = &self.ident;
-        let expr = self
-            .field
-            .from_accounts(id, program_id, infos, account_info);
+        let expr = self.field.from_accounts(id, program_id, infos);
         quote! { #ident: #expr }
     }
 
@@ -1079,11 +1033,10 @@ impl NamedField {
         id: &str,
         program_id: &TokenStream,
         accessor: &TokenStream,
-        account_info: &Type,
     ) -> TokenStream {
         let ident = &self.ident;
         self.field
-            .validate_argument(id, program_id, &quote! { #accessor #ident }, account_info)
+            .validate_argument(id, program_id, &quote! { #accessor #ident })
     }
 }
 impl Deref for NamedField {
@@ -1106,19 +1059,19 @@ struct UnnamedField {
     ty: Type,
 }
 impl UnnamedField {
-    fn write_back(&self, accessor: &TokenStream, account_info: &Type) -> TokenStream {
+    fn write_back(&self, accessor: &TokenStream) -> TokenStream {
         let crate_name = get_crate_name();
         let ty = &self.ty;
         quote! {
-            <#ty as #crate_name::account_argument::AccountArgument<#account_info>>::write_back(#accessor, program_id)?;
+            <#ty as #crate_name::account_argument::AccountArgument>::write_back(#accessor, program_id)?;
         }
     }
 
-    fn add_keys(&self, accessor: &TokenStream, account_info: &Type) -> TokenStream {
+    fn add_keys(&self, accessor: &TokenStream) -> TokenStream {
         let crate_name = get_crate_name();
         let ty = &self.ty;
         quote! {
-            <#ty as #crate_name::account_argument::AccountArgument<#account_info>>::add_keys(&#accessor, &mut add__)?;
+            <#ty as #crate_name::account_argument::AccountArgument>::add_keys(&#accessor, &mut add__)?;
         }
     }
 
@@ -1129,7 +1082,6 @@ impl UnnamedField {
         id: &str,
         program_id: &TokenStream,
         infos: &TokenStream,
-        account_info: &Type,
     ) -> TokenStream {
         let crate_name = get_crate_name();
         let expr = self
@@ -1137,7 +1089,7 @@ impl UnnamedField {
             .get(id)
             .and_then(|attr| attr.data.clone())
             .unwrap_or_else(|| syn::parse_str("()").unwrap());
-        quote! { #crate_name::account_argument::FromAccounts::<#account_info, _>::from_accounts(#program_id, #infos, #expr)? }
+        quote! { #crate_name::account_argument::FromAccounts::<_>::from_accounts(#program_id, #infos, #expr)? }
     }
 
     fn validate_argument(
@@ -1145,7 +1097,6 @@ impl UnnamedField {
         id: &str,
         program_id: &TokenStream,
         accessor: &TokenStream,
-        account_info: &Type,
     ) -> TokenStream {
         let crate_name = get_crate_name();
         let attr = self.validate_attrs.get(id).cloned().unwrap_or_default();
@@ -1170,7 +1121,7 @@ impl UnnamedField {
         });
 
         quote! {
-            #crate_name::account_argument::ValidateArgument::<#account_info, _>::validate(&mut #accessor, #program_id, #validate)?;
+            #crate_name::account_argument::ValidateArgument::<_>::validate(&mut #accessor, #program_id, #validate)?;
             #(#signer)*
             #(#writable)*
             #(#owner)*

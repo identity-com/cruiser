@@ -1,8 +1,11 @@
 use proc_macro2::{Span, TokenStream};
 use proc_macro_error::{abort, abort_call_site};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
-use syn::{Data, DeriveInput, Expr, Fields, Generics, Ident, LitStr, Type, Variant};
+use syn::{
+    bracketed, token, Data, DeriveInput, Expr, Fields, Generics, Ident, LitStr, Type, Variant,
+    WhereClause,
+};
 
 use easy_proc::{find_attr, ArgumentList};
 
@@ -10,17 +13,46 @@ use crate::get_crate_name;
 use crate::log_level::LogLevel;
 
 #[derive(ArgumentList)]
-pub struct InstructionListAttribute {
+struct InstructionListAttribute {
     #[argument(default = syn::parse_str("u64").unwrap())]
     discriminant_type: Type,
     #[argument(default)]
     log_level: LogLevel,
     #[argument(presence)]
     no_processor: bool,
+    account_info: AccountInfoArg,
     account_list: Type,
 }
 impl InstructionListAttribute {
     const IDENT: &'static str = "instruction_list";
+}
+
+struct AccountInfoArg {
+    bracket: token::Bracket,
+    generics: Generics,
+    ty: Type,
+    where_clause: Option<WhereClause>,
+}
+impl Parse for AccountInfoArg {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let content;
+        let bracket = bracketed!(content in input);
+        Ok(Self {
+            bracket,
+            generics: content.parse()?,
+            ty: content.parse()?,
+            where_clause: content.parse()?,
+        })
+    }
+}
+impl ToTokens for AccountInfoArg {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.bracket.surround(tokens, |tokens| {
+            self.generics.to_tokens(tokens);
+            self.ty.to_tokens(tokens);
+            self.where_clause.to_tokens(tokens);
+        });
+    }
 }
 
 pub struct InstructionListDerive {
@@ -38,8 +70,10 @@ impl Parse for InstructionListDerive {
 
         let instruction_list_attribute = find_attr(derive_input.attrs, &instruction_list_ident)
             .as_ref()
-            .map(InstructionListAttribute::parse_arguments)
-            .unwrap_or_else(|| abort!(derive_input.ident, "Missing `instruction_list` attribute"));
+            .map_or_else(
+                || abort!(derive_input.ident, "Missing `instruction_list` attribute"),
+                InstructionListAttribute::parse_arguments,
+            );
 
         let variants = match derive_input.data {
             Data::Struct(_) | Data::Union(_) => {
@@ -48,10 +82,10 @@ impl Parse for InstructionListDerive {
             Data::Enum(enum_data) => enum_data.variants,
         };
 
-        let variants = variants
+        let variants: Vec<_> = variants
             .into_iter()
             .map(|variant| InstructionListVariant::from_variant(variant, &variant_attr_ident))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect();
 
         if instruction_list_attribute.no_processor {
             for variant in &variants {
@@ -74,50 +108,35 @@ impl InstructionListDerive {
         let crate_name = get_crate_name();
 
         let ident = self.ident;
-        let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
+        let mut generics = self.generics.clone();
+        generics
+            .params
+            .extend(self.attribute.account_info.generics.params.into_iter());
+        if let Some(where_clause) = self.attribute.account_info.generics.where_clause {
+            generics
+                .make_where_clause()
+                .predicates
+                .extend(where_clause.predicates.into_iter());
+        }
+        if let Some(where_clause) = self.attribute.account_info.where_clause {
+            generics
+                .make_where_clause()
+                .predicates
+                .extend(where_clause.predicates.into_iter());
+        }
+        let (impl_generics, _, where_clause) = generics.split_for_impl();
+        let (main_impl_generics, ty_generics, main_where_clause) = self.generics.split_for_impl();
+        let account_info_ty = self.attribute.account_info.ty;
 
         let discriminant_type = self.attribute.discriminant_type;
         let log_level = self.attribute.log_level;
         let account_list = self.attribute.account_list;
 
-        let (variant_ident, variant_instruction_type, variant_discriminant, variant_processors) = {
-            let mut variant_idents = Vec::with_capacity(self.variants.len());
-            let mut variant_instruction_type = Vec::with_capacity(self.variants.len());
-            let mut variant_discriminant = Vec::with_capacity(self.variants.len());
-            let mut variant_processors = Vec::with_capacity(self.variants.len());
-            for variant in self.variants {
-                let instruction_type = &variant.attribute.instruction_type;
-                variant_processors.push(
-                    variant
-                        .attribute
-                        .processor
-                        .unwrap_or_else(|| instruction_type.clone()),
-                );
-                variant_idents.push(variant.ident);
-                variant_instruction_type.push(variant.attribute.instruction_type);
-                variant_discriminant.push(
-                    variant
-                        .discriminant
-                        .map(|expr| quote! { #expr })
-                        .unwrap_or_else(|| {
-                            variant_discriminant
-                                .last()
-                                .cloned()
-                                .map(|last| quote! { (#last) + 1 })
-                                .unwrap_or_else(|| quote! { 0 })
-                        }),
-                );
-            }
-            (
-                variant_idents,
-                variant_instruction_type,
-                variant_discriminant,
-                variant_processors,
-            )
-        };
+        let (variant_ident, variant_instruction_type, variant_discriminant, variant_processors) =
+            Self::split_variants(self.variants);
 
         let processor = if self.attribute.no_processor {
-            quote! {}
+            TokenStream::new()
         } else {
             let instruction_prints = variant_ident.iter().map(|ident| {
                 log_level.if_level(LogLevel::Info, |_| {
@@ -130,10 +149,10 @@ impl InstructionListDerive {
 
             quote! {
                 #[automatically_derived]
-                impl #impl_generics #crate_name::instruction_list::InstructionListProcessor<#ident> for #ident #ty_generics #where_clause{
+                impl #impl_generics #crate_name::instruction_list::InstructionListProcessor<#account_info_ty, #ident> for #ident #ty_generics #where_clause{
                     fn process_instruction(
-                        program_id: &'static #crate_name::Pubkey,
-                        accounts: &mut impl #crate_name::account_argument::AccountInfoIterator<#crate_name::CruiserAccountInfo>,
+                        program_id: &#crate_name::Pubkey,
+                        accounts: &mut impl #crate_name::account_argument::AccountInfoIterator<Item = #account_info_ty>,
                         mut data: &[u8],
                     ) -> #crate_name::CruiserResult<()>{
                         let discriminant = <<Self as #crate_name::instruction_list::InstructionList>::DiscriminantCompressed as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
@@ -143,17 +162,7 @@ impl InstructionListDerive {
                         }
                         #(else if discriminant == #variant_discriminant{
                             #instruction_prints
-                            let data = <<#variant_instruction_type as #crate_name::instruction::Instruction<#crate_name::CruiserAccountInfo>>::Data as #crate_name::borsh::BorshDeserialize>::deserialize(&mut data)?;
-                            let (from_data, validate_data, instruction_data) = <#variant_processors as #crate_name::instruction::InstructionProcessor<#crate_name::CruiserAccountInfo, #variant_instruction_type>>::data_to_instruction_arg(data)?;
-                            let mut accounts = <<#variant_instruction_type as #crate_name::instruction::Instruction<#crate_name::CruiserAccountInfo>>::Accounts as #crate_name::account_argument::FromAccounts<_, _>>::from_accounts(program_id, accounts, from_data)?;
-                            #crate_name::account_argument::ValidateArgument::<#crate_name::CruiserAccountInfo, _>::validate(&mut accounts, program_id, validate_data)?;
-                            <#variant_processors as #crate_name::instruction::InstructionProcessor<#crate_name::CruiserAccountInfo, #variant_instruction_type>>::process(
-                                program_id,
-                                instruction_data,
-                                &mut accounts,
-                            )?;
-                            <<#variant_instruction_type as #crate_name::instruction::Instruction<#crate_name::CruiserAccountInfo>>::Accounts as #crate_name::account_argument::AccountArgument<#crate_name::CruiserAccountInfo>>::write_back(accounts, program_id)?;
-                            Ok(())
+                            #crate_name::util::process_instruction::<#account_info_ty, #variant_instruction_type, #variant_processors, _>(program_id, accounts, data)
                         })* else{
                             todo!();
                         }
@@ -164,7 +173,7 @@ impl InstructionListDerive {
 
         quote! {
             #[automatically_derived]
-            impl #impl_generics InstructionList for #ident #ty_generics #where_clause{
+            impl #main_impl_generics InstructionList for #ident #ty_generics #main_where_clause{
                 type DiscriminantCompressed = #discriminant_type;
                 type AccountList = #account_list;
 
@@ -190,6 +199,41 @@ impl InstructionListDerive {
             #processor
         }
     }
+
+    fn split_variants(
+        variants: Vec<InstructionListVariant>,
+    ) -> (Vec<Ident>, Vec<Type>, Vec<TokenStream>, Vec<Type>) {
+        let mut variant_idents = Vec::with_capacity(variants.len());
+        let mut variant_instruction_type = Vec::with_capacity(variants.len());
+        let mut variant_discriminant = Vec::with_capacity(variants.len());
+        let mut variant_processors = Vec::with_capacity(variants.len());
+        for variant in variants {
+            let instruction_type = &variant.attribute.instruction_type;
+            variant_processors.push(
+                variant
+                    .attribute
+                    .processor
+                    .unwrap_or_else(|| instruction_type.clone()),
+            );
+            variant_idents.push(variant.ident);
+            variant_instruction_type.push(variant.attribute.instruction_type);
+            variant_discriminant.push(variant.discriminant.map_or_else(
+                || {
+                    variant_discriminant
+                        .last()
+                        .cloned()
+                        .map_or_else(|| quote! { 0 }, |last| quote! { (#last) + 1 })
+                },
+                |expr| quote! { #expr },
+            ));
+        }
+        (
+            variant_idents,
+            variant_instruction_type,
+            variant_discriminant,
+            variant_processors,
+        )
+    }
 }
 
 struct InstructionListVariant {
@@ -198,7 +242,7 @@ struct InstructionListVariant {
     attribute: InstructionListVariantAttribute,
 }
 impl InstructionListVariant {
-    fn from_variant(value: Variant, attr_ident: &Ident) -> Result<Self, syn::Error> {
+    fn from_variant(value: Variant, attr_ident: &Ident) -> Self {
         match &value.fields {
             Fields::Unit => {}
             _ => abort!(
@@ -213,11 +257,11 @@ impl InstructionListVariant {
             }),
         );
 
-        Ok(Self {
+        Self {
             ident: value.ident,
             discriminant: value.discriminant.map(|val| val.1),
             attribute,
-        })
+        }
     }
 }
 

@@ -1,23 +1,23 @@
 use crate::account_argument::{AccountArgument, MultiIndexable, Single, SingleIndexable};
+use crate::cpi::CPI;
 use crate::pda_seeds::PDASeedSet;
-use crate::{AccountInfo, AllAny, CruiserResult, ToSolanaAccountInfo, CPI};
-use cruiser_derive::verify_account_arg_impl;
+use crate::{AccountInfo, CruiserResult, ToSolanaAccountInfo};
 use solana_program::entrypoint::ProgramResult;
 use solana_program::pubkey::Pubkey;
 use spl_token::instruction::{close_account, set_authority, transfer, AuthorityType};
 
 use crate::spl::token::TokenAccount;
 
-verify_account_arg_impl! {
-    mod token_program_check<AI>{
-        <AI> TokenProgram<AI> where AI: AccountInfo{
-            from: [()];
-            validate: [()];
-            multi: [(); AllAny];
-            single: [()];
-        };
-    }
-}
+// verify_account_arg_impl! {
+//     mod token_program_check<AI>{
+//         <AI> TokenProgram<AI> where AI: AccountInfo{
+//             from: [()];
+//             validate: [()];
+//             multi: [(); AllAny];
+//             single: [()];
+//         };
+//     }
+// }
 
 /// The SPL Token Program. Requires feature
 #[derive(AccountArgument, Debug, Clone)]
@@ -107,9 +107,9 @@ where
         )
     }
 }
-impl<AI, T> MultiIndexable<AI, T> for TokenProgram<AI>
+impl<AI, T> MultiIndexable<T> for TokenProgram<AI>
 where
-    AI: AccountInfo + MultiIndexable<AI, T>,
+    AI: AccountInfo + MultiIndexable<T>,
 {
     fn index_is_signer(&self, indexer: T) -> CruiserResult<bool> {
         self.info.index_is_signer(indexer)
@@ -123,9 +123,9 @@ where
         self.info.index_is_owner(owner, indexer)
     }
 }
-impl<AI, T> SingleIndexable<AI, T> for TokenProgram<AI>
+impl<AI, T> SingleIndexable<T> for TokenProgram<AI>
 where
-    AI: AccountInfo + SingleIndexable<AI, T>,
+    AI: AccountInfo + SingleIndexable<T>,
 {
     fn index_info(&self, indexer: T) -> CruiserResult<&AI> {
         self.info.index_info(indexer)

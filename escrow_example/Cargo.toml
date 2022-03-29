@@ -11,8 +11,6 @@ license = "Apache-2.0"
 
 [dependencies]
 cruiser = { path = "..", features = ["spl-token"] }
-borsh = "0.9.3"
-spl-token = "3.3.0"
 
 [lib]
 crate-type = ["cdylib", "lib"]

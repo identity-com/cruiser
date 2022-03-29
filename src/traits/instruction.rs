@@ -1,6 +1,7 @@
 //! An individual instruction for a program.
 
 use borsh::BorshDeserialize;
+use cruiser::account_argument::AccountArgument;
 
 use crate::account_argument::{FromAccounts, ValidateArgument};
 use crate::{CruiserResult, Pubkey};
@@ -17,8 +18,9 @@ pub trait Instruction<AI>: Sized {
 pub trait InstructionProcessor<AI, I: Instruction<AI>>
 where
     I::Data: BorshDeserialize,
-    I::Accounts:
-        FromAccounts<AI, Self::FromAccountsData> + ValidateArgument<AI, Self::ValidateData>,
+    I::Accounts: AccountArgument<AccountInfo = AI>
+        + FromAccounts<Self::FromAccountsData>
+        + ValidateArgument<Self::ValidateData>,
 {
     /// The data passed to [`FromAccounts::from_accounts`].
     type FromAccountsData;

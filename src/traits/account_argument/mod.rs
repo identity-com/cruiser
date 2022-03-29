@@ -18,7 +18,10 @@ use crate::CruiserResult;
 
 /// An argument that can come from [`AccountInfo`](crate::AccountInfo)s and data using [`FromAccounts`].
 /// Can be automatically derived.
-pub trait AccountArgument<AI>: Sized {
+pub trait AccountArgument: Sized {
+    /// The account info type this deals with
+    type AccountInfo;
+
     /// The final step in the instruction lifecycle, performing any cleanup operations or writes back.
     fn write_back(self, program_id: &Pubkey) -> CruiserResult<()>;
     /// Passes all the account keys to a given function.

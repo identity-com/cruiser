@@ -10,20 +10,19 @@ pub use token_account::*;
 
 use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable};
 use crate::{AccountInfo, CruiserResult};
-use cruiser_derive::verify_account_arg_impl;
 use solana_program::pubkey::Pubkey;
 use std::ops::{Deref, DerefMut};
 
-verify_account_arg_impl! {
-    mod token_program_account_check <AI>{
-        <AI> TokenProgramAccount<AI> where AI: AccountInfo {
-            from: [()];
-            validate: [()];
-            multi: [<I> I where AI: MultiIndexable<AI, I>];
-            single: [<I> I where AI: SingleIndexable<AI, I>];
-        };
-    }
-}
+// verify_account_arg_impl! {
+//     mod token_program_account_check <AI>{
+//         <AI> TokenProgramAccount<AI> where AI: AccountInfo {
+//             from: [()];
+//             validate: [()];
+//             multi: [<I> I where AI: MultiIndexable<AI, I>];
+//             single: [<I> I where AI: SingleIndexable<AI, I>];
+//         };
+//     }
+// }
 
 /// Account owned by the token program
 #[derive(AccountArgument, Debug)]
@@ -41,9 +40,9 @@ impl<AI> DerefMut for TokenProgramAccount<AI> {
         &mut self.0
     }
 }
-impl<AI, I> MultiIndexable<AI, I> for TokenProgramAccount<AI>
+impl<AI, I> MultiIndexable<I> for TokenProgramAccount<AI>
 where
-    AI: AccountInfo + MultiIndexable<AI, I>,
+    AI: AccountInfo + MultiIndexable<I>,
 {
     fn index_is_signer(&self, indexer: I) -> CruiserResult<bool> {
         self.0.index_is_signer(indexer)
@@ -57,9 +56,9 @@ where
         self.0.index_is_owner(owner, indexer)
     }
 }
-impl<AI, I> SingleIndexable<AI, I> for TokenProgramAccount<AI>
+impl<AI, I> SingleIndexable<I> for TokenProgramAccount<AI>
 where
-    AI: AccountInfo + SingleIndexable<AI, I>,
+    AI: AccountInfo + SingleIndexable<I>,
 {
     fn index_info(&self, indexer: I) -> CruiserResult<&AI> {
         self.0.index_info(indexer)

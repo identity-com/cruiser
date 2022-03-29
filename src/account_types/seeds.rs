@@ -1,33 +1,29 @@
 //! A single account that must come from a given set of seeds
 
-use std::fmt::Debug;
-use std::ops::{Deref, DerefMut};
-
-use solana_program::pubkey::Pubkey;
-
-use cruiser_derive::verify_account_arg_impl;
-
 use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
     ValidateArgument,
 };
 use crate::pda_seeds::{PDAGenerator, PDASeedSet, PDASeeder};
 use crate::{AccountInfo, CruiserResult};
+use solana_program::pubkey::Pubkey;
+use std::fmt::Debug;
+use std::ops::{Deref, DerefMut};
 
-verify_account_arg_impl! {
-    mod seeds_check<AI>{
-        <AI, T, S> Seeds<T, S> where AI: AccountInfo, T: AccountArgument<AI>, S: PDASeeder{
-            from: [<Arg> Arg where T: FromAccounts<AI, Arg>];
-            validate: [
-                <B> (S, B) where T: ValidateArgument<AI, ()> + SingleIndexable<AI, ()>, B: BumpSeed;
-                <B, V> (S, B, V) where T: ValidateArgument<AI, V> + SingleIndexable<AI, ()>, B: BumpSeed;
-                <B, V, I> (S, B, V, I) where T: ValidateArgument<AI, V> + SingleIndexable<AI, I>, B: BumpSeed;
-            ];
-            multi: [<Arg> Arg where T: MultiIndexable<AI, Arg>];
-            single: [<Arg> Arg where T: SingleIndexable<AI, Arg>];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod seeds_check<AI>{
+//         <T, S> Seeds<T, S> where AI: AccountInfo, T: AccountArgument<AI>, S: PDASeeder{
+//             from: [<Arg> Arg where T: FromAccounts<Arg>];
+//             validate: [
+//                 <B> (S, B) where T: ValidateArgument<()> + SingleIndexable<()>, B: BumpSeed;
+//                 <B, V> (S, B, V) where T: ValidateArgument<V> + SingleIndexable<()>, B: BumpSeed;
+//                 <B, V, I> (S, B, V, I) where T: ValidateArgument<V> + SingleIndexable<I>, B: BumpSeed;
+//             ];
+//             multi: [<Arg> Arg where T: MultiIndexable<Arg>];
+//             single: [<Arg> Arg where T: SingleIndexable<Arg>];
+//         }
+//     }
+// }
 
 /// Requires that the address comes from a given seeder. Can use a given bump seed or find the bump seed.
 #[derive(Debug)]
@@ -68,12 +64,14 @@ where
         &mut self.argument
     }
 }
-impl<AI, T, S> AccountArgument<AI> for Seeds<T, S>
+impl<T, S> AccountArgument for Seeds<T, S>
 where
-    AI: AccountInfo,
-    T: AccountArgument<AI>,
+    T::AccountInfo: AccountInfo,
+    T: AccountArgument,
     S: PDASeeder,
 {
+    type AccountInfo = T::AccountInfo;
+
     fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         self.argument.write_back(program_id)
     }
@@ -82,15 +80,15 @@ where
         self.argument.add_keys(add)
     }
 }
-impl<AI, T, S, Arg> FromAccounts<AI, Arg> for Seeds<T, S>
+impl<T, S, Arg> FromAccounts<Arg> for Seeds<T, S>
 where
-    AI: AccountInfo,
-    T: FromAccounts<AI, Arg>,
+    T::AccountInfo: AccountInfo,
+    T: FromAccounts<Arg>,
     S: PDASeeder,
 {
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
         arg: Arg,
     ) -> CruiserResult<Self> {
         Ok(Self {
@@ -103,10 +101,10 @@ where
         T::accounts_usage_hint(arg)
     }
 }
-impl<AI, T, S, B> ValidateArgument<AI, (S, B)> for Seeds<T, S>
+impl<T, S, B> ValidateArgument<(S, B)> for Seeds<T, S>
 where
-    AI: AccountInfo,
-    T: ValidateArgument<AI, ()> + SingleIndexable<AI, ()>,
+    T::AccountInfo: AccountInfo,
+    T: ValidateArgument<()> + SingleIndexable<()>,
     S: PDASeeder,
     B: BumpSeed,
 {
@@ -114,10 +112,10 @@ where
         self.validate(program_id, (arg.0, arg.1, (), ()))
     }
 }
-impl<AI, T, S, B, V> ValidateArgument<AI, (S, B, V)> for Seeds<T, S>
+impl<T, S, B, V> ValidateArgument<(S, B, V)> for Seeds<T, S>
 where
-    AI: AccountInfo,
-    T: ValidateArgument<AI, V> + SingleIndexable<AI, ()>,
+    T::AccountInfo: AccountInfo,
+    T: ValidateArgument<V> + SingleIndexable<()>,
     S: PDASeeder,
     B: BumpSeed,
 {
@@ -125,10 +123,10 @@ where
         self.validate(program_id, (arg.0, arg.1, arg.2, ()))
     }
 }
-impl<AI, T, S, B, V, I> ValidateArgument<AI, (S, B, V, I)> for Seeds<T, S>
+impl<T, S, B, V, I> ValidateArgument<(S, B, V, I)> for Seeds<T, S>
 where
-    AI: AccountInfo,
-    T: ValidateArgument<AI, V> + SingleIndexable<AI, I>,
+    T::AccountInfo: AccountInfo,
+    T: ValidateArgument<V> + SingleIndexable<I>,
     S: PDASeeder,
     B: BumpSeed,
 {
@@ -141,10 +139,10 @@ where
         Ok(())
     }
 }
-impl<AI, T, S, Arg> MultiIndexable<AI, Arg> for Seeds<T, S>
+impl<T, S, Arg> MultiIndexable<Arg> for Seeds<T, S>
 where
-    AI: AccountInfo,
-    T: MultiIndexable<AI, Arg>,
+    T::AccountInfo: AccountInfo,
+    T: MultiIndexable<Arg>,
     S: PDASeeder,
 {
     fn index_is_signer(&self, indexer: Arg) -> CruiserResult<bool> {
@@ -159,13 +157,13 @@ where
         self.argument.index_is_owner(owner, indexer)
     }
 }
-impl<AI, T, S, Arg> SingleIndexable<AI, Arg> for Seeds<T, S>
+impl<T, S, Arg> SingleIndexable<Arg> for Seeds<T, S>
 where
-    AI: AccountInfo,
-    T: SingleIndexable<AI, Arg>,
+    T::AccountInfo: AccountInfo,
+    T: SingleIndexable<Arg>,
     S: PDASeeder,
 {
-    fn index_info(&self, indexer: Arg) -> CruiserResult<&AI> {
+    fn index_info(&self, indexer: Arg) -> CruiserResult<&Self::AccountInfo> {
         self.argument.index_info(indexer)
     }
 }

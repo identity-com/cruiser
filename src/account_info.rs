@@ -10,7 +10,6 @@ use crate::account_argument::{
     ValidateArgument,
 };
 use crate::{CruiserResult, GenericError, SolanaAccountInfo};
-use cruiser_derive::verify_account_arg_impl;
 use solana_program::clock::Epoch;
 use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
 use solana_program::msg;
@@ -24,11 +23,11 @@ use crate::AllAny;
 /// A trait representing accounts on Solana. Can take many different forms.
 #[allow(clippy::needless_lifetimes)]
 pub trait AccountInfo:
-    FromAccounts<Self, ()>
-    + ValidateArgument<Self, ()>
-    + MultiIndexable<Self, ()>
-    + MultiIndexable<Self, AllAny>
-    + SingleIndexable<Self, ()>
+    FromAccounts<(), AccountInfo = Self>
+    + ValidateArgument<()>
+    + MultiIndexable<()>
+    + MultiIndexable<AllAny>
+    + SingleIndexable<()>
 {
     /// The return of [`AccountInfo::lamports`]
     type Lamports<'b>: Deref<Target = u64>
@@ -134,16 +133,16 @@ pub trait ToSolanaAccountInfo<'a>: AccountInfo {
     unsafe fn to_solana_account_info(&self) -> SolanaAccountInfo<'a>;
 }
 
-verify_account_arg_impl! {
-    mod account_info_check<CruiserAccountInfo>{
-        CruiserAccountInfo{
-            from: [()];
-            validate: [()];
-            multi: [(); AllAny];
-            single: [()];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod account_info_check<CruiserAccountInfo>{
+//         CruiserAccountInfo{
+//             from: [()];
+//             validate: [()];
+//             multi: [(); AllAny];
+//             single: [()];
+//         }
+//     }
+// }
 
 /// A custom version of Solana's [`AccountInfo`](solana_program::account_info::AccountInfo) that allows for owner changes.
 #[derive(Debug, Clone, Eq, PartialEq)]

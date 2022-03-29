@@ -89,7 +89,7 @@ impl ToTokens for VerifyAccountArgs {
 }
 
 mod kw {
-    use super::*;
+    use super::custom_keyword;
 
     custom_keyword!(from);
     custom_keyword!(validate);
@@ -255,7 +255,7 @@ impl<T> TypeList<T> {
             .enumerate()
             .map(|(index, item)| {
                 item.into_token_stream(
-                    format_ident!("{}{}", trait_prefix, index),
+                    &format_ident!("{}{}", trait_prefix, index),
                     ty,
                     generics,
                     impl_type,
@@ -311,7 +311,7 @@ pub struct TypeListItem {
 impl TypeListItem {
     fn into_token_stream(
         self,
-        trait_ident: Ident,
+        trait_ident: &Ident,
         ty: &Type,
         generics: &Generics,
         impl_type: &TokenStream,
@@ -335,7 +335,7 @@ impl TypeListItem {
             generics
                 .make_where_clause()
                 .predicates
-                .extend(where_clause.predicates.into_iter())
+                .extend(where_clause.predicates.into_iter());
         }
         let self_ty = self.ty;
         let (impl_gen, ty_gen, where_clause) = generics.split_for_impl();

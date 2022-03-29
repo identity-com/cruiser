@@ -5,35 +5,36 @@ use crate::account_argument::{
     ValidateArgument,
 };
 use crate::CruiserResult;
-use cruiser_derive::verify_account_arg_impl;
 use solana_program::pubkey::Pubkey;
 use std::iter::once;
 use std::ops::{Deref, DerefMut};
 
-verify_account_arg_impl! {
-    mod init_account_check<AI>{
-        <AI, T> Rest<T>
-        where
-            T: AccountArgument<AI>{
-            from: [
-                () where T: FromAccounts<AI, ()>;
-                <Arg> (Arg,) where T: FromAccounts<AI, Arg>, Arg: Clone;
-                <Arg, F> (F, ()) where T: FromAccounts<AI, Arg>, F: FnMut(usize) -> Arg;
-            ];
-            validate: [<Arg> Arg where Vec<T>: ValidateArgument<AI, Arg>];
-            multi: [<Arg> Arg where Vec<T>: MultiIndexable<AI, Arg>];
-            single: [<Arg> Arg where Vec<T>: SingleIndexable<AI, Arg>];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod init_account_check<AI>{
+//         <T> Rest<T>
+//         where
+//             T: AccountArgument<AI>{
+//             from: [
+//                 () where T: FromAccounts<()>;
+//                 <Arg> (Arg,) where T: FromAccounts<Arg>, Arg: Clone;
+//                 <Arg, F> (F, ()) where T: FromAccounts<Arg>, F: FnMut(usize) -> Arg;
+//             ];
+//             validate: [<Arg> Arg where Vec<T>: ValidateArgument<Arg>];
+//             multi: [<Arg> Arg where Vec<T>: MultiIndexable<Arg>];
+//             single: [<Arg> Arg where Vec<T>: SingleIndexable<Arg>];
+//         }
+//     }
+// }
 
 /// An account argument that takes the rest of the accounts as type `A`
 #[derive(Debug)]
 pub struct Rest<T>(pub Vec<T>);
-impl<AI, T> AccountArgument<AI> for Rest<T>
+impl<T> AccountArgument for Rest<T>
 where
-    T: AccountArgument<AI>,
+    T: AccountArgument,
 {
+    type AccountInfo = T::AccountInfo;
+
     fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         self.0.write_back(program_id)
     }
@@ -42,13 +43,13 @@ where
         self.0.add_keys(add)
     }
 }
-impl<AI, T> FromAccounts<AI, ()> for Rest<T>
+impl<T> FromAccounts<()> for Rest<T>
 where
-    T: FromAccounts<AI, ()>,
+    T: FromAccounts<()>,
 {
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
         arg: (),
     ) -> CruiserResult<Self> {
         Self::from_accounts(program_id, infos, (arg,))
@@ -58,14 +59,14 @@ where
         Self::accounts_usage_hint(&(*arg,))
     }
 }
-impl<AI, T, Arg> FromAccounts<AI, (Arg,)> for Rest<T>
+impl<T, Arg> FromAccounts<(Arg,)> for Rest<T>
 where
-    T: FromAccounts<AI, Arg>,
+    T: FromAccounts<Arg>,
     Arg: Clone,
 {
     fn from_accounts(
         program_id: &Pubkey,
-        mut infos: &mut impl AccountInfoIterator<AI>,
+        mut infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
         arg: (Arg,),
     ) -> CruiserResult<Self> {
         let mut out = match T::accounts_usage_hint(&arg.0).1 {
@@ -85,14 +86,14 @@ where
         (0, None)
     }
 }
-impl<AI, T, Arg, F> FromAccounts<AI, (F, ())> for Rest<T>
+impl<T, Arg, F> FromAccounts<(F, ())> for Rest<T>
 where
-    T: FromAccounts<AI, Arg>,
+    T: FromAccounts<Arg>,
     F: FnMut(usize) -> Arg,
 {
     fn from_accounts(
         program_id: &Pubkey,
-        mut infos: &mut impl AccountInfoIterator<AI>,
+        mut infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
         mut arg: (F, ()),
     ) -> CruiserResult<Self> {
         let mut out = Vec::new();
@@ -111,19 +112,19 @@ where
         (0, None)
     }
 }
-impl<AI, T, Arg> ValidateArgument<AI, Arg> for Rest<T>
+impl<T, Arg> ValidateArgument<Arg> for Rest<T>
 where
-    T: AccountArgument<AI>,
-    Vec<T>: ValidateArgument<AI, Arg>,
+    T: AccountArgument,
+    Vec<T>: ValidateArgument<Arg>,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: Arg) -> CruiserResult<()> {
         self.0.validate(program_id, arg)
     }
 }
-impl<AI, T, Arg> MultiIndexable<AI, Arg> for Rest<T>
+impl<T, Arg> MultiIndexable<Arg> for Rest<T>
 where
-    T: AccountArgument<AI>,
-    Vec<T>: MultiIndexable<AI, Arg>,
+    T: AccountArgument,
+    Vec<T>: MultiIndexable<Arg>,
 {
     fn index_is_signer(&self, indexer: Arg) -> CruiserResult<bool> {
         self.0.index_is_signer(indexer)
@@ -137,12 +138,12 @@ where
         self.0.index_is_owner(owner, indexer)
     }
 }
-impl<AI, T, Arg> SingleIndexable<AI, Arg> for Rest<T>
+impl<T, Arg> SingleIndexable<Arg> for Rest<T>
 where
-    T: AccountArgument<AI>,
-    Vec<T>: SingleIndexable<AI, Arg>,
+    T: AccountArgument,
+    Vec<T>: SingleIndexable<Arg, AccountInfo = T::AccountInfo>,
 {
-    fn index_info(&self, indexer: Arg) -> CruiserResult<&AI> {
+    fn index_info(&self, indexer: Arg) -> CruiserResult<&Self::AccountInfo> {
         self.0.index_info(indexer)
     }
 }

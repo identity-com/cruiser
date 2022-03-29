@@ -7,21 +7,21 @@ use solana_program::pubkey::Pubkey;
 use solana_program::system_instruction::create_account;
 
 use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable};
+use crate::cpi::CPI;
 use crate::pda_seeds::PDASeedSet;
-use crate::program::Program;
-use crate::{AccountInfo, AllAny, CruiserResult, ToSolanaAccountInfo, CPI};
-use cruiser_derive::verify_account_arg_impl;
+use crate::program::{Program, ProgramKey};
+use crate::{AccountInfo, CruiserResult, ToSolanaAccountInfo};
 
-verify_account_arg_impl! {
-    mod init_account_check<AI>{
-        <AI> SystemProgram<AI> where AI: AccountInfo{
-            from: [()];
-            validate: [()];
-            multi: [(); AllAny];
-            single: [()];
-        }
-    }
-}
+// verify_account_arg_impl! {
+//     mod init_account_check<AI>{
+//         <AI> SystemProgram<AI> where AI: AccountInfo{
+//             from: [()];
+//             validate: [()];
+//             multi: [(); AllAny];
+//             single: [()];
+//         }
+//     }
+// }
 
 /// The system program, will be checked that it actually is.
 #[derive(AccountArgument, Debug, Clone)]
@@ -33,12 +33,10 @@ pub struct SystemProgram<AI> {
     #[validate(key = &Self::KEY)]
     pub info: AI,
 }
-impl<AI> Program<AI> for SystemProgram<AI>
-where
-    AI: AccountInfo,
-{
+impl<AI> ProgramKey for SystemProgram<AI> {
     const KEY: Pubkey = Pubkey::new_from_array([0; 32]);
 }
+impl<AI> Program for SystemProgram<AI> where AI: AccountInfo {}
 
 /// Argument for [`SystemProgram::create_account`]
 #[derive(Copy, Clone, Debug)]
@@ -82,9 +80,9 @@ where
         )
     }
 }
-impl<AI, T> MultiIndexable<AI, T> for SystemProgram<AI>
+impl<AI, T> MultiIndexable<T> for SystemProgram<AI>
 where
-    AI: AccountInfo + MultiIndexable<AI, T>,
+    AI: AccountInfo + MultiIndexable<T>,
 {
     fn index_is_signer(&self, indexer: T) -> CruiserResult<bool> {
         self.info.index_is_signer(indexer)
@@ -98,9 +96,9 @@ where
         self.info.index_is_owner(owner, indexer)
     }
 }
-impl<AI, T> SingleIndexable<AI, T> for SystemProgram<AI>
+impl<AI, T> SingleIndexable<T> for SystemProgram<AI>
 where
-    AI: AccountInfo + SingleIndexable<AI, T>,
+    AI: AccountInfo + SingleIndexable<T>,
 {
     fn index_info(&self, indexer: T) -> CruiserResult<&AI> {
         self.info.index_info(indexer)

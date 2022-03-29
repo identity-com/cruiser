@@ -1,4 +1,5 @@
 use cruiser::account_list::AccountList;
+use cruiser::account_types::PhantomAccount;
 use cruiser::instruction::{Instruction, InstructionProcessor};
 use cruiser::instruction_list::InstructionList;
 use cruiser::CruiserResult;
@@ -8,7 +9,7 @@ use solana_program::pubkey::Pubkey;
 pub enum TestAccountList {}
 
 #[derive(Copy, Clone, InstructionList)]
-#[instruction_list(account_list = TestAccountList)]
+#[instruction_list(account_list = TestAccountList, account_info = [<AI> AI])]
 pub enum TestList {
     #[instruction(instruction_type = TestInstruction1)]
     TestInstruction1,
@@ -21,7 +22,7 @@ pub enum TestList {
 pub struct TestInstruction1;
 impl<AI> Instruction<AI> for TestInstruction1 {
     type Data = ();
-    type Accounts = ();
+    type Accounts = PhantomAccount<AI, ()>;
 }
 impl<AI> InstructionProcessor<AI, TestInstruction1> for TestInstruction1 {
     type FromAccountsData = ();

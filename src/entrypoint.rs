@@ -61,6 +61,7 @@ macro_rules! entrypoint_list {
             $crate::entrypoint::entry(
                 input,
                 <$processor as $crate::instruction_list::InstructionListProcessor<
+                    $crate::CruiserAccountInfo,
                     $instruction_list,
                 >>::process_instruction,
             )

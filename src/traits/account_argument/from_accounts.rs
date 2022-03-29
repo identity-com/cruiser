@@ -6,14 +6,14 @@ use std::iter::FusedIterator;
 /// Allows an account argument to be made from the account iterator and data `Arg`.
 /// `AI` is the [`AccountInfo`](crate::AccountInfo) type.
 /// This is the first step in the instruction lifecycle.
-pub trait FromAccounts<AI, Arg>: Sized + AccountArgument<AI> {
+pub trait FromAccounts<Arg>: Sized + AccountArgument {
     /// Creates this argument from an `AI` iterator and data `Arg`.
     /// - `program_id` is the current program's id.
     /// - `infos` is the iterator of `AI`s
     /// - `arg` is the data argument
     fn from_accounts(
         program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<AI>,
+        infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
         arg: Arg,
     ) -> CruiserResult<Self>;
 
@@ -30,11 +30,5 @@ pub trait FromAccounts<AI, Arg>: Sized + AccountArgument<AI> {
 }
 
 /// A globing trait for an account info iterator
-pub trait AccountInfoIterator<AI>:
-    Iterator<Item = AI> + DoubleEndedIterator + FusedIterator
-{
-}
-impl<AI, T> AccountInfoIterator<AI> for T where
-    T: Iterator<Item = AI> + DoubleEndedIterator + FusedIterator
-{
-}
+pub trait AccountInfoIterator: Iterator + DoubleEndedIterator + FusedIterator {}
+impl<T> AccountInfoIterator for T where T: Iterator + DoubleEndedIterator + FusedIterator {}

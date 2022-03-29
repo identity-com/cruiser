@@ -3,9 +3,9 @@
 use cruiser::account_argument::{AccountArgument, Single};
 use cruiser::account_list::AccountList;
 use cruiser::account_types::close_account::CloseAccount;
+use cruiser::account_types::data_account::DataAccount;
 use cruiser::account_types::init_account::InitArgs;
 use cruiser::account_types::init_or_zeroed_account::InitOrZeroedAccount;
-use cruiser::account_types::program_account::ProgramAccount;
 use cruiser::account_types::rent_exempt::RentExempt;
 use cruiser::account_types::seeds::{Find, Seeds};
 use cruiser::account_types::system_program::SystemProgram;
@@ -15,8 +15,9 @@ use cruiser::instruction_list::InstructionList;
 use cruiser::on_chain_size::{OnChainSize, OnChainStaticSize};
 use cruiser::pda_seeds::{PDAGenerator, PDASeed, PDASeeder};
 use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
+use cruiser::CPIChecked;
 use cruiser::{
-    entrypoint_list, msg, AccountInfo, CPIChecked, CruiserResult, GenericError, Pubkey,
+    borsh, entrypoint_list, msg, AccountInfo, CruiserResult, GenericError, Pubkey,
     ToSolanaAccountInfo,
 };
 use std::iter::empty;
@@ -24,12 +25,90 @@ use std::iter::empty;
 entrypoint_list!(EscrowInstructions, EscrowInstructions);
 
 #[derive(InstructionList, Copy, Clone)]
-#[instruction_list(account_list = EscrowAccounts)]
+#[instruction_list(account_list = EscrowAccounts, account_info = [<'a, AI> AI where AI: ToSolanaAccountInfo<'a>])]
 pub enum EscrowInstructions {
     #[instruction(instruction_type = InitEscrow)]
     InitEscrow,
     #[instruction(instruction_type = InitEscrow)]
     Exchange,
+}
+pub mod client {
+    use crate::{BorshSerialize, EscrowInstructions, Pubkey};
+    use cruiser::account_argument::ToSolanaAccountMeta;
+    use cruiser::instruction_list::{
+        InstructionList, InstructionListClient, InstructionListClientStatic,
+    };
+    use cruiser::{CruiserResult, SolanaInstruction};
+
+    pub struct InitEscrow<'a, AI> {
+        accounts: [&'a AI; 6],
+        data: Option<Vec<u8>>,
+    }
+    impl<'a, AI> InitEscrow<'a, AI> {
+        pub fn new(
+            initializer: &'a AI,
+            temp_token_account: &'a AI,
+            initializer_token_account: &'a AI,
+            escrow_account: &'a AI,
+            token_program: &'a AI,
+            system_program: &'a AI,
+            amount: u64,
+        ) -> CruiserResult<Self> {
+            let mut data = Vec::with_capacity(8 + 8);
+            EscrowInstructions::InitEscrow
+                .discriminant_compressed()
+                .serialize(&mut data)?;
+            amount.serialize(&mut data)?;
+            Ok(Self {
+                accounts: [
+                    initializer,
+                    temp_token_account,
+                    initializer_token_account,
+                    escrow_account,
+                    token_program,
+                    system_program,
+                ],
+                data: Some(data),
+            })
+        }
+    }
+    impl<'a, 'b, AI> InstructionListClient<EscrowInstructions> for InitEscrow<'a, AI>
+    where
+        AI: ToSolanaAccountMeta,
+    {
+        type AccountInfo = AI;
+
+        fn instruction(&mut self, program_id: &Pubkey) -> SolanaInstruction {
+            SolanaInstruction {
+                program_id: *program_id,
+                accounts: self
+                    .accounts
+                    .into_iter()
+                    .map(|account| account.to_solana_account_meta())
+                    .collect(),
+                data: self.data.take().unwrap(),
+            }
+        }
+    }
+    impl<'a, AI> InstructionListClientStatic<EscrowInstructions, 7> for InitEscrow<'a, AI>
+    where
+        AI: ToSolanaAccountMeta,
+    {
+        fn to_accounts_static<'b>(&'b self, program_account: &'b AI) -> [&'b AI; 7] {
+            // TODO: Replace this with a const push operation when willing to go to const generics
+            [
+                self.accounts[0],
+                self.accounts[1],
+                self.accounts[2],
+                self.accounts[3],
+                self.accounts[4],
+                self.accounts[5],
+                program_account,
+            ]
+        }
+    }
+
+    // pub struct
 }
 
 #[derive(AccountList)]
@@ -239,7 +318,7 @@ where
     #[validate(writable, key = &self.escrow_account.initializer_token_to_receive)]
     initializer_token_account: TokenAccount<AI>,
     #[validate(writable)]
-    escrow_account: CloseAccount<AI, ProgramAccount<AI, EscrowAccounts, EscrowAccount>>,
+    escrow_account: CloseAccount<AI, DataAccount<AI, EscrowAccounts, EscrowAccount>>,
     token_program: TokenProgram<AI>,
     #[validate(data = (EscrowPDASeeder, Find))]
     pda_account: Seeds<AI, EscrowPDASeeder>,

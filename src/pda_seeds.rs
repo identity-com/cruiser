@@ -2,9 +2,10 @@
 use std::fmt::Debug;
 use std::iter::{once, Chain, Map, Once};
 
+use crate::cpi::CPI;
 use crate::solana_program::entrypoint::ProgramResult;
 use crate::solana_program::pubkey::PubkeyError;
-use crate::{CruiserResult, GenericError, Pubkey, SolanaInstruction, ToSolanaAccountInfo, CPI};
+use crate::{CruiserResult, GenericError, Pubkey, SolanaInstruction, ToSolanaAccountInfo};
 
 /// A set of seeds for a pda
 #[derive(Debug)]

@@ -1,4 +1,5 @@
-#![warn(unused_import_braces, unused_imports, missing_docs)]
+#![warn(unused_import_braces, unused_imports, missing_docs, clippy::pedantic)]
+#![allow(clippy::similar_names, clippy::module_name_repetitions)]
 
 //! The proc macros of [`cruiser`](https://docs.rs/cruiser/latest/cruiser/)
 

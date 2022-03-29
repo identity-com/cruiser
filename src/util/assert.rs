@@ -7,7 +7,7 @@ use std::fmt::Debug;
 
 /// Asserts that the account at index `indexer` is a signer.
 pub fn assert_is_signer<AI, I>(
-    argument: &impl MultiIndexable<AI, I>,
+    argument: &impl MultiIndexable<I, AccountInfo = AI>,
     indexer: I,
 ) -> CruiserResult<()>
 where
@@ -27,7 +27,7 @@ where
 
 /// Asserts that the account at index `indexer` is writable.
 pub fn assert_is_writable<AI, I>(
-    argument: &impl MultiIndexable<AI, I>,
+    argument: &impl MultiIndexable<I, AccountInfo = AI>,
     indexer: I,
 ) -> CruiserResult<()>
 where
@@ -47,7 +47,7 @@ where
 
 /// Asserts that the account at index `indexer` is a certain key.
 pub fn assert_is_key<AI, I>(
-    argument: &impl SingleIndexable<AI, I>,
+    argument: &impl SingleIndexable<I, AccountInfo = AI>,
     key: &Pubkey,
     indexer: I,
 ) -> CruiserResult<()>
@@ -69,7 +69,7 @@ where
 
 /// Asserts that the account at index `indexer`'s owner is `owner`.
 pub fn assert_is_owner<AI, I>(
-    argument: &impl MultiIndexable<AI, I>,
+    argument: &impl MultiIndexable<I, AccountInfo = AI>,
     owner: &Pubkey,
     indexer: I,
 ) -> CruiserResult<()>
