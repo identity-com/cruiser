@@ -9,7 +9,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        rust: [ '1.59' ]
+        rust: [ 'nightly-2022-03-22' ]
         os: [ubuntu-latest]
 
     steps:

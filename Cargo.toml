@@ -14,6 +14,7 @@ build = "build.rs"
 
 [workspace]
 members = [
+    "check_all",
     "derive",
     "easy_proc",
     "easy_proc/common",
@@ -22,13 +23,21 @@ members = [
 ]
 
 [features]
-default = ["processor"]
-processor = []
-client = []
-testing = ["solana-sdk", "solana-program-test", "solana-client"]
-experimental = ["in_place", "small_vec"]
-in_place = ["cruiser_derive/in_place"]
+default = []
+client = ["solana-sdk", "solana-client"]
+cpi = []
+testing = [
+    "client",
+    "solana-program-test",
+    "rand",
+    "rand_chacha",
+    "log",
+    "async-trait",
+    "solana-transaction-status",
+]
+experimental = ["small_vec", "interface"]
 small_vec = []
+interface = []
 
 [dependencies]
 cruiser_derive = { version = "0.1.2", path = "./derive" }
@@ -40,34 +49,45 @@ array-init = "2.0.0"
 bincode = "1.3.3"
 strum = { version = "0.21.0", features = ["derive"] }
 static_assertions = "1.1.0"
+
+## OPTIONAL
 spl-token = { version = "=3.2.0", optional = true, features = ["no-entrypoint"] }
 solana-sdk = { version = "1.9.14", optional = true }
 solana-program-test = { version = "1.9.14", optional = true }
 solana-client = { version = "1.9.14", optional = true }
+solana-transaction-status = { version = "1.9.14", optional = true }
+log = { version = "0.4.16", optional = true }
+async-trait = { version = "0.1.53", optional = true }
+
+# These are older as solana sdk relies on rand_core 0.5.1
+rand = { version = "0.7.3", optional = true }
+rand_chacha = { version = "0.2.2", optional = true }
 
 [build-dependencies]
 rustc_version = "0.4.0"
 
 [dev-dependencies]
-rand = "0.8.4"
+# These are older as solana sdk relies on rand_core 0.5.1
+rand = "0.7.3"
+rand_chacha = "0.2.2"
 
 [[example]]
 name = "account_argument_derive"
-crate-type = ["cdylib", "lib"]
+crate-type = ["lib"]
 
 [[example]]
 name = "account_derive"
-crate-type = ["cdylib", "lib"]
+crate-type = ["lib"]
 
 [[example]]
 name = "instruction_list"
-crate-type = ["cdylib", "lib"]
+crate-type = ["lib"]
 
 [[example]]
 name = "account_list"
-crate-type = ["cdylib", "lib"]
+crate-type = ["lib"]
 
 [[example]]
 name = "easy_proc_test"
-crate-type = ["cdylib", "lib"]
+crate-type = ["lib"]
 required-features = ["cruiser_derive/easy_proc_test"]

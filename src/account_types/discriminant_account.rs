@@ -8,6 +8,7 @@ use crate::account_argument::{
     ValidateArgument,
 };
 use crate::account_list::AccountListItem;
+use crate::account_types::PhantomAccount;
 use crate::compressed_numbers::CompressedNumber;
 use crate::AccountInfo;
 use crate::{CruiserAccountInfo, CruiserResult, GenericError};
@@ -45,14 +46,13 @@ where
 {
     /// The [`AccountInfo`] of this account.
     pub info: AI,
-    /// The discriminant of this account.
-    pub discriminant: AL::DiscriminantCompressed,
+    #[allow(dead_code)]
+    phantom_al: PhantomAccount<AI, AL>,
     data: D,
 }
 impl<AI, AL, D> Deref for DiscriminantAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,
-    AL::DiscriminantCompressed: Debug,
 {
     type Target = D;
 
@@ -63,7 +63,6 @@ where
 impl<AI, AL, D> DerefMut for DiscriminantAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,
-    AL::DiscriminantCompressed: Debug,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
@@ -73,13 +72,11 @@ impl<AI, AL, D> Debug for DiscriminantAccount<AI, AL, D>
 where
     AI: Debug,
     AL: AccountListItem<D>,
-    AL::DiscriminantCompressed: Debug,
     D: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DiscriminantAccount")
             .field("info", &self.info)
-            .field("discriminant", &self.discriminant)
             .field("data", &self.data)
             .finish()
     }
@@ -94,7 +91,7 @@ where
 
     fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
         let mut data_ref = self.info.data_mut();
-        let mut data = &mut data_ref[self.discriminant.num_bytes()..];
+        let mut data = &mut data_ref[AL::compressed_discriminant().num_bytes()..];
         self.data.serialize(&mut data)?;
         drop(data_ref);
         self.info.write_back(program_id)
@@ -116,14 +113,10 @@ where
         arg: (),
     ) -> CruiserResult<Self> {
         let info = AI::from_accounts(program_id, infos, arg)?;
-        let data_ref = info.data();
-        let mut data = &*data_ref;
-        let discriminant = AL::DiscriminantCompressed::deserialize(&mut data)?;
-        let data = D::deserialize(&mut data)?;
-        drop(data_ref);
+        let data = D::deserialize(&mut &info.data()[AL::compressed_discriminant().num_bytes()..])?;
         Ok(Self {
             info,
-            discriminant,
+            phantom_al: PhantomAccount::default(),
             data,
         })
     }
@@ -144,12 +137,10 @@ where
         arg: (D,),
     ) -> CruiserResult<Self> {
         let info = AI::from_accounts(program_id, infos, ())?;
-        let discriminant = AL::compressed_discriminant();
-        discriminant.serialize(&mut &mut *info.data_mut())?;
         let data = arg.0;
         Ok(Self {
             info,
-            discriminant,
+            phantom_al: PhantomAccount::default(),
             data,
         })
     }
@@ -166,12 +157,13 @@ where
 {
     fn validate(&mut self, program_id: &Pubkey, arg: ()) -> CruiserResult<()> {
         self.info.validate(program_id, arg)?;
-        if self.discriminant == AL::compressed_discriminant() {
+        let discriminant = AL::DiscriminantCompressed::deserialize(&mut &*self.info.data())?;
+        if discriminant == AL::compressed_discriminant() {
             Ok(())
         } else {
             Err(GenericError::MismatchedDiscriminant {
                 account: *self.info.key(),
-                received: self.discriminant.into_number().get(),
+                received: discriminant.into_number().get(),
                 expected: AL::discriminant(),
             }
             .into())
@@ -189,8 +181,7 @@ where
 {
     fn validate(&mut self, program_id: &Pubkey, _arg: WriteDiscriminant) -> CruiserResult<()> {
         self.info.validate(program_id, ())?;
-        self.discriminant
-            .serialize(&mut &mut *self.info.data_mut())?;
+        AL::compressed_discriminant().serialize(&mut &mut *self.info.data_mut())?;
         Ok(())
     }
 }

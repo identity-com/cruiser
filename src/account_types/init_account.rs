@@ -10,17 +10,14 @@ use solana_program::pubkey::Pubkey;
 use solana_program::rent::Rent;
 use solana_program::sysvar::Sysvar;
 
-use crate::account_argument::{
-    AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
-    ValidateArgument,
-};
+use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable, ValidateArgument};
 use crate::account_list::AccountListItem;
 use crate::account_types::discriminant_account::{DiscriminantAccount, WriteDiscriminant};
 use crate::account_types::system_program::{Create, SystemProgram};
 use crate::compressed_numbers::CompressedNumber;
 use crate::pda_seeds::PDASeedSet;
+use crate::CruiserResult;
 use crate::{AccountInfo, ToSolanaAccountInfo};
-use crate::{CruiserAccountInfo, CruiserResult};
 
 // verify_account_arg_impl! {
 //     mod init_account_check <AI> {
@@ -42,11 +39,7 @@ use crate::{CruiserAccountInfo, CruiserResult};
 
 /// The arguments for initializing an account
 #[derive(Debug)]
-pub struct InitArgs<'a, AI, C>
-where
-    AI: AccountInfo,
-    C: CPI,
-{
+pub struct InitArgs<'a, AI, C> {
     /// The system program to initalize the account
     pub system_program: &'a SystemProgram<AI>,
     /// The space for the account being created
@@ -68,12 +61,14 @@ where
 /// - `AL`: The [`AccountList`](crate::account_list::AccountList) that is valid for `A`
 /// - `A` The account data, `AL` must implement [`AccountListItem<A>`](AccountListItem)
 #[derive(AccountArgument)]
-#[account_argument(account_info = AI, no_from, no_validate, generics = [where AI: AccountInfo])]
+#[account_argument(account_info = AI, no_validate, generics = [where AI: AccountInfo])]
+#[from(data = (val: D), generics = [where AI: AccountInfo, AL: AccountListItem<D>, D: BorshSerialize])]
 pub struct InitAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
 {
+    #[from(data = (val,))]
     account: DiscriminantAccount<AI, AL, D>,
 }
 impl<AI, AL, D> Debug for InitAccount<AI, AL, D>
@@ -106,26 +101,6 @@ where
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.account
-    }
-}
-impl<'a, AI, AL, D> FromAccounts<D> for InitAccount<AI, AL, D>
-where
-    AI: AccountInfo,
-    AL: AccountListItem<D>,
-    D: BorshSerialize + BorshDeserialize,
-{
-    fn from_accounts(
-        program_id: &Pubkey,
-        infos: &mut impl AccountInfoIterator<Item = AI>,
-        arg: D,
-    ) -> CruiserResult<Self> {
-        Ok(Self {
-            account: DiscriminantAccount::<AI, AL, D>::from_accounts(program_id, infos, (arg,))?,
-        })
-    }
-
-    fn accounts_usage_hint(_arg: &D) -> (usize, Option<usize>) {
-        CruiserAccountInfo::accounts_usage_hint(&())
     }
 }
 impl<'a, 'b, AI, AL, D, C> ValidateArgument<InitArgs<'a, AI, C>> for InitAccount<AI, AL, D>

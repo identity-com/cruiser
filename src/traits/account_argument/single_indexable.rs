@@ -1,5 +1,5 @@
 use crate::account_argument::MultiIndexable;
-use crate::{AccountInfo, CruiserResult};
+use crate::{AccountInfo, AccountInfoAccess, CruiserResult};
 use solana_program::instruction::AccountMeta as SolanaAccountMeta;
 
 /// An account set that can be indexed to a single account at a time with index `I`.

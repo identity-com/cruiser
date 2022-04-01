@@ -2,7 +2,7 @@
 
 use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable};
 use crate::account_types::PhantomAccount;
-use crate::instruction_list::{InstructionListClientDynamic, InstructionListClientStatic};
+use crate::instruction_list::{InstructionListCPIDynamic, InstructionListCPIStatic};
 use crate::pda_seeds::PDASeedSet;
 use crate::program::{CruiserProgram, Program, ProgramKey};
 use crate::{AccountInfo, CruiserResult, ToSolanaAccountInfo, CPI};
@@ -36,7 +36,7 @@ where
     pub fn invoke<'b, 'c: 'b, const N: usize>(
         &self,
         cpi: impl CPI,
-        instruction: &mut impl InstructionListClientStatic<P::InstructionList, N, AccountInfo = AI>,
+        instruction: &mut impl InstructionListCPIStatic<P::InstructionList, N, AccountInfo = AI>,
         seeds: impl IntoIterator<Item = &'b PDASeedSet<'c>>,
     ) -> ProgramResult {
         PDASeedSet::invoke_signed_multiple(
@@ -51,7 +51,7 @@ where
     pub fn invoke_variable_sized<'b, 'c: 'b>(
         &self,
         cpi: impl CPI,
-        instruction: &mut impl InstructionListClientDynamic<P::InstructionList, AccountInfo = AI>,
+        instruction: &mut impl InstructionListCPIDynamic<P::InstructionList, AccountInfo = AI>,
         seeds: impl IntoIterator<Item = &'b PDASeedSet<'c>>,
     ) -> ProgramResult {
         PDASeedSet::invoke_signed_variable_size_multiple(

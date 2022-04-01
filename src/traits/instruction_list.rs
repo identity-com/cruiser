@@ -36,8 +36,8 @@ pub trait InstructionListProcessor<AI, IL: InstructionList> {
 }
 
 /// The basic client function, should have a version of this for each thing you want to be able to cpi.
-/// Also should implement either [`InstructionListClientStatic`] or [`InstructionListClientDynamic`].
-pub trait InstructionListClient<IL: InstructionList> {
+/// Also should implement either [`InstructionListCPIStatic`] or [`InstructionListCPIDynamic`].
+pub trait InstructionListCPI<IL: InstructionList> {
     /// The account info this deals with
     type AccountInfo;
 
@@ -46,9 +46,9 @@ pub trait InstructionListClient<IL: InstructionList> {
     fn instruction(&mut self, program_id: &Pubkey) -> SolanaInstruction;
 }
 
-/// Extension to [`InstructionListClient`]. More efficient than [`InstructionListClientDynamic`] but requires statically known account length.
-pub trait InstructionListClientStatic<IL: InstructionList, const N: usize>:
-    InstructionListClient<IL>
+/// Extension to [`InstructionListCPI`]. More efficient than [`InstructionListCPIDynamic`] but requires statically known account length.
+pub trait InstructionListCPIStatic<IL: InstructionList, const N: usize>:
+    InstructionListCPI<IL>
 {
     /// Gets the accounts for this call.
     #[must_use]
@@ -58,21 +58,35 @@ pub trait InstructionListClientStatic<IL: InstructionList, const N: usize>:
     ) -> [&'a Self::AccountInfo; N];
 }
 
-/// Extension to [`InstructionListClient`]. Less efficient than [`InstructionListClientStatic`] but can have dynamically sized account length.
-pub trait InstructionListClientDynamic<IL: InstructionList>: InstructionListClient<IL> {
+/// Extension to [`InstructionListCPI`].
+/// Less efficient than [`InstructionListCPIStatic`] but can have dynamically sized account length.
+pub trait InstructionListCPIDynamic<IL: InstructionList>:
+    for<'a> InstructionListCPIDynamicAccess<'a, IL>
+{
+}
+impl<IL: InstructionList, T> InstructionListCPIDynamic<IL> for T where
+    T: for<'a> InstructionListCPIDynamicAccess<'a, IL>
+{
+}
+
+/// Extension to [`InstructionListCPI`].
+/// Less efficient than [`InstructionListCPIStatic`] but can have dynamically sized account length.
+/// Use [`InstructionListCPIDynamic`].
+pub trait InstructionListCPIDynamicAccess<'a, IL: InstructionList>: InstructionListCPI<IL>
+where
+    Self::AccountInfo: 'a,
+{
     /// The iterator returned by [`InstructionListClientDynamic::to_accounts_dynamic`].
-    type Iter<'a>: Iterator<Item = &'a Self::AccountInfo>
-    where
-        Self::AccountInfo: 'a,
-        Self: 'a;
+    type Iter: Iterator<Item = &'a Self::AccountInfo>;
 
     /// Gets the accounts for this call.
     #[must_use]
     #[allow(clippy::needless_lifetimes)]
-    fn to_accounts_dynamic<'a>(&'a self) -> Self::Iter<'a>;
+    fn to_accounts_dynamic(&'a self) -> Self::Iter;
 }
 
 /// Instruction list is an interface. Still Experimental.
+#[cfg(feature = "interface")]
 pub trait Interface: InstructionList {
     /// The global discriminant of the developer
     const DEVELOPER_DISCRIMINANT: &'static [u8];
@@ -81,4 +95,5 @@ pub trait Interface: InstructionList {
 }
 
 /// Processor can process a given interface. Still Experimental.
+#[cfg(feature = "interface")]
 pub trait InterfaceProcessor<AI, I: Interface>: InstructionListProcessor<AI, I> {}

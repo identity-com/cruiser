@@ -1,10 +1,4 @@
-#![cfg_attr(
-    feature = "in_place",
-    feature(generic_const_exprs, const_fn_trait_bound, exclusive_range_pattern)
-)]
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
-#![cfg_attr(feature = "in_place", allow(incomplete_features))]
-#![feature(generic_associated_types)]
 #![warn(
     unused_import_braces,
     unused_imports,
@@ -48,6 +42,8 @@ extern crate self as cruiser;
 mod macros;
 
 pub mod account_types;
+#[cfg(feature = "client")]
+pub mod client;
 pub mod compressed_numbers;
 pub mod entrypoint;
 pub mod indexer;
@@ -84,3 +80,16 @@ pub use spl_token;
 pub use static_assertions;
 pub use traits::error::CruiserResult;
 pub use traits::*;
+
+#[cfg(feature = "rand")]
+pub use rand;
+#[cfg(feature = "rand_chacha")]
+pub use rand_chacha;
+#[cfg(feature = "solana-client")]
+pub use solana_client;
+#[cfg(feature = "solana-program-test")]
+pub use solana_program_test;
+#[cfg(feature = "solana-sdk")]
+pub use solana_sdk;
+#[cfg(feature = "solana-transaction-status")]
+pub use solana_transaction_status;

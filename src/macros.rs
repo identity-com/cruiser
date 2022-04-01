@@ -34,7 +34,7 @@ macro_rules! impl_account_info {
                 &self,
                 mut add: impl FnMut(Pubkey) -> CruiserResult<()>,
             ) -> CruiserResult<()> {
-                add(*$crate::AccountInfo::key(self))
+                add(*$crate::AccountInfoAccess::key(self))
             }
         }
         impl$(<$gen>)? FromAccounts<()> for $account_info {
@@ -60,15 +60,15 @@ macro_rules! impl_account_info {
         }
         impl$(<$gen>)? MultiIndexable<()> for $account_info {
             fn index_is_signer(&self, _indexer: ()) -> CruiserResult<bool> {
-                Ok($crate::AccountInfo::is_signer(self))
+                Ok($crate::AccountInfoAccess::is_signer(self))
             }
 
             fn index_is_writable(&self, _indexer: ()) -> CruiserResult<bool> {
-                Ok($crate::AccountInfo::is_writable(self))
+                Ok($crate::AccountInfoAccess::is_writable(self))
             }
 
             fn index_is_owner(&self, owner: &Pubkey, _indexer: ()) -> CruiserResult<bool> {
-                Ok(&*$crate::AccountInfo::owner(self) == owner)
+                Ok(&*$crate::AccountInfoAccess::owner(self) == owner)
             }
         }
         impl$(<$gen>)? MultiIndexable<AllAny> for $account_info {

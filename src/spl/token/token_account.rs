@@ -3,6 +3,7 @@ use std::ops::Deref;
 use crate::account_argument::{
     AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable, ValidateArgument,
 };
+use crate::on_chain_size::OnChainSize;
 use crate::{AccountInfo, CruiserResult, GenericError};
 use cruiser::account_argument::AccountArgument;
 use solana_program::program_pack::Pack;
@@ -27,6 +28,11 @@ pub struct TokenAccount<AI> {
     data: spl_token::state::Account,
     /// The account associated
     pub account: TokenProgramAccount<AI>,
+}
+impl<AI> OnChainSize<()> for TokenAccount<AI> {
+    fn on_chain_max_size(_arg: ()) -> usize {
+        spl_token::state::Account::get_packed_len()
+    }
 }
 impl<AI> Deref for TokenAccount<AI> {
     type Target = spl_token::state::Account;

@@ -1,0 +1,15 @@
+[package]
+name = "check_all"
+version = "0.1.0"
+authors = ["Brett Etter <buzzec@buzzec.net>"]
+edition = "2021"
+description = "Derive macros for `cruiser`"
+documentation = "https://docs.rs/cruiser_derive/latest/cruiser_derive/"
+repository = "https://github.com/identity-com/cruiser"
+license = "Apache-2.0"
+
+[dependencies]
+structopt = "0.3.26"
+tokio = { version = "1.17.0", features = ["full"] }
+pbr = "1.0.4"
+prettytable-rs = "0.8.0"

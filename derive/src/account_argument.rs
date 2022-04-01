@@ -414,6 +414,7 @@ impl AccountArgumentDerive {
 
         quote! {
             #[automatically_derived]
+            #[allow(clippy::type_repetition_in_bounds)]
             impl #impl_gen #crate_name::account_argument::AccountArgument for #ident #ty_gen #where_clause {
                 type AccountInfo = #account_info;
 
@@ -553,6 +554,7 @@ impl AccountArgumentDeriveType {
             };
             out.push(quote! {
                 #[automatically_derived]
+                #[allow(clippy::type_repetition_in_bounds)]
                 impl #impl_gen #crate_name::account_argument::FromAccounts<#ty> for #ident #ty_gen #where_clause{
                     fn from_accounts(
                         program_id: &#crate_name::Pubkey,
@@ -600,6 +602,7 @@ impl AccountArgumentDeriveType {
             };
             out.push(quote! {
                 #[automatically_derived]
+                #[allow(clippy::type_repetition_in_bounds)]
                 impl #impl_gen #crate_name::account_argument::ValidateArgument<#ty> for #ident #ty_gen #where_clause{
                     fn validate(&mut self, program_id: &#crate_name::Pubkey, __arg: #ty) -> #crate_name::CruiserResult<()>{
                         #(#accessors)*

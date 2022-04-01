@@ -47,18 +47,16 @@ use crate::{AccountInfo, CruiserResult, GenericError};
 ///
 /// Does not guarantee rent exempt, wrap with [`RentExempt`](crate::account_types::rent_exempt::RentExempt) for that.
 #[derive(AccountArgument)]
-#[account_argument(no_from, no_validate, account_info = AI, generics = [where AI: AccountInfo])]
+#[account_argument(no_from, no_validate, account_info = AI, generics = [where AI: AccountInfo, D: BorshSerialize])]
 pub struct ZeroedAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,
-    D: BorshSerialize + BorshDeserialize,
 {
     account: DiscriminantAccount<AI, AL, D>,
 }
 impl<AI, AL, D> Deref for ZeroedAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,
-    D: BorshSerialize + BorshDeserialize,
 {
     type Target = DiscriminantAccount<AI, AL, D>;
 
@@ -69,7 +67,6 @@ where
 impl<AI, AL, D> DerefMut for ZeroedAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,
-    D: BorshSerialize + BorshDeserialize,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.account
@@ -78,7 +75,6 @@ where
 impl<AI, AL, D> Debug for ZeroedAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,
-    D: BorshSerialize + BorshDeserialize,
     DiscriminantAccount<AI, AL, D>: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -149,7 +145,7 @@ where
         }
     }
 }
-impl<'a, AI, AL, D, T> MultiIndexable<T> for ZeroedAccount<AI, AL, D>
+impl<AI, AL, D, T> MultiIndexable<T> for ZeroedAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
@@ -168,7 +164,7 @@ where
         self.account.index_is_owner(owner, indexer)
     }
 }
-impl<'a, AI, AL, D, T> SingleIndexable<T> for ZeroedAccount<AI, AL, D>
+impl<AI, AL, D, T> SingleIndexable<T> for ZeroedAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,

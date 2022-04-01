@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+
 use rustc_version::{version_meta, Channel};
 
 fn main() {
@@ -8,5 +10,5 @@ fn main() {
         Channel::Nightly => "CHANNEL_NIGHTLY",
         Channel::Dev => "CHANNEL_DEV",
     };
-    println!("cargo:rustc-cfg={}", channel)
+    println!("cargo:rustc-cfg={}", channel);
 }

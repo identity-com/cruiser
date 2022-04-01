@@ -1,0 +1,30 @@
+[tasks.clean]
+workspace = false
+command = "cargo"
+args = ["clean"]
+
+[tasks.fmt]
+workspace = false
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--", "--emit=files"]
+
+[tasks.check_escrow_example]
+workspace = false
+script = "cargo run -p check_all -- -p escrow_example -f entrypoint:processor -f processor -f cpi -f client:cpi"
+
+[tasks.check_cruiser]
+workspace = false
+script = "cargo run -p check_all -- -p cruiser -f client -f cpi -f testing:client -f experimental:small_vec,interface -f spl-token -f small_vec -f interface"
+
+[tasks.doc]
+workspace = false
+script = "RUSTDOCFLAGS='-D warnings' cargo doc --all-features"
+
+[tasks.test_escrow_example]
+workspace = false
+script = "cargo test -p escrow_example --features client"
+
+[tasks.publish_crusier_derive]
+workspace = false
+

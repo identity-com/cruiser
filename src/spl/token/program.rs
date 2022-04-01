@@ -1,8 +1,10 @@
 use crate::account_argument::{AccountArgument, MultiIndexable, Single, SingleIndexable};
 use crate::cpi::CPI;
 use crate::pda_seeds::PDASeedSet;
+use crate::program::{Program, ProgramKey};
 use crate::{AccountInfo, CruiserResult, ToSolanaAccountInfo};
 use solana_program::entrypoint::ProgramResult;
+use solana_program::pubkey;
 use solana_program::pubkey::Pubkey;
 use spl_token::instruction::{close_account, set_authority, transfer, AuthorityType};
 
@@ -27,6 +29,10 @@ pub struct TokenProgram<AI> {
     #[validate(key = &spl_token::ID)]
     pub info: AI,
 }
+impl<AI> ProgramKey for TokenProgram<AI> {
+    const KEY: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+}
+impl<AI> Program for TokenProgram<AI> where AI: AccountInfo {}
 impl<'b, AI> TokenProgram<AI>
 where
     AI: ToSolanaAccountInfo<'b>,

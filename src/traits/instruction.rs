@@ -8,10 +8,10 @@ use crate::{CruiserResult, Pubkey};
 
 /// An instruction for a program with it's accounts and data.
 pub trait Instruction<AI>: Sized {
-    /// The instruction data minus the instruction discriminant.
-    type Data;
     /// The account argument for this instruction.
     type Accounts;
+    /// The instruction data minus the instruction discriminant.
+    type Data;
 }
 
 /// A processor for a given instruction `I`

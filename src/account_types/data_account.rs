@@ -32,21 +32,17 @@ use crate::{AccountInfo, CruiserResult};
 /// - `AL`: The [`AccountList`](crate::account_list::AccountList) that is valid for `A`
 /// - `A` The account data, `AL` must implement [`AccountListItem<A>`](AccountListItem)
 #[derive(AccountArgument)]
-#[account_argument(account_info = AI)]
+#[account_argument(account_info = AI, generics = [where AI: AccountInfo, D: BorshSerialize + BorshDeserialize])]
 pub struct DataAccount<AI, AL, D>
 where
-    AI: AccountInfo,
     AL: AccountListItem<D>,
-    D: BorshSerialize + BorshDeserialize,
 {
     #[validate(owner = program_id)]
     account: DiscriminantAccount<AI, AL, D>,
 }
 impl<AI, AL, D> Debug for DataAccount<AI, AL, D>
 where
-    AI: AccountInfo,
     AL: AccountListItem<D>,
-    D: BorshSerialize + BorshDeserialize,
     DiscriminantAccount<AI, AL, D>: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -57,9 +53,7 @@ where
 }
 impl<AI, AL, D> Deref for DataAccount<AI, AL, D>
 where
-    AI: AccountInfo,
     AL: AccountListItem<D>,
-    D: BorshSerialize + BorshDeserialize,
 {
     type Target = DiscriminantAccount<AI, AL, D>;
 
@@ -69,9 +63,7 @@ where
 }
 impl<AI, AL, D> DerefMut for DataAccount<AI, AL, D>
 where
-    AI: AccountInfo,
     AL: AccountListItem<D>,
-    D: BorshSerialize + BorshDeserialize,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.account

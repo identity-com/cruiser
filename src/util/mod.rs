@@ -19,6 +19,60 @@ pub(crate) mod bytes_ext;
 pub mod short_iter;
 pub mod short_vec;
 
+/// A version of [`Cow`](std::borrow::Cow) that only operates as a ref.
+#[derive(Debug, Copy, Clone)]
+pub enum MaybeOwned<'a, T> {
+    /// Borrowed value
+    Borrowed(&'a T),
+    /// Owned value
+    Owned(T),
+}
+impl<'a, T> From<T> for MaybeOwned<'a, T> {
+    fn from(from: T) -> Self {
+        Self::Owned(from)
+    }
+}
+impl<'a, T> From<&'a T> for MaybeOwned<'a, T> {
+    fn from(from: &'a T) -> Self {
+        Self::Borrowed(from)
+    }
+}
+impl<'a, T> Deref for MaybeOwned<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            MaybeOwned::Borrowed(borrowed) => *borrowed,
+            MaybeOwned::Owned(owned) => owned,
+        }
+    }
+}
+impl<'a, T> AsRef<T> for MaybeOwned<'a, T> {
+    fn as_ref(&self) -> &T {
+        &**self
+    }
+}
+impl<'a, T> MaybeOwned<'a, T> {
+    /// Turns this into an owned value if is owned
+    pub fn into_owned(self) -> Option<T> {
+        match self {
+            MaybeOwned::Borrowed(_) => None,
+            MaybeOwned::Owned(owned) => Some(owned),
+        }
+    }
+
+    /// Turns this into an owned value if is owned or clones
+    pub fn into_owned_clone(self) -> T
+    where
+        T: Clone,
+    {
+        match self {
+            MaybeOwned::Borrowed(borrowed) => borrowed.clone(),
+            MaybeOwned::Owned(owned) => owned,
+        }
+    }
+}
+
 /// The processing function used for [`InstructionProcessor`]
 pub fn process_instruction<AI, I: Instruction<AI>, P: InstructionProcessor<AI, I>, Iter>(
     program_id: &Pubkey,

@@ -91,8 +91,8 @@ mod test {
     fn random_test() {
         let mut rng = thread_rng();
         for _ in 0..1 << 18 {
-            let num_bytes = rng.gen_range(1..=8u64);
-            let val = rng.gen_range(0..=1 << (num_bytes * 8 - 1));
+            let num_bytes = rng.gen_range(1, 8u64 + 1);
+            let val = rng.gen_range(0, (1 << (num_bytes * 8 - 1)) + 1);
             let before = ByteCount::from_u64(val);
             let bytes = before.try_to_vec().unwrap();
             let after = ByteCount::try_from_slice(&bytes).unwrap_or_else(|error| {

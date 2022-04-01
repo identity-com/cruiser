@@ -4,6 +4,7 @@ use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
     ValidateArgument,
 };
+use crate::on_chain_size::OnChainSize;
 use crate::CruiserResult;
 use cruiser::AccountInfo;
 use solana_program::program_pack::Pack;
@@ -24,13 +25,15 @@ use crate::spl::token::TokenProgramAccount;
 
 /// A Mint account owned by the token program
 #[derive(Debug)]
-pub struct MintAccount<AI>
-where
-    AI: AccountInfo,
-{
+pub struct MintAccount<AI> {
     data: spl_token::state::Mint,
     /// The account associated
     pub account: TokenProgramAccount<AI>,
+}
+impl<AI> OnChainSize<()> for MintAccount<AI> {
+    fn on_chain_max_size(_arg: ()) -> usize {
+        spl_token::state::Mint::get_packed_len()
+    }
 }
 impl<AI> Deref for MintAccount<AI>
 where

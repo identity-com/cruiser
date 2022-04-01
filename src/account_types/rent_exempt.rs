@@ -11,7 +11,7 @@ use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
     ValidateArgument,
 };
-use crate::{AccountInfo, CruiserResult, GenericError};
+use crate::{AccountInfo, AccountInfoAccess, CruiserResult, GenericError};
 
 // verify_account_arg_impl! {
 //     mod rent_exempt_check<AI>{

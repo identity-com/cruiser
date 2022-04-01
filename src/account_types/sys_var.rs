@@ -21,11 +21,8 @@ use std::ops::Deref;
 
 /// A sysvar, checks the address is the same.
 #[derive(AccountArgument, Debug)]
-#[account_argument(account_info = AI)]
-pub struct SysVar<AI, S>(#[validate(key = &S::id())] pub AI, PhantomAccount<AI, S>)
-where
-    AI: AccountInfo,
-    S: Sysvar;
+#[account_argument(account_info = AI, generics = [where AI: AccountInfo, S: Sysvar])]
+pub struct SysVar<AI, S>(#[validate(key = &S::id())] pub AI, PhantomAccount<AI, S>);
 impl<'a, AI, S> SysVar<AI, S>
 where
     AI: ToSolanaAccountInfo<'a>,

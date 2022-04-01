@@ -18,6 +18,8 @@ struct InstructionListAttribute {
     discriminant_type: Type,
     #[argument(default)]
     log_level: LogLevel,
+    #[argument(default = syn::parse_str("\"processor\"").unwrap())]
+    processor_feature: LitStr,
     #[argument(presence)]
     no_processor: bool,
     account_info: AccountInfoArg,
@@ -146,8 +148,10 @@ impl InstructionListDerive {
                     }
                 })
             });
+            let processor_feature = self.attribute.processor_feature;
 
             quote! {
+                #[cfg(feature = #processor_feature)]
                 #[automatically_derived]
                 impl #impl_generics #crate_name::instruction_list::InstructionListProcessor<#account_info_ty, #ident> for #ident #ty_generics #where_clause{
                     fn process_instruction(

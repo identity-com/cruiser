@@ -8,7 +8,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::account_argument::AccountArgument;
 use crate::util::bytes_ext::{ReadExt, WriteExt};
-use crate::{CruiserError, CruiserResult, Pubkey};
+use crate::{CruiserResult, GenericError, Pubkey};
 
 macro_rules! small_vec {
     ($ident:ident, $ty:ty, $write:ident, $read:ident, $docs:expr) => {
@@ -16,13 +16,13 @@ macro_rules! small_vec {
         #[doc=$docs]
         pub struct $ident<T>(Vec<T>);
         impl<T> TryFrom<Vec<T>> for $ident<T> {
-            type Error = CruiserError;
+            type Error = GenericError;
 
             fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
                 if <$ty>::try_from(value.len()).is_ok() {
                     Ok(Self(value))
                 } else {
-                    Err(CruiserError::SizeInvalid {
+                    Err(GenericError::SizeInvalid {
                         min: 0,
                         max: <$ty>::MAX as usize,
                         value: value.len(),
@@ -83,7 +83,9 @@ macro_rules! small_vec {
         where
             T: AccountArgument,
         {
-            fn write_back(self, program_id: &'static Pubkey) -> CruiserResult<()> {
+            type AccountInfo = T::AccountInfo;
+
+            fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
                 for val in self.0 {
                     val.write_back(program_id)?;
                 }
@@ -92,7 +94,7 @@ macro_rules! small_vec {
 
             fn add_keys(
                 &self,
-                mut add: impl FnMut(&'static Pubkey) -> CruiserResult<()>,
+                mut add: impl FnMut(Pubkey) -> CruiserResult<()>,
             ) -> CruiserResult<()> {
                 for val in &self.0 {
                     val.add_keys(&mut add)?;

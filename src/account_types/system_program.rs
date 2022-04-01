@@ -40,10 +40,7 @@ impl<AI> Program for SystemProgram<AI> where AI: AccountInfo {}
 
 /// Argument for [`SystemProgram::create_account`]
 #[derive(Copy, Clone, Debug)]
-pub struct Create<'a, AI>
-where
-    AI: AccountInfo,
-{
+pub struct Create<'a, AI> {
     /// The funder of the new account
     pub funder: &'a AI,
     /// The account to create

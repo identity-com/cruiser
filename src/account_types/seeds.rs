@@ -5,7 +5,7 @@ use crate::account_argument::{
     ValidateArgument,
 };
 use crate::pda_seeds::{PDAGenerator, PDASeedSet, PDASeeder};
-use crate::{AccountInfo, CruiserResult};
+use crate::{AccountInfo, AccountInfoAccess, CruiserResult};
 use solana_program::pubkey::Pubkey;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};

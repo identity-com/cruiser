@@ -214,20 +214,6 @@ fn get_crate_name() -> proc_macro2::TokenStream {
     }
 }
 
-// /// Sets up an in-place struct
-// #[cfg(feature = "in_place")]
-// #[proc_macro_error]
-// #[proc_macro_attribute]
-// pub fn derive_in_place(args: TokenStream, tokens: TokenStream) -> TokenStream {
-//     let stream = parse_macro_input!(tokens as AccountListDerive).into_token_stream();
-//     #[cfg(feature = "debug_in_place")]
-//     {
-//         println!("{}", stream);
-//         std::thread::sleep(std::time::Duration::from_millis(100));
-//     }
-//     stream.into()
-// }
-
 /// Macro for testing `easy_proc`
 #[cfg(feature = "easy_proc_test")]
 #[proc_macro_error]

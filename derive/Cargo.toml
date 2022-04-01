@@ -13,13 +13,11 @@ proc-macro = true
 
 [features]
 default = []
-in_place = []
 debug_account = []
 debug_error = []
 debug_account_argument = []
 debug_instruction_list = []
 debug_account_list = []
-debug_in_place = []
 easy_proc_test = []
 debug = ["debug_account", "debug_error", "debug_account_argument", "debug_instruction_list", "debug_account_list"]
 
