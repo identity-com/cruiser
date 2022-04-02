@@ -23,12 +23,14 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
             ./target
             ./Cargo.lock
           key: cargo-check_fmt
@@ -70,12 +72,14 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
             ./target
             ./Cargo.lock
           key: cargo-check_escrow_example
@@ -117,12 +121,14 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
             ./target
             ./Cargo.lock
           key: cargo-check_cruiser
@@ -164,12 +170,14 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
             ./target
             ./Cargo.lock
           key: cargo-doc
@@ -212,7 +220,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache Solana version
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cache
@@ -224,12 +232,14 @@ jobs:
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
             ./target
             ./Cargo.lock
           key: cargo-test_all
