@@ -13,3 +13,5 @@ Cargo.lock
 
 ### Intellij IDEs
 .idea/
+
+**/*/test_ledger

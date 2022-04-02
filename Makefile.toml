@@ -32,7 +32,8 @@ dependencies = [
 
 [tasks.doc]
 workspace = false
-script = "RUSTDOCFLAGS='-D warnings' cargo doc --all-features"
+env = { "RUSTDOCFLAGS" = "-D warnings" }
+script = "cargo doc --all-features"
 
 [tasks.test_easy_proc_common]
 workspace = false
@@ -174,13 +175,19 @@ echo running cargo %{args_string}
 exec --fail-on-error cargo %{args_string}
 '''
 
-[tasks.publish_all]
+[tasks.verify_all]
 workspace = false
 dependencies = [
     "check_fmt",
     "check_all",
     "doc",
     "test_all",
+]
+
+[tasks.publish_all]
+workspace = false
+dependencies = [
+    "verify_all",
     "publish_easy_proc_common",
     "publish_easy_proc_derive",
     "publish_easy_proc",

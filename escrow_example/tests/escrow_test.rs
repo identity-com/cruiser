@@ -1,5 +1,6 @@
 use cruiser::client::token::{create_mint, create_token_account, mint_to};
 use cruiser::client::TransactionBuilder;
+use cruiser::rand::{thread_rng, Rng};
 use cruiser::solana_client::nonblocking::rpc_client::RpcClient;
 use cruiser::solana_client::rpc_config::{RpcSendTransactionConfig, RpcTransactionConfig};
 use cruiser::solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
@@ -33,19 +34,28 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
     let program_id = Keypair::new().pubkey();
     println!("Program ID: `{}`", program_id);
 
+    let rpc_port: u16 = thread_rng().gen_range(8081, 9000);
+    let faucet_port = rpc_port + 1000;
+
     let run_local_validator = async {
-        let mut local_validator = Command::new("solana-test-validator")
+        let mut local_validator = Command::new("solana-test-validator");
+        local_validator
             .arg("-r")
             .arg("--bpf-program")
             .arg(program_id.to_string())
             .arg(deploy_dir.join("escrow_example.so"))
-            .arg("--ledger")
             .arg("--deactivate-feature")
             .arg("5ekBxc8itEnPv4NzGJtr8BVVQLNMQuLMNQQj7pHoLNZ9") // transaction wide compute cap
             .arg("--deactivate-feature")
             .arg("75m6ysz33AfLA5DDEzWM1obBrnPQRSsdVQ2nRmc8Vuu1") // support account data reallocation
-            .arg(Path::new(env!("CARGO_TARGET_TMPDIR")).join("test_ledger"))
-            .spawn()?;
+            .arg("--ledger")
+            .arg(Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("test_ledger_{}", rpc_port)))
+            .arg("--rpc-port")
+            .arg(rpc_port.to_string())
+            .arg("--faucet-port")
+            .arg(faucet_port.to_string());
+        println!("Running {:?}", local_validator);
+        let mut local_validator = local_validator.spawn()?;
         let client = Client::new();
         loop {
             if let Some(exit_status) = local_validator.try_wait()? {
@@ -54,7 +64,7 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
                 );
             }
             if client
-                .get("http://localhost:8899/health")
+                .get(format!("http://localhost:{}/health", rpc_port))
                 .send()
                 .await
                 .map_or(false, |res| res.status().is_success())
@@ -71,7 +81,7 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
     })?;
 
     let rpc = RpcClient::new_with_commitment(
-        "http://localhost:8899".to_string(),
+        format!("http://localhost:{}", rpc_port),
         CommitmentConfig::confirmed(),
     );
 

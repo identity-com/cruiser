@@ -76,12 +76,11 @@ pub trait InstructionListCPIDynamicAccess<'a, IL: InstructionList>: InstructionL
 where
     Self::AccountInfo: 'a,
 {
-    /// The iterator returned by [`InstructionListClientDynamic::to_accounts_dynamic`].
+    /// The iterator returned by [`InstructionListCPIDynamicAccess::to_accounts_dynamic`].
     type Iter: Iterator<Item = &'a Self::AccountInfo>;
 
     /// Gets the accounts for this call.
     #[must_use]
-    #[allow(clippy::needless_lifetimes)]
     fn to_accounts_dynamic(&'a self) -> Self::Iter;
 }
 

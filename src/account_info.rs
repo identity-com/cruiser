@@ -35,15 +35,15 @@ pub trait AccountInfoAccess<'a>:
     + MultiIndexable<AllAny>
     + SingleIndexable<()>
 {
-    /// The return of [`AccountInfo::lamports`]
+    /// The return of [`AccountInfoAccess::lamports`]
     type Lamports: Deref<Target = u64>;
-    /// The return of [`AccountInfo::lamports_mut`]
+    /// The return of [`AccountInfoAccess::lamports_mut`]
     type LamportsMut: DerefMut<Target = u64>;
-    /// The return of [`AccountInfo::data`]
+    /// The return of [`AccountInfoAccess::data`]
     type Data: Deref<Target = [u8]>;
-    /// The return of [`AccountInfo::data_mut`]
+    /// The return of [`AccountInfoAccess::data_mut`]
     type DataMut: DerefMut<Target = [u8]>;
-    /// The return of [`AccountInfo::owner`]
+    /// The return of [`AccountInfoAccess::owner`]
     type Owner: Deref<Target = Pubkey>;
 
     /// Gets the key of the account
@@ -82,7 +82,7 @@ pub trait AccountInfoAccess<'a>:
     /// Returns a shared ref to the owner of this account
     #[must_use]
     fn owner(&'a self) -> Self::Owner;
-    /// Unsafe access to changing the owner of this account. You should use [`SafeOwnerChange::owner_mut`] if possible.
+    /// Unsafe access to changing the owner of this account. You should use [`SafeOwnerChangeAccess::owner_mut`] if possible.
     ///
     /// # Safety
     /// Solana's way of doing this for [`SolanaAccountInfo`] is to use [`write_volatile`](std::ptr::write_volatile) on a shared ref (see [`SolanaAccountInfo::assign`]).
@@ -106,9 +106,8 @@ pub trait AccountInfoAccess<'a>:
 pub trait SafeOwnerChange: for<'a> SafeOwnerChangeAccess<'a> {}
 impl<T> SafeOwnerChange for T where for<'a> T: SafeOwnerChangeAccess<'a> {}
 /// Account info can safely assign the owner. Use [`SafeOwnerChange`].
-#[allow(clippy::needless_lifetimes)]
 pub trait SafeOwnerChangeAccess<'a>: AccountInfoAccess<'a> {
-    /// The return value of [`SafeOwnerChange::owner_mut`]
+    /// The return value of [`SafeOwnerChangeAccess::owner_mut`]
     type OwnerMut: DerefMut<Target = Pubkey>;
     /// Returns a mutable ref to the owner of this account
     fn owner_mut(&'a self) -> Self::OwnerMut;
@@ -120,7 +119,7 @@ impl<T> SafeRealloc for T where for<'a> T: SafeReallocAccess<'a> {}
 /// Account info can safely realloc. Use [`SafeRealloc`].
 pub trait SafeReallocAccess<'a>: AccountInfoAccess<'a> {
     /// Reallocates an account safely by checking data size.
-    /// If this can be called in a cpi from the same program or earlier owning program of this account you should use [`SafeRealloc::realloc_cpi_safe`].
+    /// If this can be called in a cpi from the same program or earlier owning program of this account you should use [`SafeReallocAccess::realloc_cpi_safe`].
     fn realloc(&'a self, new_len: usize, zero_init: bool) -> CruiserResult;
     /// Reallocates an account safely by checking data size, only allows for 1/4 the increase of [`MAX_PERMITTED_DATA_INCREASE`].
     /// This limited growth means that a cpi call can never exceed [`MAX_PERMITTED_DATA_INCREASE`].
