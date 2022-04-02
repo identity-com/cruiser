@@ -30,6 +30,7 @@ impl<T, const N: usize> ShortIter<T, N> {
             .iter_mut()
             .zip(array)
             .for_each(|(out_val, in_val)| *out_val = MaybeUninit::new(in_val));
+        out.length = N2.min(N);
         out
     }
 
