@@ -3,7 +3,7 @@ on:
   push:
   pull_request:
 jobs:
-  fmt-check:
+  check_fmt:
     name: Format cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
@@ -22,6 +22,16 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-make
+            ./target
+          key: cargo-check_fmt-${{ hashFiles('Cargo.lock') }}
+
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
@@ -34,7 +44,7 @@ jobs:
           command: make
           args: check_fmt
 
-  check-escrow-example:
+  check_escrow_example:
     name: Check escrow_example on Rust ${{ matrix.rust }} and ${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
@@ -53,20 +63,21 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
-      - name: Install Make
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-make
-
       - name: Cache dependencies
         uses: actions/cache@v2
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin/cargo-make
             ./target
-          key: cargo-check-escrow-example-${{ hashFiles('Cargo.lock') }}
+          key: cargo-check_escrow_example-${{ hashFiles('Cargo.lock') }}
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
 
       - name: Run check_escrow_example
         uses: actions-rs/cargo@v1
@@ -74,7 +85,7 @@ jobs:
           command: make
           args: check_escrow_example
 
-  check-cruiser:
+  check_cruiser:
     name: Check cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
@@ -93,6 +104,16 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-make
+            ./target
+          key: cargo-check_cruiser-${{ hashFiles('Cargo.lock') }}
+
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
@@ -104,15 +125,6 @@ jobs:
         with:
           command: make
           args: check_cruiser
-
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ./target
-          key: cargo-check-cruiser-${{ hashFiles('Cargo.lock') }}
 
   doc:
     name: Check docs on Rust ${{ matrix.rust }} and ${{ matrix.os }}
@@ -133,20 +145,21 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
-      - name: Install Make
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-make
-
       - name: Cache dependencies
         uses: actions/cache@v2
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin/cargo-make
             ./target
           key: cargo-doc-${{ hashFiles('Cargo.lock') }}
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
 
       - name: Run doc
         uses: actions-rs/cargo@v1
@@ -154,7 +167,7 @@ jobs:
           command: make
           args: doc
 
-  test-all:
+  test_all:
     name: Test everything on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
@@ -183,14 +196,8 @@ jobs:
 
       - name: Install Solana
         run: |
-          sh -c "$(curl -sSfL https://release.solana.com/${{ matrix.solana }}/install)"
+          sh -c "$(curl -sSfL https://release.solana.com/v${{ matrix.solana }}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-
-      - name: Install Make
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-make
 
       - name: Cache dependencies
         uses: actions/cache@v2
@@ -198,8 +205,15 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin/cargo-make
             ./target
-          key: cargo-test-all-${{ hashFiles('Cargo.lock') }}
+          key: cargo-test_all-${{ hashFiles('Cargo.lock') }}
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
 
       - name: Run test_all
         uses: actions-rs/cargo@v1
