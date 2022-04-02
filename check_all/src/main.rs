@@ -1,15 +1,22 @@
 #![warn(unused_import_braces, unused_imports, clippy::pedantic)]
 
+use ctrlc::set_handler;
+use futures::executor::block_on;
+use lazy_static::lazy_static;
 use pbr::MultiBar;
 use prettytable::{cell, row, Table};
+use std::collections::HashMap;
 use std::error::Error;
 use std::io::stderr;
 use std::process::{exit, Stdio};
 use std::str::FromStr;
+use std::time::Duration;
 use structopt::StructOpt;
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
+use tokio::process::{Child, Command};
+use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
+use tokio::time::sleep;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -51,6 +58,10 @@ impl FromStr for Feature {
     }
 }
 
+lazy_static! {
+    static ref CHILDREN: Mutex<HashMap<&'static str, Child>> = Mutex::new(HashMap::new());
+}
+
 #[allow(clippy::too_many_lines)]
 #[tokio::main]
 async fn main() {
@@ -62,6 +73,15 @@ async fn main() {
     // doc_pb.format("[=>_]");
     // doc_pb.show_message = true;
     // doc_pb.message("`cargo doc`    ");
+
+    set_handler(|| {
+        for child in block_on(CHILDREN.lock()).values_mut() {
+            block_on(child.kill()).expect("Could not kill child");
+            println!("Exited child");
+        }
+        exit(1);
+    })
+    .expect("Could not set handler");
 
     for dependant in features.iter().flat_map(|feature| &feature.dependants) {
         assert!(
@@ -127,7 +147,23 @@ async fn main() {
         let mut child = command.spawn().expect("Could not start command");
         let stdout = child.stdout.take().expect("Could not take stdout of child");
         let stderr = child.stderr.take().expect("Could not take stderr of child");
-        let exit_status = child.wait().await;
+
+        assert!(
+            CHILDREN.lock().await.insert("clippy", child).is_none(),
+            "Duplicate `clippy` instance"
+        );
+        let exit_status = loop {
+            let exit_status = CHILDREN.lock().await.get_mut("clippy").unwrap().try_wait();
+            if let Some(val) = exit_status.map_or_else(|err| Some(Err(err)), |val| val.map(Ok)) {
+                break val;
+            }
+            sleep(Duration::from_millis(500)).await;
+        };
+        CHILDREN
+            .lock()
+            .await
+            .remove("clippy")
+            .expect("Could not find clippy instance");
         clippy_results.push(match exit_status {
             Err(e) => Err((features, Err(e))),
             Ok(status) if status.success() => Ok(status),
