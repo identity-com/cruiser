@@ -30,7 +30,13 @@ jobs:
             ~/.cargo/git
             ~/.cargo/bin/cargo-make
             ./target
-          key: cargo-check_fmt-${{ hashFiles('Cargo.lock') }}
+            ./Cargo.lock
+          key: cargo-check_fmt
+
+      - name: Update dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
 
       - name: Install Make
         uses: actions-rs/cargo@v1
@@ -71,7 +77,13 @@ jobs:
             ~/.cargo/git
             ~/.cargo/bin/cargo-make
             ./target
-          key: cargo-check_escrow_example-${{ hashFiles('Cargo.lock') }}
+            ./Cargo.lock
+          key: cargo-check_escrow_example
+
+- name: Update dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
 
       - name: Install Make
         uses: actions-rs/cargo@v1
@@ -112,7 +124,13 @@ jobs:
             ~/.cargo/git
             ~/.cargo/bin/cargo-make
             ./target
-          key: cargo-check_cruiser-${{ hashFiles('Cargo.lock') }}
+            ./Cargo.lock
+          key: cargo-check_cruiser
+
+- name: Update dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
 
       - name: Install Make
         uses: actions-rs/cargo@v1
@@ -153,7 +171,13 @@ jobs:
             ~/.cargo/git
             ~/.cargo/bin/cargo-make
             ./target
-          key: cargo-doc-${{ hashFiles('Cargo.lock') }}
+            ./Cargo.lock
+          key: cargo-doc
+
+- name: Update dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
 
       - name: Install Make
         uses: actions-rs/cargo@v1
@@ -207,7 +231,13 @@ jobs:
             ~/.cargo/git
             ~/.cargo/bin/cargo-make
             ./target
-          key: cargo-test_all-${{ hashFiles('Cargo.lock') }}
+            ./Cargo.lock
+          key: cargo-test_all
+
+- name: Update dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
 
       - name: Install Make
         uses: actions-rs/cargo@v1
