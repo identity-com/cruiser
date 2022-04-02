@@ -80,7 +80,7 @@ jobs:
             ./Cargo.lock
           key: cargo-check_escrow_example
 
-- name: Update dependencies
+      - name: Update dependencies
         uses: actions-rs/cargo@v1
         with:
           command: update
@@ -127,7 +127,7 @@ jobs:
             ./Cargo.lock
           key: cargo-check_cruiser
 
-- name: Update dependencies
+      - name: Update dependencies
         uses: actions-rs/cargo@v1
         with:
           command: update
@@ -174,7 +174,7 @@ jobs:
             ./Cargo.lock
           key: cargo-doc
 
-- name: Update dependencies
+      - name: Update dependencies
         uses: actions-rs/cargo@v1
         with:
           command: update
@@ -234,7 +234,7 @@ jobs:
             ./Cargo.lock
           key: cargo-test_all
 
-- name: Update dependencies
+      - name: Update dependencies
         uses: actions-rs/cargo@v1
         with:
           command: update
