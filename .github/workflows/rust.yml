@@ -22,6 +22,10 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -33,7 +37,9 @@ jobs:
             ~/.cargo/.crates.toml
             ./target
             ./Cargo.lock
-          key: cargo-check_fmt
+          key: cargo-check_fmt-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-check_fmt-
 
       - name: Update dependencies
         uses: actions-rs/cargo@v1
@@ -71,6 +77,10 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -82,7 +92,9 @@ jobs:
             ~/.cargo/.crates.toml
             ./target
             ./Cargo.lock
-          key: cargo-check_escrow_example
+          key: cargo-check_escrow_example-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-check_escrow_example-
 
       - name: Update dependencies
         uses: actions-rs/cargo@v1
@@ -120,6 +132,10 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -131,7 +147,9 @@ jobs:
             ~/.cargo/.crates.toml
             ./target
             ./Cargo.lock
-          key: cargo-check_cruiser
+          key: cargo-check_cruiser-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-check_cruiser-
 
       - name: Update dependencies
         uses: actions-rs/cargo@v1
@@ -169,6 +187,10 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -180,7 +202,9 @@ jobs:
             ~/.cargo/.crates.toml
             ./target
             ./Cargo.lock
-          key: cargo-doc
+          key: cargo-doc-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-doc-
 
       - name: Update dependencies
         uses: actions-rs/cargo@v1
@@ -231,6 +255,10 @@ jobs:
           sh -c "$(curl -sSfL https://release.solana.com/v${{ matrix.solana }}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -242,7 +270,9 @@ jobs:
             ~/.cargo/.crates.toml
             ./target
             ./Cargo.lock
-          key: cargo-test_all
+          key: cargo-test_all-${{ matrix.solana }}-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-test_all-${{ matrix.solana }}-
 
       - name: Update dependencies
         uses: actions-rs/cargo@v1
