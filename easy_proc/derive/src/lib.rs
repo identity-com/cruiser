@@ -25,7 +25,8 @@ use syn::{
 ///
 /// # Arguments
 /// ```
-/// use syn::{Ident, Token, LitInt, LitStr};
+/// use proc_macro2::Span;
+/// use syn::{Ident, Token, LitInt, LitStr, };
 /// use easy_proc::ArgumentList;
 ///
 /// #[derive(ArgumentList)]

@@ -7,7 +7,13 @@ args = ["clean"]
 workspace = false
 install_crate = "rustfmt"
 command = "cargo"
-args = ["fmt", "--", "--emit=files"]
+args = ["fmt", "--all", "--", "--emit=files"]
+
+[tasks.check_fmt]
+workspace = false
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
 
 [tasks.check_escrow_example]
 workspace = false
@@ -28,14 +34,156 @@ dependencies = [
 workspace = false
 script = "RUSTDOCFLAGS='-D warnings' cargo doc --all-features"
 
+[tasks.test_easy_proc_common]
+workspace = false
+script = "cargo test -p easy_proc_common --all-features"
+
+[tasks.test_easy_proc_derive]
+workspace = false
+script = "cargo test -p easy_proc_derive --all-features"
+
+[tasks.test_easy_proc]
+workspace = false
+script = "cargo test -p easy_proc --all-features"
+
 [tasks.test_escrow_example]
 workspace = false
-script = "cargo test -p escrow_example --features client"
+alias = "other_test_escrow_example"
+windows_alias = "windows_test_escrow_example"
+
+[tasks.other_test_escrow_example]
+workspace = false
+script = "cargo test -p escrow_example --all-features"
+
+[tasks.windows_test_escrow_example]
+workspace = false
+env = { "HOME" = "C:\\Users\\${USERNAME}"}
+script = "cargo test -p escrow_example --all-features"
+
+[tasks.test_cruiser_derive]
+workspace = false
+script = "cargo test -p cruiser_derive --all-features"
+
+[tasks.test_cruiser]
+workspace = false
+script = "cargo test -p cruiser --all-features"
+
+[tasks.test_all]
+workspace = false
+dependencies = [
+    "test_easy_proc_common",
+    "test_easy_proc_derive",
+    "test_easy_proc",
+    "test_escrow_example",
+    "test_cruiser_derive",
+    "test_cruiser",
+]
+
+[tasks.publish_easy_proc_common]
+workspace = false
+env = { "PACKAGE" = "easy_proc_common" }
+script_runner = "@duckscript"
+script = '''
+args = array publish -p ${PACKAGE} --all-features
+
+if not is_empty ${PUBLISH_TOKEN}
+    array_push ${args} --token ${PUBLISH_TOKEN}
+end
+if not is_empty ${DRY_RUN}
+    array_push %{args} --dry-run
+end
+
+args_string = array_join ${args} " "
+echo running cargo %{args_string}
+exec --fail-on-error cargo %{args_string}
+'''
+
+[tasks.publish_easy_proc_derive]
+workspace = false
+env = { "PACKAGE" = "easy_proc_derive" }
+script_runner = "@duckscript"
+script = '''
+args = array publish -p ${PACKAGE} --all-features
+
+if not is_empty ${PUBLISH_TOKEN}
+    array_push ${args} --token ${PUBLISH_TOKEN}
+end
+if not is_empty ${DRY_RUN}
+    array_push %{args} --dry-run
+end
+
+args_string = array_join ${args} " "
+echo running cargo %{args_string}
+exec --fail-on-error cargo %{args_string}
+'''
 
 [tasks.publish_easy_proc]
 workspace = false
-script = "cargo publish -p easy_proc --all-features --dry-run"
+env = { "PACKAGE" = "easy_proc" }
+script_runner = "@duckscript"
+script = '''
+args = array publish -p ${PACKAGE} --all-features
+
+if not is_empty ${PUBLISH_TOKEN}
+    array_push ${args} --token ${PUBLISH_TOKEN}
+end
+if not is_empty ${DRY_RUN}
+    array_push %{args} --dry-run
+end
+
+args_string = array_join ${args} " "
+echo running cargo %{args_string}
+exec --fail-on-error cargo %{args_string}
+'''
 
 [tasks.publish_cruiser_derive]
 workspace = false
-script = "cargo publish -p cruiser_derive --all-features --dry-run"
+env = { "PACKAGE" = "cruiser_derive" }
+script_runner = "@duckscript"
+script = '''
+args = array publish -p ${PACKAGE} --all-features
+
+if not is_empty ${PUBLISH_TOKEN}
+    array_push ${args} --token ${PUBLISH_TOKEN}
+end
+if not is_empty ${DRY_RUN}
+    array_push %{args} --dry-run
+end
+
+args_string = array_join ${args} " "
+echo running cargo %{args_string}
+exec --fail-on-error cargo %{args_string}
+'''
+
+[tasks.publish_cruiser]
+workspace = false
+env = { "PACKAGE" = "crusier" }
+script_runner = "@duckscript"
+script = '''
+args = array publish -p ${PACKAGE} --all-features
+
+if not is_empty ${PUBLISH_TOKEN}
+    array_push ${args} --token ${PUBLISH_TOKEN}
+end
+if not is_empty ${DRY_RUN}
+    array_push %{args} --dry-run
+end
+
+args_string = array_join ${args} " "
+echo running cargo %{args_string}
+exec --fail-on-error cargo %{args_string}
+'''
+
+[tasks.publish_all]
+workspace = false
+dependencies = [
+    "check_fmt",
+    "check_all",
+    "doc",
+    "test_all",
+    "publish_easy_proc_common",
+    "publish_easy_proc_derive",
+    "publish_easy_proc",
+    "publish_cruiser_derive",
+    "publish_cruiser",
+]

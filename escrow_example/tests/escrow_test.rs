@@ -40,6 +40,10 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
             .arg(program_id.to_string())
             .arg(deploy_dir.join("escrow_example.so"))
             .arg("--ledger")
+            .arg("--deactivate-feature")
+            .arg("5ekBxc8itEnPv4NzGJtr8BVVQLNMQuLMNQQj7pHoLNZ9") // transaction wide compute cap
+            .arg("--deactivate-feature")
+            .arg("75m6ysz33AfLA5DDEzWM1obBrnPQRSsdVQ2nRmc8Vuu1") // support account data reallocation
             .arg(Path::new(env!("CARGO_TARGET_TMPDIR")).join("test_ledger"))
             .spawn()?;
         let client = Client::new();
