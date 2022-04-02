@@ -3,14 +3,15 @@ on:
   push:
   pull_request:
 jobs:
-  program-lint:
-    name: Format and lint cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+  fmt-check:
+    name: Format cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         rust: [ 'nightly-2022-03-22' ]
         os: [ubuntu-latest]
+        make: ['0.35.10']
 
     steps:
       - name: Checkout repo
@@ -22,35 +23,34 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
-      - name: Run fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
-      - name: Cache dependencies
+      - name: Cache make
         uses: actions/cache@v2
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ./target
-          key: cargo-clippy-${{ hashFiles('Cargo.lock') }}
+            ~/.cargo/bin/cargo-make
+          key: cargo-make-${{ matrix.make }}
 
-      - name: Run Clippy
+      - name: Install Make
         uses: actions-rs/cargo@v1
         with:
-          command: clippy
-          args: --workspace --tests --examples -- --deny=warnings
+          command: install
+          args: --version ${{ matrix.make }} cargo-make
 
-  program-unit-test:
-    name: Test cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+      - name: Run fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: check_fmt
+
+  check-escrow-example:
+    name: Check escrow_example on Rust ${{ matrix.rust }} and ${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        rust: [ '1.59' ]
-        os: [ubuntu-latest]
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+        make: ['0.35.10']
 
     steps:
       - name: Checkout repo
@@ -60,17 +60,189 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
 
-      - name: Cache build dependencies
+      - name: Cache make
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/cargo-make
+          key: cargo-make-${{ matrix.make }}
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --version ${{ matrix.make }} cargo-make
+
+      - name: Cache dependencies
         uses: actions/cache@v2
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             ./target
-          key: cargo-test-${{ hashFiles('Cargo.lock') }}
+          key: cargo-check-escrow-example-${{ hashFiles('Cargo.lock') }}
 
-      - name: Run unit tests
+      - name: Run check_escrow_example
         uses: actions-rs/cargo@v1
         with:
-          command: test
+          command: make
+          args: check_escrow_example
+
+  check-cruiser:
+    name: Check cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+        make: ['0.35.10']
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - name: Cache make
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/cargo-make
+          key: cargo-make-${{ matrix.make }}
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --version ${{ matrix.make }} cargo-make
+
+      - name: Run check_cruiser
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: check_cruiser
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ./target
+          key: cargo-check-cruiser-${{ hashFiles('Cargo.lock') }}
+
+  doc:
+    name: Check docs on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+        make: ['0.35.10']
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - name: Cache make
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/cargo-make
+          key: cargo-make-${{ matrix.make }}
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --version ${{ matrix.make }} cargo-make
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ./target
+          key: cargo-doc-${{ hashFiles('Cargo.lock') }}
+
+      - name: Run doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: doc
+
+  test-all:
+    name: Test everything on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        solana: ['1.9.15', '1.9.14', '1.9.13', '1.9.12']
+        os: [ ubuntu-latest ]
+        make: ['0.35.10']
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - name: Cache Solana version
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache
+          key: solana-${{ matrix.solana }}
+
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/${{ matrix.solana }}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Cache make
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/cargo-make
+          key: cargo-make-${{ matrix.make }}
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --version ${{ matrix.make }} cargo-make
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ./target
+          key: cargo-test-all-${{ hashFiles('Cargo.lock') }}
+
+      - name: Run test_all
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: test_all
