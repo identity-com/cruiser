@@ -11,7 +11,6 @@ jobs:
       matrix:
         rust: [ 'nightly-2022-03-22' ]
         os: [ubuntu-latest]
-        make: ['0.35.10']
 
     steps:
       - name: Checkout repo
@@ -28,13 +27,13 @@ jobs:
         with:
           path: |
             ~/.cargo/bin/cargo-make
-          key: cargo-make-${{ matrix.make }}
+          key: cargo-make
 
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --version ${{ matrix.make }} cargo-make
+          args: cargo-make
 
       - name: Run fmt
         uses: actions-rs/cargo@v1
@@ -50,7 +49,6 @@ jobs:
       matrix:
         rust: [ 'nightly-2022-03-22' ]
         os: [ ubuntu-latest ]
-        make: ['0.35.10']
 
     steps:
       - name: Checkout repo
@@ -67,13 +65,13 @@ jobs:
         with:
           path: |
             ~/.cargo/bin/cargo-make
-          key: cargo-make-${{ matrix.make }}
+          key: cargo-make
 
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --version ${{ matrix.make }} cargo-make
+          args: cargo-make
 
       - name: Cache dependencies
         uses: actions/cache@v2
@@ -98,7 +96,6 @@ jobs:
       matrix:
         rust: [ 'nightly-2022-03-22' ]
         os: [ ubuntu-latest ]
-        make: ['0.35.10']
 
     steps:
       - name: Checkout repo
@@ -115,13 +112,13 @@ jobs:
         with:
           path: |
             ~/.cargo/bin/cargo-make
-          key: cargo-make-${{ matrix.make }}
+          key: cargo-make
 
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --version ${{ matrix.make }} cargo-make
+          args: cargo-make
 
       - name: Run check_cruiser
         uses: actions-rs/cargo@v1
@@ -146,7 +143,6 @@ jobs:
       matrix:
         rust: [ 'nightly-2022-03-22' ]
         os: [ ubuntu-latest ]
-        make: ['0.35.10']
 
     steps:
       - name: Checkout repo
@@ -163,13 +159,13 @@ jobs:
         with:
           path: |
             ~/.cargo/bin/cargo-make
-          key: cargo-make-${{ matrix.make }}
+          key: cargo-make
 
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --version ${{ matrix.make }} cargo-make
+          args: cargo-make
 
       - name: Cache dependencies
         uses: actions/cache@v2
@@ -195,7 +191,6 @@ jobs:
         rust: [ 'nightly-2022-03-22' ]
         solana: ['1.9.15', '1.9.14', '1.9.13', '1.9.12']
         os: [ ubuntu-latest ]
-        make: ['0.35.10']
 
     steps:
       - name: Checkout repo
@@ -224,13 +219,13 @@ jobs:
         with:
           path: |
             ~/.cargo/bin/cargo-make
-          key: cargo-make-${{ matrix.make }}
+          key: cargo-make
 
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --version ${{ matrix.make }} cargo-make
+          args: cargo-make
 
       - name: Cache dependencies
         uses: actions/cache@v2
