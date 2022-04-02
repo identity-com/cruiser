@@ -198,7 +198,7 @@ jobs:
     strategy:
       matrix:
         rust: [ 'nightly-2022-03-22' ]
-        solana: ['1.9.15', '1.9.14', '1.9.13', '1.9.12']
+        solana: ['1.9.14', '1.9.13', '1.9.12']
         os: [ ubuntu-latest ]
 
     steps:
