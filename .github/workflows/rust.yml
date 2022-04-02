@@ -22,13 +22,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
-      - name: Cache make
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/bin/cargo-make
-          key: cargo-make
-
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
@@ -59,13 +52,6 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
-
-      - name: Cache make
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/bin/cargo-make
-          key: cargo-make
 
       - name: Install Make
         uses: actions-rs/cargo@v1
@@ -107,13 +93,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
-      - name: Cache make
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/bin/cargo-make
-          key: cargo-make
-
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
@@ -153,13 +132,6 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
-
-      - name: Cache make
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/bin/cargo-make
-          key: cargo-make
 
       - name: Install Make
         uses: actions-rs/cargo@v1
@@ -213,13 +185,6 @@ jobs:
         run: |
           sh -c "$(curl -sSfL https://release.solana.com/${{ matrix.solana }}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-
-      - name: Cache make
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/bin/cargo-make
-          key: cargo-make
 
       - name: Install Make
         uses: actions-rs/cargo@v1
