@@ -3,8 +3,8 @@ on:
   push:
   pull_request:
 jobs:
-  program-lint:
-    name: Format and lint cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+  check_fmt:
+    name: Format cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
     strategy:
@@ -22,35 +22,50 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
-      - name: Run fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
 
       - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
             ./target
-          key: cargo-clippy-${{ hashFiles('Cargo.lock') }}
+            ./Cargo.lock
+          key: cargo-check_fmt-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-check_fmt-
 
-      - name: Run Clippy
+      - name: Update dependencies
         uses: actions-rs/cargo@v1
         with:
-          command: clippy
-          args: --workspace --tests --examples -- --deny=warnings
+          command: update
 
-  program-unit-test:
-    name: Test cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
+
+      - name: Run fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: check_fmt
+
+  check_escrow_example:
+    name: Check escrow_example on Rust ${{ matrix.rust }} and ${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        rust: [ '1.59' ]
-        os: [ubuntu-latest]
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
 
     steps:
       - name: Checkout repo
@@ -60,17 +75,218 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
 
-      - name: Cache build dependencies
-        uses: actions/cache@v2
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
             ./target
-          key: cargo-test-${{ hashFiles('Cargo.lock') }}
+            ./Cargo.lock
+          key: cargo-check_escrow_example-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-check_escrow_example-
 
-      - name: Run unit tests
+      - name: Update dependencies
         uses: actions-rs/cargo@v1
         with:
-          command: test
+          command: update
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
+
+      - name: Run check_escrow_example
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: check_escrow_example
+
+  check_cruiser:
+    name: Check cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
+            ./target
+            ./Cargo.lock
+          key: cargo-check_cruiser-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-check_cruiser-
+
+      - name: Update dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
+
+      - name: Run check_cruiser
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: check_cruiser
+
+  doc:
+    name: Check docs on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
+            ./target
+            ./Cargo.lock
+          key: cargo-doc-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-doc-
+
+      - name: Update dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
+
+      - name: Run doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: doc
+
+  test_all:
+    name: Test everything on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        solana: ['1.9.14', '1.9.13', '1.9.12']
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - name: Cache Solana version
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache
+          key: solana-${{ matrix.solana }}
+
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/v${{ matrix.solana }}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
+            ./target
+            ./Cargo.lock
+          key: cargo-test_all-${{ matrix.solana }}-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-test_all-${{ matrix.solana }}-
+
+      - name: Update dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
+
+      - name: Run test_all
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: test_all
