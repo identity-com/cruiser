@@ -11,7 +11,10 @@ use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
 use cruiser::{borsh, AccountInfo, CPIChecked, ToSolanaAccountInfo};
 
 pub struct InitEscrow;
-impl<AI> Instruction<AI> for InitEscrow {
+impl<AI> Instruction<AI> for InitEscrow
+where
+    AI: AccountInfo,
+{
     type Accounts = InitEscrowAccounts<AI>;
     type Data = InitEscrowData;
 }
