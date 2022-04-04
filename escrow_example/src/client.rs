@@ -1,4 +1,4 @@
-use crate::cpi::InitEscrow;
+use crate::cpi::InitEscrowCPI;
 use crate::Pubkey;
 use cruiser::account_types::system_program::SystemProgram;
 use cruiser::client::token::create_token_account;
@@ -43,7 +43,7 @@ where
     .await?;
     Ok((
         out.0.into_iter().chain(once(
-            InitEscrow::new(
+            InitEscrowCPI::new(
                 SolanaAccountMeta::new_readonly(initializer, true),
                 SolanaAccountMeta::new(send_account, false),
                 SolanaAccountMeta::new_readonly(initializer_token_account_key, false),

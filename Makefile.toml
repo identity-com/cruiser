@@ -21,7 +21,7 @@ script = "cargo run -p check_all -- -p escrow_example -f entrypoint:processor -f
 
 [tasks.check_cruiser]
 workspace = false
-script = "cargo run -p check_all -- -p cruiser -f client -f testing:client -f experimental:small_vec,interface -f spl-token -f small_vec -f interface"
+script = "cargo run -p check_all -- -p cruiser -f client -f experimental:small_vec,interface -f spl-token -f small_vec -f interface"
 
 [tasks.check_all]
 workspace = false
