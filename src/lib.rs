@@ -11,8 +11,7 @@
     clippy::cast_possible_truncation,
     clippy::module_name_repetitions,
     clippy::missing_errors_doc,
-    clippy::too_many_lines,
-    clippy::mut_mut
+    clippy::too_many_lines
 )]
 //! A generator program that will be able to generate solana program code from a much easier starting place.
 //!
