@@ -1,7 +1,8 @@
 //! An individual instruction for a program.
 
-use borsh::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use cruiser::account_argument::AccountArgument;
+use solana_program::program::MAX_RETURN_DATA;
 
 use crate::account_argument::{FromAccounts, ValidateArgument};
 use crate::{CruiserResult, Pubkey};
@@ -12,6 +13,8 @@ pub trait Instruction<AI>: Sized {
     type Accounts;
     /// The instruction data minus the instruction discriminant.
     type Data;
+    /// The return type of the instruction
+    type ReturnType: ReturnValue = ();
 }
 
 /// A processor for a given instruction `I`
@@ -43,5 +46,28 @@ where
         program_id: &Pubkey,
         data: Self::InstructionData,
         accounts: &mut I::Accounts,
-    ) -> CruiserResult<()>;
+    ) -> CruiserResult<I::ReturnType>;
+}
+
+/// A return value for an instruction call
+pub trait ReturnValue: Sized {
+    /// Returns self to `return_func`. Must call `return_func` exactly once.
+    fn return_self(self, return_func: impl FnOnce(&[u8])) -> CruiserResult;
+    /// Gets self from returned data.
+    fn from_returned(data: Box<[u8; MAX_RETURN_DATA]>) -> CruiserResult<Self>;
+}
+impl<T> ReturnValue for T
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    fn return_self(self, return_func: impl FnOnce(&[u8])) -> CruiserResult {
+        let mut buffer = [0; MAX_RETURN_DATA];
+        self.serialize(&mut buffer.as_mut())?;
+        return_func(&buffer);
+        Ok(())
+    }
+
+    fn from_returned(data: Box<[u8; MAX_RETURN_DATA]>) -> CruiserResult<Self> {
+        Ok(BorshDeserialize::deserialize(&mut data.as_ref().as_ref())?)
+    }
 }
