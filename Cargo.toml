@@ -24,7 +24,16 @@ members = [
 
 [features]
 default = []
-client = ["solana-sdk", "solana-client", "rand", "rand_chacha"]
+client = ["solana-sdk", "solana-client"]
+testing = [
+    "client",
+    "solana-program-test",
+    "rand",
+    "rand_chacha",
+    "log",
+    "async-trait",
+    "solana-transaction-status",
+]
 experimental = ["small_vec", "interface"]
 small_vec = []
 interface = []
@@ -43,7 +52,11 @@ static_assertions = "1.1.0"
 ## OPTIONAL
 spl-token = { version = "=3.2.0", optional = true, features = ["no-entrypoint"] }
 solana-sdk = { version = "1.9.14", optional = true }
+solana-program-test = { version = "1.9.14", optional = true }
 solana-client = { version = "1.9.14", optional = true }
+solana-transaction-status = { version = "1.9.14", optional = true }
+log = { version = "0.4.16", optional = true }
+async-trait = { version = "0.1.53", optional = true }
 
 # These are older as solana sdk relies on rand_core 0.5.1
 rand = { version = "0.7.3", optional = true }
