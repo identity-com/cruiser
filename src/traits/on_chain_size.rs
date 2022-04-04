@@ -108,5 +108,15 @@ impl_on_chain_size_for_prim!(
     i32,
     i64,
     i128,
-    Pubkey
+    Pubkey,
+    std::num::NonZeroU8,
+    std::num::NonZeroU16,
+    std::num::NonZeroU32,
+    std::num::NonZeroU64,
+    std::num::NonZeroU128,
+    std::num::NonZeroI8,
+    std::num::NonZeroI16,
+    std::num::NonZeroI32,
+    std::num::NonZeroI64,
+    std::num::NonZeroI128,
 );
