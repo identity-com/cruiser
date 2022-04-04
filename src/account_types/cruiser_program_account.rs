@@ -54,10 +54,7 @@ where
             &instruction.to_accounts_static(&self.0),
             seeds,
         )?;
-        let mut buffer = Box::new([0; MAX_RETURN_DATA]);
-        let mut return_program = Pubkey::new_from_array([0; 32]);
-        get_return_data_buffered(&mut buffer, &mut return_program)?;
-        <I::Instruction as Instruction<AI>>::ReturnType::from_returned(buffer)
+        Self::ret()
     }
 
     /// Calls one of this program's functions that has dynamically sized account length
@@ -77,10 +74,18 @@ where
             instruction.to_accounts_dynamic().chain(once(&self.0)),
             seeds,
         )?;
+        Self::ret()
+    }
+
+    fn ret<R: ReturnValue>() -> CruiserResult<R> {
         let mut buffer = Box::new([0; MAX_RETURN_DATA]);
         let mut return_program = Pubkey::new_from_array([0; 32]);
-        get_return_data_buffered(&mut buffer, &mut return_program)?;
-        <I::Instruction as Instruction<AI>>::ReturnType::from_returned(buffer)
+        let size = get_return_data_buffered(&mut buffer, &mut return_program)?;
+        if return_program == Self::KEY {
+            R::from_returned(Some((buffer, size)), &return_program)
+        } else {
+            R::from_returned(None, &return_program)
+        }
     }
 }
 impl<AI, P> ProgramKey for CruiserProgramAccount<AI, P>

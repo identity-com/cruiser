@@ -53,8 +53,13 @@ where
 pub trait ReturnValue: Sized {
     /// Returns self to `return_func`. Must call `return_func` exactly once.
     fn return_self(self, return_func: impl FnOnce(&[u8])) -> CruiserResult;
-    /// Gets self from returned data.
-    fn from_returned(data: Box<[u8; MAX_RETURN_DATA]>) -> CruiserResult<Self>;
+    /// Gets self from returned data. `data` is (`data_buffer`, `returned_size`).
+    /// If `data` is [`None`] then the program did not return.
+    /// Borsh implementation of [`ReturnValue`] attempts to deserialize an empty array in the [`None`] case.
+    fn from_returned(
+        data: Option<(Box<[u8; MAX_RETURN_DATA]>, usize)>,
+        return_program: &Pubkey,
+    ) -> CruiserResult<Self>;
 }
 impl<T> ReturnValue for T
 where
@@ -67,7 +72,13 @@ where
         Ok(())
     }
 
-    fn from_returned(data: Box<[u8; MAX_RETURN_DATA]>) -> CruiserResult<Self> {
-        Ok(BorshDeserialize::deserialize(&mut data.as_ref().as_ref())?)
+    fn from_returned(
+        data: Option<(Box<[u8; MAX_RETURN_DATA]>, usize)>,
+        _return_program: &Pubkey,
+    ) -> CruiserResult<Self> {
+        match data {
+            None => Ok(BorshDeserialize::deserialize(&mut [].as_ref())?),
+            Some((buffer, size)) => Ok(BorshDeserialize::deserialize(&mut &buffer[..size])?),
+        }
     }
 }
