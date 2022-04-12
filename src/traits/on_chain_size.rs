@@ -56,12 +56,30 @@ where
             .sum::<usize>()
     }
 }
+impl<T, const N: usize> OnChainSize<()> for [T; N]
+where
+    T: OnChainStaticSize,
+{
+    fn on_chain_max_size(_: ()) -> usize {
+        N * T::on_chain_static_size()
+    }
+}
+
 impl<A, T, const N: usize> OnChainSize<[A; N]> for [T; N]
 where
     T: OnChainSize<A>,
 {
     fn on_chain_max_size(arg: [A; N]) -> usize {
-        4 + arg.into_iter().map(T::on_chain_max_size).sum::<usize>()
+        arg.into_iter().map(T::on_chain_max_size).sum::<usize>()
+    }
+}
+impl<T1, T2> OnChainSize<()> for (T1, T2)
+where
+    T1: OnChainStaticSize,
+    T2: OnChainStaticSize,
+{
+    fn on_chain_max_size(_arg: ()) -> usize {
+        Self::on_chain_max_size(((), ()))
     }
 }
 impl<A1, A2, T1, T2> OnChainSize<(A1, A2)> for (T1, T2)
@@ -71,6 +89,16 @@ where
 {
     fn on_chain_max_size(arg: (A1, A2)) -> usize {
         T1::on_chain_max_size(arg.0) + T2::on_chain_max_size(arg.1)
+    }
+}
+impl<T1, T2, T3> OnChainSize<()> for (T1, T2, T3)
+where
+    T1: OnChainStaticSize,
+    T2: OnChainStaticSize,
+    T3: OnChainStaticSize,
+{
+    fn on_chain_max_size(_arg: ()) -> usize {
+        Self::on_chain_max_size(((), (), ()))
     }
 }
 impl<A1, A2, A3, T1, T2, T3> OnChainSize<(A1, A2, A3)> for (T1, T2, T3)
