@@ -187,7 +187,6 @@ dependencies = [
 [tasks.publish_all]
 workspace = false
 dependencies = [
-    "verify_all",
     "publish_easy_proc_common",
     "publish_easy_proc_derive",
     "publish_easy_proc",
