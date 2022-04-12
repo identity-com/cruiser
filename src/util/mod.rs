@@ -15,10 +15,13 @@ use crate::account_argument::{AccountArgument, FromAccounts, ValidateArgument};
 use crate::instruction::{InstructionProcessor, ReturnValue};
 use crate::{CruiserResult, GenericError};
 
+pub use with_data::*;
+
 pub mod assert;
 pub(crate) mod bytes_ext;
 pub mod short_iter;
 pub mod short_vec;
+mod with_data;
 
 /// A version of [`Cow`](std::borrow::Cow) that only operates as a ref.
 #[derive(Debug, Copy, Clone)]

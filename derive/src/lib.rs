@@ -24,6 +24,7 @@ use easy_proc::ArgumentList;
 use crate::account_argument::AccountArgumentDerive;
 use crate::account_list::AccountListDerive;
 use crate::error::ErrorDerive;
+use crate::in_place::InPlaceDerive;
 use crate::instruction_list::InstructionListDerive;
 use crate::verify_account_arg_impl::VerifyAccountArgs;
 
@@ -193,6 +194,19 @@ pub fn derive_account_list(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
+/// Derive macro for the `InPlace` trait.
+#[proc_macro_error]
+#[proc_macro_derive(InPlace, attributes(in_place))]
+pub fn derive_in_place(input: TokenStream) -> TokenStream {
+    let stream = parse_macro_input!(input as InPlaceDerive).into_token_stream();
+    #[cfg(feature = "debug_in_place")]
+    {
+        println!("{}", stream);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    stream.into()
+}
+
 /// Verifies a given type implements the proper traits
 ///
 /// TODO: Write docs for this
@@ -206,7 +220,7 @@ pub fn verify_account_arg_impl(tokens: TokenStream) -> TokenStream {
 fn get_crate_name() -> proc_macro2::TokenStream {
     let generator_crate = crate_name("cruiser").expect("Could not find `cruiser`");
     match generator_crate {
-        FoundCrate::Itself => quote! { ::cruiser },
+        FoundCrate::Itself => quote! { cruiser },
         FoundCrate::Name(name) => {
             let ident = format_ident!("{}", name);
             quote! { ::#ident }
