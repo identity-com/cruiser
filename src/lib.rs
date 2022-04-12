@@ -16,7 +16,8 @@
     clippy::cast_possible_truncation,
     clippy::module_name_repetitions,
     clippy::missing_errors_doc,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    clippy::mut_mut
 )]
 //! A generator program that will be able to generate solana program code from a much easier starting place.
 //!
@@ -55,6 +56,8 @@ pub mod indexer;
 pub mod pda_seeds;
 #[cfg(feature = "spl-token")]
 pub mod spl;
+#[cfg(feature = "testing")]
+pub mod testing;
 pub mod types;
 pub mod util;
 
