@@ -230,7 +230,7 @@ jobs:
     strategy:
       matrix:
         rust: [ 'nightly-2022-03-22' ]
-        solana: ['1.9.14', '1.9.13', '1.9.12']
+        solana: ['v1.9.15', 'v1.9.14', 'v1.9.13', 'v1.9.12', 'stable']
         os: [ ubuntu-latest ]
 
     steps:
@@ -252,7 +252,7 @@ jobs:
 
       - name: Install Solana
         run: |
-          sh -c "$(curl -sSfL https://release.solana.com/v${{ matrix.solana }}/install)"
+          sh -c "$(curl -sSfL https://release.solana.com/${{ matrix.solana }}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Get timestamp
