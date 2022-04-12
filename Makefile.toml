@@ -21,7 +21,7 @@ script = "cargo run -p check_all -- -p escrow_example -f entrypoint:processor -f
 
 [tasks.check_cruiser]
 workspace = false
-script = "cargo run -p check_all -- -p cruiser -f client -f experimental:small_vec,interface -f spl-token -f small_vec -f interface -f const_eval"
+script = "cargo run -p check_all -- -p cruiser -f client -f testing:client -f experimental:small_vec,interface -f spl-token -f small_vec -f interface -f const_eval"
 
 [tasks.check_all]
 workspace = false
@@ -93,9 +93,6 @@ end
 if not is_empty ${DRY_RUN}
     array_push %{args} --dry-run
 end
-if not is_empty ${ALLOW_DIRTY}
-    array_push %{args} --allow-dirty
-end
 
 args_string = array_join ${args} " "
 echo running cargo %{args_string}
@@ -114,9 +111,6 @@ if not is_empty ${PUBLISH_TOKEN}
 end
 if not is_empty ${DRY_RUN}
     array_push %{args} --dry-run
-end
-if not is_empty ${ALLOW_DIRTY}
-    array_push %{args} --allow-dirty
 end
 
 args_string = array_join ${args} " "
@@ -137,9 +131,6 @@ end
 if not is_empty ${DRY_RUN}
     array_push %{args} --dry-run
 end
-if not is_empty ${ALLOW_DIRTY}
-    array_push %{args} --allow-dirty
-end
 
 args_string = array_join ${args} " "
 echo running cargo %{args_string}
@@ -158,9 +149,6 @@ if not is_empty ${PUBLISH_TOKEN}
 end
 if not is_empty ${DRY_RUN}
     array_push %{args} --dry-run
-end
-if not is_empty ${ALLOW_DIRTY}
-    array_push %{args} --allow-dirty
 end
 
 args_string = array_join ${args} " "
@@ -181,9 +169,6 @@ end
 if not is_empty ${DRY_RUN}
     array_push %{args} --dry-run
 end
-if not is_empty ${ALLOW_DIRTY}
-    array_push %{args} --allow-dirty
-end
 
 args_string = array_join ${args} " "
 echo running cargo %{args_string}
@@ -192,15 +177,12 @@ exec --fail-on-error cargo %{args_string}
 
 [tasks.verify_all]
 workspace = false
-env = { DRY_RUN = "true", ALLOW_DIRTY = "true" }
-script_runner = "@duckscript"
-script = '''
-cm_run_task publish_all
-cm_run_task check_fmt
-cm_run_task check_all
-cm_run_task doc
-cm_run_task test_all
-'''
+dependencies = [
+    "check_fmt",
+    "check_all",
+    "doc",
+    "test_all",
+]
 
 [tasks.publish_all]
 workspace = false
