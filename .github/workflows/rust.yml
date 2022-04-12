@@ -223,6 +223,64 @@ jobs:
           command: make
           args: doc
 
+  publish_dry_run:
+    name: Check publish dry run on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-make
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
+            ./target
+            ./Cargo.lock
+          key: cargo-publishability-${{ steps.current-time.outputs.time }}
+          restore-keys: |
+            cargo-publishability-
+
+      - name: Update dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
+
+      - name: Run publish dry run
+        uses: actions-rs/cargo@v1
+        env:
+          DRY_RUN: true
+          ALLOW_DIRTY: true
+        with:
+          command: make
+          args: publish_all
+
   test_all:
     name: Test everything on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
 

@@ -28,6 +28,7 @@ client = ["solana-sdk", "solana-client", "rand", "rand_chacha"]
 experimental = ["small_vec", "interface"]
 small_vec = []
 interface = []
+const_eval = []
 
 [dependencies]
 cruiser_derive = { version = "0.2.0", path = "./derive" }
