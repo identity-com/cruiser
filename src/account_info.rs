@@ -1,5 +1,5 @@
 use std::cell::{Ref, RefCell, RefMut};
-use std::mem::{align_of, size_of, transmute};
+use std::mem::{size_of, transmute};
 use std::ops::{Deref, DerefMut};
 use std::ptr::addr_of;
 use std::rc::Rc;
@@ -11,7 +11,7 @@ use crate::account_argument::{
 };
 use crate::{CruiserResult, GenericError, SolanaAccountInfo};
 use solana_program::clock::Epoch;
-use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
+use solana_program::entrypoint::{BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE};
 use solana_program::msg;
 use solana_program::program_error::ProgramError;
 use solana_program::program_memory::sol_memset;
@@ -231,7 +231,7 @@ impl CruiserAccountInfo {
                 )));
                 let original_data_len = &*Box::leak(Box::new(data_len));
                 offset += data_len + MAX_PERMITTED_DATA_INCREASE;
-                offset += (offset as *const u8).align_offset(align_of::<u128>());
+                offset += (offset as *const u8).align_offset(BPF_ALIGN_OF_U128);
 
                 let rent_epoch = *Self::read_value::<Epoch>(input, &mut offset);
 
@@ -525,11 +525,10 @@ const _: fn() = || {
 #[cfg(test)]
 pub mod account_info_test {
     use std::cell::RefCell;
-    use std::mem::align_of;
     use std::rc::Rc;
 
     use rand::{thread_rng, Rng};
-    use solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
+    use solana_program::entrypoint::{BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE};
 
     use crate::account_argument::{MultiIndexable, Single};
     use crate::AllAny;
@@ -569,7 +568,7 @@ pub mod account_info_test {
         add(data, (N as u64).to_ne_bytes());
         add(data, account_data);
         add(data, [0; MAX_PERMITTED_DATA_INCREASE]);
-        let extra = (data.len() as *const u8).align_offset(align_of::<u128>());
+        let extra = (data.len() as *const u8).align_offset(BPF_ALIGN_OF_U128);
         pad(data, extra);
         add(data, rent_epoch.to_ne_bytes());
     }
