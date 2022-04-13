@@ -14,127 +14,142 @@ use std::ops::{Range, RangeBounds};
 pub trait InPlace<'a> {
     /// The type accessed
     type Access;
-    /// The type of the argument used in [`InPlace::create_with_arg`]
-    type CreateArg;
-    /// The type of the argument used in [`InPlace::read_with_arg`]
-    type ReadArg;
-
-    /// Create a new instance of `Self::Access` with the given argument
-    fn create_with_arg(
-        data: &mut &'a mut [u8],
-        arg: Self::CreateArg,
-    ) -> CruiserResult<Self::Access>;
-    /// Reads the access type from data and an arg
-    fn read_with_arg(data: &mut &'a mut [u8], arg: Self::ReadArg) -> CruiserResult<Self::Access>;
+    type AccessMut;
 }
+pub trait InPlaceCreate<'a, C>: InPlace<'a> {
+    /// Create a new instance of `Self::Access` with the given argument
+    fn create_with_arg(data: &mut &'a mut [u8], arg: C) -> CruiserResult<Self::AccessMut>;
+}
+pub trait InPlaceRead<'a, R>: InPlace<'a> {
+    /// Reads the access type from data and an arg
+    fn read_with_arg(data: &mut &'a [u8], arg: R) -> CruiserResult<Self::Access>;
+}
+pub trait InPlaceWrite<'a, W>: InPlace<'a> {
+    /// Writes the access type to data and an arg
+    fn write_with_arg(data: &mut &'a mut [u8], arg: W) -> CruiserResult<Self::AccessMut>;
+}
+
 /// In-place account data create access with no arg, auto derived
-pub trait InPlaceUnitCreate<'a>: InPlace<'a, CreateArg = ()> {
+pub trait InPlaceUnitCreate<'a>: InPlaceCreate<'a, ()> {
     /// Create a new instance of `Self::Access` with no argument
     fn create(data: &mut &'a mut [u8]) -> CruiserResult<Self::Access> {
         Self::create_with_arg(data, ())
     }
 }
-impl<'a, T> InPlaceUnitCreate<'a> for T where T: InPlace<'a, CreateArg = ()> {}
+impl<'a, T> InPlaceUnitCreate<'a> for T where T: InPlaceCreate<'a, ()> {}
+
 /// In-place account data read access with no arg, auto derived
-pub trait InPlaceUnitRead<'a>: InPlace<'a, ReadArg = ()> {
+pub trait InPlaceUnitRead<'a>: InPlaceRead<'a, ()> {
     /// Reads the access type from data
-    fn read(data: &mut &'a mut [u8]) -> CruiserResult<Self::Access> {
+    fn read(data: &mut &'a [u8]) -> CruiserResult<Self::Access> {
         Self::read_with_arg(data, ())
     }
 }
-impl<'a, T> InPlaceUnitRead<'a> for T where T: InPlace<'a, ReadArg = ()> {}
+impl<'a, T> InPlaceUnitRead<'a> for T where T: InPlaceRead<'a, ()> {}
 
-/// Gets a value from the access
-pub trait InPlaceGet<'a>: Sized + InPlace<'a> {
-    /// Gets the access value
-    fn get_with_access(access: &Self::Access) -> CruiserResult<Self>;
-}
-impl<'a, T> InPlaceGet<'a> for T
-where
-    T: InPlace<'a>,
-    T::Access: InPlaceAccessGet<Self>,
-{
-    fn get_with_access(access: &Self::Access) -> CruiserResult<Self> {
-        access.get()
+pub trait InPlaceUnitWrite<'a>: InPlaceWrite<'a, ()> {
+    /// Writes the access type to data
+    fn write(data: &mut &'a mut [u8]) -> CruiserResult<Self::AccessMut> {
+        Self::write_with_arg(data, ())
     }
 }
-/// Sets a value to an access
-pub trait InPlaceSet<'a>: Sized + InPlace<'a> {
-    /// Sets a value to an access
-    fn set_with_access(access: &mut Self::Access, val: Self) -> CruiserResult;
-}
-impl<'a, T> InPlaceSet<'a> for T
-where
-    T: InPlace<'a>,
-    T::Access: InPlaceAccessSet<Self>,
-{
-    fn set_with_access(access: &mut Self::Access, val: Self) -> CruiserResult {
-        access.set(val)
-    }
-}
+impl<'a, T> InPlaceUnitWrite<'a> for T where T: InPlaceWrite<'a, ()> {}
+
+pub trait InPlaceUnit<'a>: InPlaceUnitCreate<'a> + InPlaceUnitRead<'a> {}
+impl<'a, T> InPlaceUnit<'a> for T where T: InPlaceUnitCreate<'a> + InPlaceUnitRead<'a> {}
 
 /// An access that can get a value out
-pub trait InPlaceAccessGet<V> {
+pub trait InPlaceGet<V> {
     /// Gets a value out
     fn get(&self) -> CruiserResult<V>;
 }
 /// An access that can be set to a value
-pub trait InPlaceAccessSet<V> {
+pub trait InPlaceSet<V> {
     /// Sets this to a value
     fn set(&mut self, val: V) -> CruiserResult;
 }
 
 impl<'a> InPlace<'a> for u8 {
-    type Access = &'a mut u8;
-    type CreateArg = ();
-    type ReadArg = ();
-
-    fn create_with_arg(
-        data: &mut &'a mut [u8],
-        arg: Self::CreateArg,
-    ) -> CruiserResult<Self::Access> {
-        Self::read_with_arg(data, arg)
+    type Access = &'a u8;
+    type AccessMut = &'a mut u8;
+}
+impl<'a> InPlaceCreate<'a, ()> for u8 {
+    fn create_with_arg(data: &mut &'a mut [u8], arg: ()) -> CruiserResult<Self::AccessMut> {
+        Self::write_with_arg(data, arg)
     }
-
+}
+impl<'a> InPlaceRead<'a, ()> for u8 {
     fn read_with_arg(data: &mut &'a mut [u8], _arg: ()) -> CruiserResult<Self::Access> {
+        let out: &[_; 1] = data.try_advance_array()?;
+        Ok(&out[0])
+    }
+}
+impl<'a> InPlaceWrite<'a, ()> for u8 {
+    fn write_with_arg(data: &mut &'a mut [u8], _arg: ()) -> CruiserResult<Self::AccessMut> {
         let out: &mut [_; 1] = data.try_advance_array()?;
         Ok(&mut out[0])
     }
 }
-impl<'a> InPlaceAccessGet<u8> for &'a mut u8 {
+impl<'a> InPlaceGet<u8> for u8::Access {
     fn get(&self) -> CruiserResult<u8> {
         Ok(**self)
     }
 }
-impl<'a> InPlaceAccessSet<u8> for &'a mut u8 {
+impl<'a> InPlaceGet<u8> for u8::AccessMut {
+    fn get(&self) -> CruiserResult<u8> {
+        Ok(**self)
+    }
+}
+impl<'a> InPlaceSet<u8> for u8::AccessMut {
     fn set(&mut self, val: u8) -> CruiserResult {
         **self = val;
         Ok(())
     }
 }
-impl<'a> InPlace<'a> for i8 {
-    type Access = &'a mut i8;
-    type CreateArg = ();
-    type ReadArg = ();
-
-    fn create_with_arg(
-        data: &mut &'a mut [u8],
-        arg: Self::CreateArg,
-    ) -> CruiserResult<Self::Access> {
-        Self::read_with_arg(data, arg)
+impl InPlaceGet<usize> for u8::Access {
+    fn get(&self) -> CruiserResult<usize> {
+        Ok(**self as usize)
     }
+}
+impl InPlaceGet<usize> for u8::AccessMut {
+    fn get(&self) -> CruiserResult<usize> {
+        Ok(**self as usize)
+    }
+}
+impl InPlaceSet<usize> for u8::AccessMut {
+    fn set(&mut self, val: usize) -> CruiserResult {
+        **self = val.try_into()?;
+        Ok(())
+    }
+}
 
+impl<'a> InPlace<'a> for i8 {
+    type Access = &'a i8;
+    type AccessMut = &'a mut i8;
+}
+impl<'a> InPlaceCreate<'a, ()> for i8 {
+    fn create_with_arg(data: &mut &'a mut [u8], arg: ()) -> CruiserResult<Self::AccessMut> {
+        Self::write_with_arg(data, arg)
+    }
+}
+impl<'a> InPlaceRead<'a, ()> for i8 {
     fn read_with_arg(data: &mut &'a mut [u8], _arg: ()) -> CruiserResult<Self::Access> {
+        let out: &[_; 1] = data.try_advance_array()?;
+        Ok(unsafe { &*(out.as_ptr().cast::<i8>()) })
+    }
+}
+impl<'a> InPlaceWrite<'a, ()> for i8 {
+    fn write_with_arg(data: &mut &'a mut [u8], _arg: ()) -> CruiserResult<Self::AccessMut> {
         let out: &mut [_; 1] = data.try_advance_array()?;
         Ok(unsafe { &mut *(out.as_mut_ptr().cast::<i8>()) })
     }
 }
-impl<'a> InPlaceAccessGet<i8> for &'a mut i8 {
+impl<'a> InPlaceGet<i8> for i8::Access {
     fn get(&self) -> CruiserResult<i8> {
         Ok(**self)
     }
 }
-impl<'a> InPlaceAccessSet<i8> for &'a mut i8 {
+impl<'a> InPlaceSet<i8> for i8::AccessMut {
     fn set(&mut self, val: i8) -> CruiserResult {
         **self = val;
         Ok(())
@@ -144,7 +159,7 @@ impl<'a> InPlaceAccessSet<i8> for &'a mut i8 {
 /// An inplace version of primitive numbers to adhere to alignment
 #[derive(Debug)]
 pub struct PrimNumInPlace<'a, T, const N: usize>(&'a mut [u8; N], PhantomData<T>);
-impl<'a, T, const N: usize> InPlaceAccessGet<T> for PrimNumInPlace<'a, T, N>
+impl<'a, T, const N: usize> InPlaceGet<T> for PrimNumInPlace<'a, T, N>
 where
     T: FromNE<N>,
 {
@@ -152,7 +167,7 @@ where
         Ok(T::from_ne_bytes(*self.0))
     }
 }
-impl<'a, T, const N: usize> InPlaceAccessSet<T> for PrimNumInPlace<'a, T, N>
+impl<'a, T, const N: usize> InPlaceSet<T> for PrimNumInPlace<'a, T, N>
 where
     T: FromNE<N>,
 {
@@ -194,16 +209,13 @@ macro_rules! impl_from_ne {
         }
         impl<'a> InPlace<'a> for $ty {
             type Access = PrimNumInPlace<'a, $ty, $size>;
-            type CreateArg = ();
-            type ReadArg = ();
-
-            fn create_with_arg(
-                data: &mut &'a mut [u8],
-                _arg: Self::CreateArg,
-            ) -> CruiserResult<Self::Access> {
+        }
+        impl<'a> InPlaceCreate<'a, ()> for $ty {
+            fn create_with_arg(data: &mut &'a mut [u8], _arg: ()) -> CruiserResult<Self::Access> {
                 Self::read_with_arg(data, ())
             }
-
+        }
+        impl<'a> InPlaceRead<'a, ()> for $ty {
             fn read_with_arg(data: &mut &'a mut [u8], _arg: ()) -> CruiserResult<Self::Access> {
                 Ok(PrimNumInPlace(data.try_advance_array()?, PhantomData))
             }
@@ -230,28 +242,39 @@ impl_from_ne!(i64, 8);
 impl_from_ne!(i128, 16);
 
 impl<'a> InPlace<'a> for Pubkey {
-    type Access = &'a mut Pubkey;
-    type CreateArg = ();
-    type ReadArg = ();
-
-    fn create_with_arg(
-        data: &mut &'a mut [u8],
-        arg: Self::CreateArg,
-    ) -> CruiserResult<Self::Access> {
-        Self::read_with_arg(data, arg)
+    type Access = &'a Pubkey;
+    type AccessMut = &'a mut Pubkey;
+}
+impl<'a> InPlaceCreate<'a, ()> for Pubkey {
+    fn create_with_arg(data: &mut &'a mut [u8], arg: ()) -> CruiserResult<Self::AccessMut> {
+        Self::write_with_arg(data, arg)
     }
-
+}
+impl<'a> InPlaceRead<'a, ()> for Pubkey {
     fn read_with_arg(data: &mut &'a mut [u8], _arg: ()) -> CruiserResult<Self::Access> {
         let data: &mut [u8; 32] = data.try_advance_array()?;
+        // Safe because Pubkey is transparent to [u8; 32]
+        Ok(unsafe { &*data.as_ptr().cast::<Pubkey>() })
+    }
+}
+impl<'a> InPlaceWrite<'a, ()> for Pubkey {
+    fn write_with_arg(data: &mut &'a mut [u8], _arg: ()) -> CruiserResult<Self::AccessMut> {
+        let data: &mut [u8; 32] = data.try_advance_array()?;
+        // Safe because Pubkey is transparent to [u8; 32]
         Ok(unsafe { &mut *data.as_mut_ptr().cast::<Pubkey>() })
     }
 }
-impl<'a> InPlaceAccessGet<Pubkey> for &'a mut Pubkey {
+impl<'a> InPlaceGet<Pubkey> for Pubkey::Access {
     fn get(&self) -> CruiserResult<Pubkey> {
         Ok(**self)
     }
 }
-impl<'a> InPlaceAccessSet<Pubkey> for &'a mut Pubkey {
+impl<'a> InPlaceGet<Pubkey> for Pubkey::AccessMut {
+    fn get(&self) -> CruiserResult<Pubkey> {
+        Ok(**self)
+    }
+}
+impl<'a> InPlaceSet<Pubkey> for Pubkey::AccessMut {
     fn set(&mut self, val: Pubkey) -> CruiserResult {
         **self = val;
         Ok(())
@@ -260,24 +283,42 @@ impl<'a> InPlaceAccessSet<Pubkey> for &'a mut Pubkey {
 
 /// In-place access to arrays
 #[derive(Debug)]
-pub struct InPlaceArray<'a, T, const N: usize> {
+pub struct InPlaceArray<T, D, const N: usize> {
     element_length: usize,
-    data: &'a mut [u8],
+    data: D,
     phantom_t: PhantomData<fn() -> T>,
 }
-impl<'a, T, const N: usize> InPlaceArray<'a, T, N> {
+impl<T, D, const N: usize> InPlaceArray<T, D, N>
+where
+    D: AsRef<[u8]>,
+{
     /// Gets an item in the array with a read arg
-    pub fn get_with_arg<'b, A>(
-        &'b mut self,
-        index: usize,
-        arg: A,
-    ) -> CruiserResult<Option<T::Access>>
+    pub fn get_with_arg<'b, A>(&'b self, index: usize, arg: A) -> CruiserResult<Option<T::Access>>
     where
-        T: InPlace<'b, ReadArg = A>,
+        T: InPlaceRead<'b, A>,
     {
         if index < N {
             Ok(Some(T::read_with_arg(
-                &mut &mut self.data[self.element_length * index..],
+                &mut &self.data.as_ref()[self.element_length * index..],
+                arg,
+            )?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_with_arg_mut<'b, A>(
+        &'b mut self,
+        index: usize,
+        arg: A,
+    ) -> CruiserResult<Option<T::AccessMut>>
+    where
+        T: InPlaceWrite<'b, A>,
+        D: AsMut<[u8]>,
+    {
+        if index < N {
+            Ok(Some(T::write_with_arg(
+                &mut &mut self.data.as_mut()[self.element_length * index..],
                 arg,
             )?))
         } else {
@@ -291,6 +332,14 @@ impl<'a, T, const N: usize> InPlaceArray<'a, T, N> {
         T: InPlaceUnitRead<'b>,
     {
         self.get_with_arg(index, ())
+    }
+
+    pub fn get_mut<'b>(&'b mut self, index: usize) -> CruiserResult<Option<T::AccessMut>>
+    where
+        T: InPlaceUnitWrite<'b>,
+        D: AsMut<[u8]>,
+    {
+        self.get_with_arg_mut(index, ())
     }
 
     /// Gets an iterator over the array in the range cloning the arg
@@ -407,9 +456,7 @@ where
     T: OnChainStaticSize,
 {
     type Access = InPlaceArray<'a, T, N>;
-    type CreateArg = ();
-    type ReadArg = ();
-
+    type AccessMut = ();
     fn create_with_arg(
         data: &mut &'a mut [u8],
         arg: Self::CreateArg,
@@ -450,7 +497,7 @@ where
     where
         T: InPlace<'b, CreateArg = A>,
         L: ToSolanaUsize,
-        L::Access: InPlaceAccessGet<L> + InPlaceAccessSet<L>,
+        L::Access: InPlaceGet<L> + InPlaceSet<L>,
         A: Clone,
     {
         let length = self.length.get()?.to_solana_usize();

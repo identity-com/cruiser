@@ -24,6 +24,7 @@ use easy_proc::ArgumentList;
 use crate::account_argument::AccountArgumentDerive;
 use crate::account_list::AccountListDerive;
 use crate::error::ErrorDerive;
+#[allow(unused_imports)]
 use crate::in_place::InPlaceDerive;
 use crate::instruction_list::InstructionListDerive;
 use crate::verify_account_arg_impl::VerifyAccountArgs;
@@ -31,6 +32,7 @@ use crate::verify_account_arg_impl::VerifyAccountArgs;
 mod account_argument;
 mod account_list;
 mod error;
+#[allow(dead_code)]
 mod in_place;
 mod instruction_list;
 mod log_level;
@@ -194,18 +196,18 @@ pub fn derive_account_list(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
-/// Derive macro for the `InPlace` trait.
-#[proc_macro_error]
-#[proc_macro_derive(InPlace, attributes(in_place))]
-pub fn derive_in_place(input: TokenStream) -> TokenStream {
-    let stream = parse_macro_input!(input as InPlaceDerive).into_token_stream();
-    #[cfg(feature = "debug_in_place")]
-    {
-        println!("{}", stream);
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
-    stream.into()
-}
+// /// Derive macro for the `InPlace` trait.
+// #[proc_macro_error]
+// #[proc_macro_derive(InPlace, attributes(in_place))]
+// pub fn derive_in_place(input: TokenStream) -> TokenStream {
+//     let stream = parse_macro_input!(input as InPlaceDerive).into_token_stream();
+//     #[cfg(feature = "debug_in_place")]
+//     {
+//         println!("{}", stream);
+//         std::thread::sleep(std::time::Duration::from_millis(100));
+//     }
+//     stream.into()
+// }
 
 /// Verifies a given type implements the proper traits
 ///
