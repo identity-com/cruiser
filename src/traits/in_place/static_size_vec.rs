@@ -18,7 +18,7 @@ where
         L::on_chain_static_size() + T::on_chain_static_size() * N
     }
 }
-/// The [`InPlace::Access`] and [`InPace::AccessMut`] for [`StaticSizeVec`]
+/// The [`InPlace::Access`] and [`InPlace::AccessMut`] for [`StaticSizeVec`]
 #[derive(Debug)]
 pub struct StaticSizeVecAccess<T, L, D, const N: usize> {
     length: L,
