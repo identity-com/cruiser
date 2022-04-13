@@ -9,20 +9,14 @@ use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
 use cruiser::{borsh, AccountInfo};
 
 pub struct Exchange;
-impl<AI> Instruction<AI> for Exchange
-where
-    AI: AccountInfo,
-{
+impl<AI> Instruction<AI> for Exchange {
     type Accounts = ExchangeAccounts<AI>;
     type Data = ExchangeData;
 }
 
 #[derive(AccountArgument)]
-#[account_argument(account_info = AI)]
-pub struct ExchangeAccounts<AI>
-where
-    AI: AccountInfo,
-{
+#[account_argument(account_info = AI, generics = [where AI: AccountInfo])]
+pub struct ExchangeAccounts<AI> {
     #[validate(signer)]
     taker: AI,
     #[validate(writable, data = Owner(self.taker.key()))]
