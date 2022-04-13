@@ -1,9 +1,12 @@
-#![feature(associated_type_defaults)]
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
-#![allow(stable_features)]
-#![feature(associated_type_defaults)]
+#![cfg_attr(
+    target_arch = "bpf",
+    feature(const_panic, const_raw_ptr_deref, const_fn_trait_bound)
+)]
 #![feature(const_trait_impl)]
-#![feature(const_fn_trait_bound)]
+#![feature(const_ptr_offset)]
+#![feature(const_slice_from_raw_parts)]
+#![feature(const_refs_to_cell)]
 #![feature(const_mut_refs)]
 #![feature(const_for)]
 #![warn(

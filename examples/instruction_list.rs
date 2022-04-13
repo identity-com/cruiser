@@ -21,6 +21,7 @@ pub struct TestInstruction1;
 impl<AI> Instruction<AI> for TestInstruction1 {
     type Data = ();
     type Accounts = PhantomAccount<AI, ()>;
+    type ReturnType = ();
 }
 impl<AI> InstructionProcessor<AI, TestInstruction1> for TestInstruction1 {
     type FromAccountsData = ();
@@ -50,6 +51,7 @@ pub struct TestInstruction2;
 impl<AI> Instruction<AI> for TestInstruction2 {
     type Data = ();
     type Accounts = PhantomAccount<AI, ()>;
+    type ReturnType = ();
 }
 impl<AI> InstructionProcessor<AI, TestInstruction1> for TestInstruction2 {
     type FromAccountsData = ();

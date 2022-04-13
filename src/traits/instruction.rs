@@ -14,7 +14,7 @@ pub trait Instruction<AI>: Sized {
     /// The instruction data minus the instruction discriminant.
     type Data;
     /// The return type of the instruction
-    type ReturnType: ReturnValue = ();
+    type ReturnType: ReturnValue;
 }
 
 /// A processor for a given instruction `I`

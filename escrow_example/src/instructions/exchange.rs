@@ -12,6 +12,7 @@ pub struct Exchange;
 impl<AI> Instruction<AI> for Exchange {
     type Accounts = ExchangeAccounts<AI>;
     type Data = ExchangeData;
+    type ReturnType = ();
 }
 
 #[derive(AccountArgument)]
