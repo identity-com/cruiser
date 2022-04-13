@@ -2,6 +2,7 @@ use crate::in_place::{InPlace, InPlaceCreate, InPlaceGet, InPlaceRead, InPlaceSe
 use crate::util::AdvanceArray;
 use crate::{CruiserResult, GenericError};
 use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
 
 impl<'a> InPlace<'a> for u8 {
     type Access = &'a u8;
@@ -87,6 +88,11 @@ impl<'a> InPlaceGet<i8> for <i8 as InPlace<'a>>::Access {
         Ok(**self)
     }
 }
+impl<'a> InPlaceGet<i8> for <i8 as InPlace<'a>>::AccessMut {
+    fn get(&self) -> CruiserResult<i8> {
+        Ok(**self)
+    }
+}
 impl<'a> InPlaceSet<i8> for <i8 as InPlace<'a>>::AccessMut {
     fn set(&mut self, val: i8) -> CruiserResult {
         **self = val;
@@ -100,19 +106,19 @@ pub struct PrimNumInPlace<T, D, const N: usize>(D, PhantomData<T>);
 impl<T, D, const N: usize> InPlaceGet<T> for PrimNumInPlace<T, D, N>
 where
     T: FromNE<N>,
-    D: AsRef<[u8; N]>,
+    D: Deref<Target = [u8; N]>,
 {
     fn get(&self) -> CruiserResult<T> {
-        Ok(T::from_ne_bytes(*self.0.as_ref()))
+        Ok(T::from_ne_bytes(*self.0.deref()))
     }
 }
 impl<T, D, const N: usize> InPlaceSet<T> for PrimNumInPlace<T, D, N>
 where
     T: FromNE<N>,
-    D: AsMut<[u8; N]>,
+    D: DerefMut<Target = [u8; N]>,
 {
     fn set(&mut self, val: T) -> CruiserResult {
-        *self.0.as_mut() = val.into_ne_bytes();
+        *self.0.deref_mut() = val.into_ne_bytes();
         Ok(())
     }
 }
@@ -202,3 +208,88 @@ impl_from_ne!(i16, 2);
 impl_from_ne!(i32, 4);
 impl_from_ne!(i64, 8);
 impl_from_ne!(i128, 16);
+
+#[cfg(test)]
+mod test {
+    use crate::in_place::{
+        InPlace, InPlaceCreate, InPlaceGet, InPlaceRead, InPlaceSet, InPlaceUnitCreate,
+        InPlaceUnitRead, InPlaceUnitWrite, InPlaceWrite,
+    };
+    use cruiser::in_place::FromNE;
+    use num_traits::Zero;
+    use rand::distributions::{Distribution, Standard};
+    use rand::{thread_rng, Rng};
+    use std::fmt::Debug;
+
+    fn prim_test_func<R, T, const N: usize>(rng: &mut R)
+    where
+        R: Rng,
+        Standard: Distribution<T>,
+        for<'a> T: FromNE<N>
+            + Copy
+            + PartialEq
+            + Debug
+            + InPlace<'a>
+            + InPlaceCreate<'a, ()>
+            + InPlaceRead<'a, ()>
+            + InPlaceWrite<'a, ()>
+            + Zero,
+        for<'a> <T as InPlace<'a>>::Access: InPlaceGet<T>,
+        for<'a> <T as InPlace<'a>>::AccessMut: InPlaceGet<T> + InPlaceSet<T>,
+    {
+        let value: T = rng.gen();
+        let bytes = value.into_ne_bytes();
+        let mut write_bytes = [0u8; N];
+        let value2 = T::from_ne_bytes(bytes);
+        assert_eq!(value, value2);
+
+        T::create(&mut write_bytes).expect("Could not create");
+        let in_place = T::read(&write_bytes).expect("Could not read");
+        assert_eq!(in_place.get().expect("Could not get"), T::zero());
+        drop(in_place);
+        let mut in_place = T::write(&mut write_bytes).expect("Could not write");
+        in_place.set(value).expect("Could not set");
+        assert_eq!(in_place.get().expect("Could not get"), value);
+    }
+
+    #[test]
+    fn prim_test() {
+        let mut rng = thread_rng();
+        for _ in 0..1024 {
+            prim_test_func::<_, u16, 2>(&mut rng);
+            prim_test_func::<_, u32, 4>(&mut rng);
+            prim_test_func::<_, u64, 8>(&mut rng);
+            prim_test_func::<_, u128, 16>(&mut rng);
+            prim_test_func::<_, i16, 2>(&mut rng);
+            prim_test_func::<_, i32, 4>(&mut rng);
+            prim_test_func::<_, i64, 8>(&mut rng);
+            prim_test_func::<_, i128, 16>(&mut rng);
+        }
+    }
+
+    #[test]
+    fn short_prim_test() {
+        let mut rng = thread_rng();
+        for _ in 0..1024 {
+            let val = rng.gen::<u8>();
+            let mut val_data = [0];
+            u8::create(&mut val_data).expect("Could not create");
+            let in_place = u8::read(&val_data).expect("Could not read");
+            let got: u8 = in_place.get().expect("Could not get");
+            assert_eq!(got, 0u8);
+            let mut in_place = u8::write(&mut val_data).expect("Could not write");
+            in_place.set(val).expect("Could not set");
+            let got: u8 = in_place.get().expect("Could not get");
+            assert_eq!(got, val);
+
+            let val = rng.gen::<i8>();
+            let mut val_data = [0];
+            i8::create(&mut val_data).expect("Could not create");
+            let in_place = i8::read(&val_data).expect("Could not read");
+            assert_eq!(in_place.get().expect("Could not get"), 0);
+            let mut in_place = i8::write(&mut val_data).expect("Could not write");
+            in_place.set(val).expect("Could not set");
+            assert_eq!(in_place.get().expect("Could not get"), val);
+        }
+    }
+}

@@ -22,6 +22,9 @@ members = [
     "escrow_example",
 ]
 
+[profile.dev]
+opt-level = 0
+
 [features]
 default = []
 client = ["solana-sdk", "solana-client", "rand", "rand_chacha"]

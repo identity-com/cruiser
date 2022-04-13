@@ -82,7 +82,8 @@ impl<T, D, const N: usize> InPlaceArray<T, D, N> {
         D: AsRef<[u8]>,
     {
         let (lower, upper) = range_bounds_to_range(range, 0, N);
-        let mut data = self.data.as_ref().advance(self.element_length * lower);
+        let mut data = self.data.as_ref();
+        data.advance(self.element_length * lower);
         Box::new(
             (lower..upper)
                 .map(move |_| T::read_with_arg(data.advance(self.element_length), arg.clone())),
@@ -101,7 +102,8 @@ impl<T, D, const N: usize> InPlaceArray<T, D, N> {
         W: Clone + 'b,
     {
         let (lower, upper) = range_bounds_to_range(range, 0, N);
-        let mut data = self.data.as_mut().advance(self.element_length * lower);
+        let mut data = self.data.as_mut();
+        data.advance(self.element_length * lower);
         let element_length = self.element_length;
         Box::new(
             (lower..upper)
@@ -267,5 +269,36 @@ where
             data: data.try_advance(element_length * N)?,
             phantom_t: PhantomData,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::in_place::{InPlaceCreate, InPlaceGet, InPlaceRead, InPlaceSet, InPlaceWrite};
+    use crate::CruiserResult;
+    use rand::{thread_rng, Rng};
+
+    #[test]
+    fn array_test() -> CruiserResult {
+        let mut rng = thread_rng();
+        let values = (0..1024).map(|_| rng.gen::<u128>()).collect::<Vec<_>>();
+        let mut data = vec![0u8; 1024 * 16];
+
+        <[u128; 1024]>::create_with_arg(&mut data, ())?;
+        let in_place = <[u128; 1024]>::read_with_arg(&data, ())?;
+        for value in in_place.all() {
+            assert_eq!(0, value?.get()?);
+        }
+        let mut in_place = <[u128; 1024]>::write_with_arg(&mut data, ())?;
+        in_place
+            .all_mut()
+            .zip(values.iter())
+            .map(|(write, value)| write?.set(*value))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        for (i, value) in values.iter().enumerate() {
+            assert_eq!(in_place.get(i)?.unwrap().get()?, *value);
+        }
+        Ok(())
     }
 }

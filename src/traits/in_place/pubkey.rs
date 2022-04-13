@@ -42,3 +42,30 @@ impl<'a> InPlaceSet<Pubkey> for <Pubkey as InPlace<'a>>::AccessMut {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::in_place::{
+        InPlaceGet, InPlaceSet, InPlaceUnitCreate, InPlaceUnitRead, InPlaceUnitWrite,
+    };
+    use rand::{thread_rng, Rng};
+    use solana_program::pubkey::Pubkey;
+
+    #[test]
+    fn pubkey_test() {
+        let rng = &mut thread_rng();
+        for _ in 0..1024 {
+            let value = Pubkey::new_from_array(rng.gen::<[u8; 32]>());
+            let mut data = [0u8; 32];
+            Pubkey::create(&mut data).expect("Could not create");
+            let in_place = Pubkey::read(&data).expect("Could not read");
+            assert_eq!(
+                Pubkey::new_from_array([0; 32]),
+                in_place.get().expect("Could not get")
+            );
+            let mut in_place = Pubkey::write(&mut data).expect("Could not write");
+            in_place.set(value).expect("Could not set");
+            assert_eq!(value, in_place.get().expect("Could not get"));
+        }
+    }
+}

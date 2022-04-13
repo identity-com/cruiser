@@ -1,5 +1,25 @@
-use crate::in_place::{InPlaceCreate, InPlaceRead, InPlaceWrite};
+use crate::in_place::{InPlace, InPlaceCreate, InPlaceRead, InPlaceWrite};
 use crate::CruiserResult;
+
+impl<'a> InPlace<'a> for () {
+    type Access = ();
+    type AccessMut = ();
+}
+impl<'a> InPlaceCreate<'a, ()> for () {
+    fn create_with_arg(_data: &mut [u8], _arg: ()) -> CruiserResult {
+        Ok(())
+    }
+}
+impl<'a> InPlaceRead<'a, ()> for () {
+    fn read_with_arg(_data: &'a [u8], _arg: ()) -> CruiserResult<()> {
+        Ok(())
+    }
+}
+impl<'a> InPlaceWrite<'a, ()> for () {
+    fn write_with_arg(_data: &'a mut [u8], _arg: ()) -> CruiserResult {
+        Ok(())
+    }
+}
 
 /// In-place account data create access with no arg, auto derived
 pub trait InPlaceUnitCreate<'a>: InPlaceCreate<'a, ()> {
