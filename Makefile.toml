@@ -21,7 +21,7 @@ script = "cargo run -p check_all -- -p escrow_example -f entrypoint:processor -f
 
 [tasks.check_cruiser]
 workspace = false
-script = "cargo run -p check_all -- -p cruiser -f client -f experimental:small_vec,interface -f spl-token -f small_vec -f interface"
+script = "cargo run -p check_all -- -p cruiser -f client -f testing:client -f experimental:small_vec,interface -f spl-token -f small_vec -f interface -f const_eval"
 
 [tasks.check_all]
 workspace = false
@@ -187,7 +187,6 @@ dependencies = [
 [tasks.publish_all]
 workspace = false
 dependencies = [
-    "verify_all",
     "publish_easy_proc_common",
     "publish_easy_proc_derive",
     "publish_easy_proc",

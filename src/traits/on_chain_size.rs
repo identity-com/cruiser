@@ -14,28 +14,34 @@ pub trait OnChainSize<A> {
 pub trait OnChainStaticSize: OnChainSize<()> {
     /// Gets the on-chain size of this value
     #[must_use]
+    fn on_chain_static_size() -> usize;
+}
+impl<T> const OnChainStaticSize for T
+where
+    T: ~const OnChainSize<()>,
+{
     fn on_chain_static_size() -> usize {
         Self::on_chain_max_size(())
     }
 }
-impl<T> OnChainStaticSize for T where T: OnChainSize<()> {}
 
-impl<A, T> OnChainSize<A> for Option<T>
+impl<A, T> const OnChainSize<A> for Option<T>
 where
-    T: OnChainSize<A>,
+    T: ~const OnChainSize<A>,
 {
     fn on_chain_max_size(arg: A) -> usize {
         1 + T::on_chain_max_size(arg)
     }
 }
-impl<T> OnChainSize<usize> for Vec<T>
+impl<T> const OnChainSize<usize> for Vec<T>
 where
-    T: OnChainStaticSize,
+    T: ~const OnChainStaticSize,
 {
     fn on_chain_max_size(arg: usize) -> usize {
         4 + arg * T::on_chain_static_size()
     }
 }
+#[cfg(not(feature = "const_eval"))]
 impl<T, I, A> OnChainSize<(I,)> for Vec<T>
 where
     I: IntoIterator<Item = A>,
@@ -43,6 +49,22 @@ where
 {
     fn on_chain_max_size(arg: (I,)) -> usize {
         4 + arg.0.into_iter().map(T::on_chain_max_size).sum::<usize>()
+    }
+}
+#[cfg(feature = "const_eval")]
+impl<T, I, A> const OnChainSize<(I,)> for Vec<T>
+where
+    I: ~const IntoIterator<Item = A> + ~const Drop,
+    I::IntoIter: ~const Iterator + ~const Drop,
+    A: ~const Drop,
+    T: ~const OnChainSize<A>,
+{
+    fn on_chain_max_size(arg: (I,)) -> usize {
+        let mut sum = 4;
+        for arg in arg.0 {
+            sum += T::on_chain_max_size(arg);
+        }
+        sum
     }
 }
 impl<A, T, const N: usize> OnChainSize<[A; N]> for Vec<T>
@@ -56,12 +78,30 @@ where
             .sum::<usize>()
     }
 }
+impl<T, const N: usize> const OnChainSize<()> for [T; N]
+where
+    T: ~const OnChainStaticSize,
+{
+    fn on_chain_max_size(_: ()) -> usize {
+        N * T::on_chain_static_size()
+    }
+}
+
 impl<A, T, const N: usize> OnChainSize<[A; N]> for [T; N]
 where
     T: OnChainSize<A>,
 {
     fn on_chain_max_size(arg: [A; N]) -> usize {
-        4 + arg.into_iter().map(T::on_chain_max_size).sum::<usize>()
+        arg.into_iter().map(T::on_chain_max_size).sum::<usize>()
+    }
+}
+impl<T1, T2> const OnChainSize<()> for (T1, T2)
+where
+    T1: ~const OnChainStaticSize,
+    T2: ~const OnChainStaticSize,
+{
+    fn on_chain_max_size(_arg: ()) -> usize {
+        T1::on_chain_static_size() + T2::on_chain_static_size()
     }
 }
 impl<A1, A2, T1, T2> OnChainSize<(A1, A2)> for (T1, T2)
@@ -71,6 +111,16 @@ where
 {
     fn on_chain_max_size(arg: (A1, A2)) -> usize {
         T1::on_chain_max_size(arg.0) + T2::on_chain_max_size(arg.1)
+    }
+}
+impl<T1, T2, T3> const OnChainSize<()> for (T1, T2, T3)
+where
+    T1: ~const OnChainStaticSize,
+    T2: ~const OnChainStaticSize,
+    T3: ~const OnChainStaticSize,
+{
+    fn on_chain_max_size(_arg: ()) -> usize {
+        T1::on_chain_static_size() + T2::on_chain_static_size() + T3::on_chain_static_size()
     }
 }
 impl<A1, A2, A3, T1, T2, T3> OnChainSize<(A1, A2, A3)> for (T1, T2, T3)
@@ -89,7 +139,7 @@ macro_rules! impl_on_chain_size_for_prim {
         $(impl_on_chain_size_for_prim!($ty);)+
     };
     ($ty:ty) => {
-        impl OnChainSize<()> for $ty{
+        impl const OnChainSize<()> for $ty{
             fn on_chain_max_size(_arg: ()) -> usize {
                 size_of::<$ty>()
             }
@@ -108,15 +158,5 @@ impl_on_chain_size_for_prim!(
     i32,
     i64,
     i128,
-    Pubkey,
-    std::num::NonZeroU8,
-    std::num::NonZeroU16,
-    std::num::NonZeroU32,
-    std::num::NonZeroU64,
-    std::num::NonZeroU128,
-    std::num::NonZeroI8,
-    std::num::NonZeroI16,
-    std::num::NonZeroI32,
-    std::num::NonZeroI64,
-    std::num::NonZeroI128,
+    Pubkey
 );

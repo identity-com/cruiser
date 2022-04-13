@@ -1,5 +1,10 @@
-#![feature(associated_type_defaults)]
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
+#![allow(stable_features)]
+#![feature(associated_type_defaults)]
+#![feature(const_trait_impl)]
+#![feature(const_fn_trait_bound)]
+#![feature(const_mut_refs)]
+#![feature(const_for)]
 #![warn(
     unused_import_braces,
     unused_imports,
@@ -51,6 +56,8 @@ pub mod indexer;
 pub mod pda_seeds;
 #[cfg(feature = "spl-token")]
 pub mod spl;
+#[cfg(feature = "testing")]
+pub mod testing;
 pub mod types;
 pub mod util;
 

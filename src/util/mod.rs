@@ -3,7 +3,6 @@
 use borsh::BorshDeserialize;
 use cruiser::account_argument::AccountInfoIterator;
 use cruiser::instruction::Instruction;
-use solana_program::program::{set_return_data, MAX_RETURN_DATA};
 use solana_program::pubkey::Pubkey;
 use std::borrow::Cow;
 use std::cmp::{max, min};
@@ -12,7 +11,7 @@ use std::ops::{Bound, Deref, RangeBounds};
 use std::ptr::slice_from_raw_parts_mut;
 
 use crate::account_argument::{AccountArgument, FromAccounts, ValidateArgument};
-use crate::instruction::{InstructionProcessor, ReturnValue};
+use crate::instruction::InstructionProcessor;
 use crate::{CruiserResult, GenericError};
 
 pub use with_data::*;
@@ -95,25 +94,9 @@ where
     let mut accounts =
         <I::Accounts as FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
     ValidateArgument::validate(&mut accounts, program_id, validate_data)?;
-    let ret = P::process(program_id, instruction_data, &mut accounts)?;
-    ret.return_self(set_return_data)?;
+    P::process(program_id, instruction_data, &mut accounts)?;
     <I::Accounts as AccountArgument>::write_back(accounts, program_id)?;
     Ok(())
-}
-
-extern "C" {
-    fn sol_get_return_data(data: *mut u8, length: u64, program_id: *mut Pubkey) -> u64;
-}
-/// Gets return data from a cpi call. Returns the size of data returned, 0 means no return was found.
-/// Copied from [`get_return_data`](solana_program::program::get_return_data).
-pub fn get_return_data_buffered(
-    buffer: &mut [u8; MAX_RETURN_DATA],
-    program_id: &mut Pubkey,
-) -> CruiserResult<usize> {
-    // Copied from solana src
-    let size = unsafe { sol_get_return_data(buffer.as_mut_ptr(), buffer.len() as u64, program_id) };
-
-    Ok(min(size as usize, MAX_RETURN_DATA))
 }
 
 /// (start, end), inclusive
