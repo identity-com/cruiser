@@ -35,10 +35,8 @@ impl<T, L, D, const N: usize> StaticSizeVecAccess<T, L, D, N> {
     {
         let length = self.length.get()?;
         if index < length {
-            let mut data = self
-                .data
-                .as_ref()
-                .try_advance(index * T::on_chain_static_size())?;
+            let mut data = self.data.as_ref();
+            data.advance(index * T::on_chain_static_size());
             T::read_with_arg(data.try_advance(T::on_chain_static_size())?, arg).map(Some)
         } else {
             Ok(None)
@@ -68,10 +66,8 @@ impl<T, L, D, const N: usize> StaticSizeVecAccess<T, L, D, N> {
     {
         let length = self.length.get()?;
         if index < length {
-            let mut data = self
-                .data
-                .as_mut()
-                .try_advance(index * T::on_chain_static_size())?;
+            let mut data = self.data.as_mut();
+            data.try_advance(index * T::on_chain_static_size())?;
             T::write_with_arg(data.try_advance(T::on_chain_static_size())?, arg).map(Some)
         } else {
             Ok(None)
@@ -97,10 +93,8 @@ impl<T, L, D, const N: usize> StaticSizeVecAccess<T, L, D, N> {
     {
         let length = self.length.get()?;
         if length < N {
-            let mut data = self
-                .data
-                .as_mut()
-                .try_advance(length * T::on_chain_static_size())?;
+            let mut data = self.data.as_mut();
+            data.try_advance(length * T::on_chain_static_size())?;
             T::create_with_arg(data.try_advance(T::on_chain_static_size())?, arg)?;
             self.length.set(length + 1)?;
             Ok(())
