@@ -7,7 +7,7 @@ use solana_program::pubkey::Pubkey;
 use solana_program::system_instruction::create_account;
 
 use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable};
-use crate::cpi::CPI;
+use crate::cpi::CPIMethod;
 use crate::pda_seeds::PDASeedSet;
 use crate::program::{Program, ProgramKey};
 use crate::{AccountInfo, CruiserResult, ToSolanaAccountInfo};
@@ -40,7 +40,7 @@ impl<AI> Program for SystemProgram<AI> where AI: AccountInfo {}
 
 /// Argument for [`SystemProgram::create_account`]
 #[derive(Copy, Clone, Debug)]
-pub struct Create<'a, AI> {
+pub struct CreateAccount<'a, AI> {
     /// The funder of the new account
     pub funder: &'a AI,
     /// The account to create
@@ -59,8 +59,8 @@ where
     /// Calls the system program's [`create_account`] instruction with given PDA seeds.
     pub fn create_account<'b, 'c: 'b>(
         &self,
-        cpi: impl CPI,
-        create: &Create<AI>,
+        cpi: impl CPIMethod,
+        create: &CreateAccount<AI>,
         seeds: impl IntoIterator<Item = &'b PDASeedSet<'c>>,
     ) -> ProgramResult {
         PDASeedSet::invoke_signed_multiple(

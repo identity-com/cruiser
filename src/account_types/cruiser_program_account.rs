@@ -9,7 +9,7 @@ use crate::instruction_list::{
 use crate::pda_seeds::PDASeedSet;
 use crate::program::{CruiserProgram, Program, ProgramKey};
 use crate::util::get_return_data_buffered;
-use crate::{AccountInfo, CruiserResult, ToSolanaAccountInfo, CPI};
+use crate::{AccountInfo, CPIMethod, CruiserResult, ToSolanaAccountInfo};
 use cruiser::instruction::Instruction;
 use solana_program::program::MAX_RETURN_DATA;
 use solana_program::pubkey::Pubkey;
@@ -40,7 +40,7 @@ where
     /// Calls one of this program's functions that has statically sized account length
     pub fn invoke<'b, 'c: 'b, I, const N: usize>(
         &self,
-        cpi: impl CPI,
+        cpi: impl CPIMethod,
         instruction: &mut I,
         seeds: impl IntoIterator<Item = &'b PDASeedSet<'c>>,
     ) -> CruiserResult<<I::Instruction as Instruction<AI>>::ReturnType>
@@ -60,7 +60,7 @@ where
     /// Calls one of this program's functions that has dynamically sized account length
     pub fn invoke_variable_sized<'b, 'c: 'b, I>(
         &self,
-        cpi: impl CPI,
+        cpi: impl CPIMethod,
         instruction: &mut I,
         seeds: impl IntoIterator<Item = &'b PDASeedSet<'c>>,
     ) -> CruiserResult<<I::Instruction as Instruction<AI>>::ReturnType>

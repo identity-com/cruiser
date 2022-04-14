@@ -1,5 +1,5 @@
 use crate::account_argument::{AccountArgument, MultiIndexable, Single, SingleIndexable};
-use crate::cpi::CPI;
+use crate::cpi::CPIMethod;
 use crate::pda_seeds::PDASeedSet;
 use crate::program::{Program, ProgramKey};
 use crate::{AccountInfo, CruiserResult, ToSolanaAccountInfo};
@@ -40,7 +40,7 @@ where
     /// Calls the token program's [`set_authority`] instruction
     pub fn set_authority<'a>(
         &self,
-        cpi: impl CPI,
+        cpi: impl CPIMethod,
         account: &TokenAccount<AI>,
         new_authority: &Pubkey,
         owner: &AI,
@@ -65,7 +65,7 @@ where
     /// Calls the token program's [`transfer`] instruction
     pub fn transfer<'a>(
         &self,
-        cpi: impl CPI,
+        cpi: impl CPIMethod,
         from: &TokenAccount<AI>,
         to: &TokenAccount<AI>,
         authority: &AI,
@@ -92,7 +92,7 @@ where
     /// Calls the token program's [`close_account`] instruction
     pub fn close_account<'a>(
         &self,
-        cpi: impl CPI,
+        cpi: impl CPIMethod,
         account: &TokenAccount<AI>,
         destination: &AI,
         authority: &AI,
