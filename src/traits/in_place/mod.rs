@@ -40,10 +40,10 @@ pub trait InPlaceWrite<'a, W>: InPlace<'a> {
 /// An access that can get a value out
 pub trait InPlaceGet<V> {
     /// Gets a value out
-    fn get(&self) -> CruiserResult<V>;
+    fn get_in_place(&self) -> V;
 }
 /// An access that can be set to a value
 pub trait InPlaceSet<V> {
     /// Sets this to a value
-    fn set(&mut self, val: V) -> CruiserResult;
+    fn set_in_place(&mut self, val: V);
 }

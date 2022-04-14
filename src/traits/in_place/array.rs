@@ -52,7 +52,7 @@ impl<T, D, const N: usize> InPlaceArray<T, D, N> {
     }
 
     /// Gets an item in the array
-    pub fn get<'b>(&'b self, index: usize) -> CruiserResult<Option<T::Access>>
+    pub fn get_index<'b>(&'b self, index: usize) -> CruiserResult<Option<T::Access>>
     where
         T: InPlaceUnitRead<'b>,
         D: AsRef<[u8]>,
@@ -61,7 +61,7 @@ impl<T, D, const N: usize> InPlaceArray<T, D, N> {
     }
 
     /// Gets an item in the array mutably
-    pub fn get_mut<'b>(&'b mut self, index: usize) -> CruiserResult<Option<T::AccessMut>>
+    pub fn get_index_mut<'b>(&'b mut self, index: usize) -> CruiserResult<Option<T::AccessMut>>
     where
         T: InPlaceUnitWrite<'b>,
         D: AsMut<[u8]>,
@@ -275,6 +275,7 @@ where
 #[cfg(test)]
 mod test {
     use crate::in_place::{InPlaceCreate, InPlaceGet, InPlaceRead, InPlaceSet, InPlaceWrite};
+    use crate::util::VoidCollect;
     use crate::CruiserResult;
     use rand::{thread_rng, Rng};
 
@@ -287,17 +288,17 @@ mod test {
         <[u128; 1024]>::create_with_arg(&mut data, ())?;
         let in_place = <[u128; 1024]>::read_with_arg(&data, ())?;
         for value in in_place.all() {
-            assert_eq!(0, value?.get()?);
+            assert_eq!(0, value?.get_in_place());
         }
         let mut in_place = <[u128; 1024]>::write_with_arg(&mut data, ())?;
         in_place
             .all_mut()
             .zip(values.iter())
-            .map(|(write, value)| write?.set(*value))
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(|(write, value)| write.map(|mut v| v.set_in_place(*value)))
+            .collect::<Result<VoidCollect, _>>()?;
 
         for (i, value) in values.iter().enumerate() {
-            assert_eq!(in_place.get(i)?.unwrap().get()?, *value);
+            assert_eq!(in_place.get_index(i)?.unwrap().get_in_place(), *value);
         }
         Ok(())
     }

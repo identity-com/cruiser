@@ -441,3 +441,13 @@ where
         .min(maximum_upper),
     )
 }
+
+/// Can collect into this to void all values
+#[derive(Debug, Clone, Copy)]
+pub struct VoidCollect;
+impl<T> FromIterator<T> for VoidCollect {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        iter.into_iter().for_each(|_| {});
+        VoidCollect
+    }
+}

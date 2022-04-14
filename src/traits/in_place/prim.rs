@@ -1,6 +1,6 @@
 use crate::in_place::{InPlace, InPlaceCreate, InPlaceGet, InPlaceRead, InPlaceSet, InPlaceWrite};
 use crate::util::AdvanceArray;
-use crate::{CruiserResult, GenericError};
+use crate::CruiserResult;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
@@ -26,39 +26,33 @@ impl<'a> InPlaceWrite<'a, ()> for u8 {
     }
 }
 impl<'a> InPlaceGet<u8> for <u8 as InPlace<'a>>::Access {
-    fn get(&self) -> CruiserResult<u8> {
-        Ok(**self)
+    fn get_in_place(&self) -> u8 {
+        **self
     }
 }
 impl<'a> InPlaceGet<u8> for <u8 as InPlace<'a>>::AccessMut {
-    fn get(&self) -> CruiserResult<u8> {
-        Ok(**self)
+    fn get_in_place(&self) -> u8 {
+        **self
     }
 }
 impl<'a> InPlaceSet<u8> for <u8 as InPlace<'a>>::AccessMut {
-    fn set(&mut self, val: u8) -> CruiserResult {
+    fn set_in_place(&mut self, val: u8) {
         **self = val;
-        Ok(())
     }
 }
 impl<'a> InPlaceGet<usize> for <u8 as InPlace<'a>>::Access {
-    fn get(&self) -> CruiserResult<usize> {
-        Ok(**self as usize)
+    fn get_in_place(&self) -> usize {
+        **self as usize
     }
 }
 impl<'a> InPlaceGet<usize> for <u8 as InPlace<'a>>::AccessMut {
-    fn get(&self) -> CruiserResult<usize> {
-        Ok(**self as usize)
+    fn get_in_place(&self) -> usize {
+        **self as usize
     }
 }
 impl<'a> InPlaceSet<usize> for <u8 as InPlace<'a>>::AccessMut {
-    fn set(&mut self, val: usize) -> CruiserResult {
-        **self = val.try_into().map_err(|_| GenericError::SizeInvalid {
-            min: 0,
-            max: u8::MAX as usize,
-            value: val,
-        })?;
-        Ok(())
+    fn set_in_place(&mut self, val: usize) {
+        **self = val.try_into().expect("usize is too large to fit in u8");
     }
 }
 
@@ -84,19 +78,18 @@ impl<'a> InPlaceWrite<'a, ()> for i8 {
     }
 }
 impl<'a> InPlaceGet<i8> for <i8 as InPlace<'a>>::Access {
-    fn get(&self) -> CruiserResult<i8> {
-        Ok(**self)
+    fn get_in_place(&self) -> i8 {
+        **self
     }
 }
 impl<'a> InPlaceGet<i8> for <i8 as InPlace<'a>>::AccessMut {
-    fn get(&self) -> CruiserResult<i8> {
-        Ok(**self)
+    fn get_in_place(&self) -> i8 {
+        **self
     }
 }
 impl<'a> InPlaceSet<i8> for <i8 as InPlace<'a>>::AccessMut {
-    fn set(&mut self, val: i8) -> CruiserResult {
+    fn set_in_place(&mut self, val: i8) {
         **self = val;
-        Ok(())
     }
 }
 
@@ -108,8 +101,8 @@ where
     T: FromNE<N>,
     D: Deref<Target = [u8; N]>,
 {
-    fn get(&self) -> CruiserResult<T> {
-        Ok(T::from_ne_bytes(*self.0.deref()))
+    fn get_in_place(&self) -> T {
+        T::from_ne_bytes(*self.0.deref())
     }
 }
 impl<T, D, const N: usize> InPlaceSet<T> for PrimNumInPlace<T, D, N>
@@ -117,9 +110,8 @@ where
     T: FromNE<N>,
     D: DerefMut<Target = [u8; N]>,
 {
-    fn set(&mut self, val: T) -> CruiserResult {
+    fn set_in_place(&mut self, val: T) {
         *self.0.deref_mut() = val.into_ne_bytes();
-        Ok(())
     }
 }
 
@@ -184,17 +176,13 @@ macro_rules! impl_from_ne {
         impl InitToZero for $ty {}
         $($(
         impl<D> InPlaceGet<$larger> for PrimNumInPlace<$ty, D, $size> where PrimNumInPlace<$ty, D, $size>: InPlaceGet<$ty> {
-            fn get(&self) -> CruiserResult<$larger> {
-                Ok(<Self as InPlaceGet<$ty>>::get(self)? as $larger)
+            fn get_in_place(&self) -> $larger {
+                <Self as InPlaceGet<$ty>>::get_in_place(self) as $larger
             }
         }
         impl<D> InPlaceSet<$larger> for PrimNumInPlace<$ty, D, $size> where PrimNumInPlace<$ty, D, $size>: InPlaceSet<$ty> {
-            fn set(&mut self, val: $larger) -> CruiserResult {
-                <Self as InPlaceSet<$ty>>::set(self, val.try_into().map_err(|_| GenericError::SizeInvalid {
-                    min: 0,
-                    max: <$ty>::MAX as usize,
-                    value: val as usize,
-                })?)
+            fn set_in_place(&mut self, val: $larger) {
+                <Self as InPlaceSet<$ty>>::set_in_place(self, val.try_into().unwrap())
             }
         }
         )*)?
@@ -245,11 +233,11 @@ mod test {
 
         T::create(&mut write_bytes).expect("Could not create");
         let in_place = T::read(&write_bytes).expect("Could not read");
-        assert_eq!(in_place.get().expect("Could not get"), T::zero());
+        assert_eq!(in_place.get_in_place(), T::zero());
         drop(in_place);
         let mut in_place = T::write(&mut write_bytes).expect("Could not write");
-        in_place.set(value).expect("Could not set");
-        assert_eq!(in_place.get().expect("Could not get"), value);
+        in_place.set_in_place(value);
+        assert_eq!(in_place.get_in_place(), value);
     }
 
     #[test]
@@ -275,21 +263,21 @@ mod test {
             let mut val_data = [0];
             u8::create(&mut val_data).expect("Could not create");
             let in_place = u8::read(&val_data).expect("Could not read");
-            let got: u8 = in_place.get().expect("Could not get");
+            let got: u8 = in_place.get_in_place();
             assert_eq!(got, 0u8);
             let mut in_place = u8::write(&mut val_data).expect("Could not write");
-            in_place.set(val).expect("Could not set");
-            let got: u8 = in_place.get().expect("Could not get");
+            in_place.set_in_place(val);
+            let got: u8 = in_place.get_in_place();
             assert_eq!(got, val);
 
             let val = rng.gen::<i8>();
             let mut val_data = [0];
             i8::create(&mut val_data).expect("Could not create");
             let in_place = i8::read(&val_data).expect("Could not read");
-            assert_eq!(in_place.get().expect("Could not get"), 0);
+            assert_eq!(in_place.get_in_place(), 0);
             let mut in_place = i8::write(&mut val_data).expect("Could not write");
-            in_place.set(val).expect("Could not set");
-            assert_eq!(in_place.get().expect("Could not get"), val);
+            in_place.set_in_place(val);
+            assert_eq!(in_place.get_in_place(), val);
         }
     }
 }

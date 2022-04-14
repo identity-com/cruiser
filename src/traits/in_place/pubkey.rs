@@ -27,19 +27,18 @@ impl<'a> InPlaceWrite<'a, ()> for Pubkey {
     }
 }
 impl<'a> InPlaceGet<Pubkey> for <Pubkey as InPlace<'a>>::Access {
-    fn get(&self) -> CruiserResult<Pubkey> {
-        Ok(**self)
+    fn get_in_place(&self) -> Pubkey {
+        **self
     }
 }
 impl<'a> InPlaceGet<Pubkey> for <Pubkey as InPlace<'a>>::AccessMut {
-    fn get(&self) -> CruiserResult<Pubkey> {
-        Ok(**self)
+    fn get_in_place(&self) -> Pubkey {
+        **self
     }
 }
 impl<'a> InPlaceSet<Pubkey> for <Pubkey as InPlace<'a>>::AccessMut {
-    fn set(&mut self, val: Pubkey) -> CruiserResult {
+    fn set_in_place(&mut self, val: Pubkey) {
         **self = val;
-        Ok(())
     }
 }
 
@@ -59,13 +58,10 @@ mod test {
             let mut data = [0u8; 32];
             Pubkey::create(&mut data).expect("Could not create");
             let in_place = Pubkey::read(&data).expect("Could not read");
-            assert_eq!(
-                Pubkey::new_from_array([0; 32]),
-                in_place.get().expect("Could not get")
-            );
+            assert_eq!(Pubkey::new_from_array([0; 32]), in_place.get_in_place());
             let mut in_place = Pubkey::write(&mut data).expect("Could not write");
-            in_place.set(value).expect("Could not set");
-            assert_eq!(value, in_place.get().expect("Could not get"));
+            in_place.set_in_place(value);
+            assert_eq!(value, in_place.get_in_place());
         }
     }
 }

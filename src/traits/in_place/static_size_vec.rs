@@ -33,7 +33,7 @@ impl<T, L, D, const N: usize> StaticSizeVecAccess<T, L, D, N> {
         L: InPlaceGet<usize>,
         D: AsRef<[u8]>,
     {
-        let length = self.length.get()?;
+        let length = self.length.get_in_place();
         if index < length {
             let mut data = self.data.as_ref();
             data.advance(index * T::on_chain_static_size());
@@ -64,7 +64,7 @@ impl<T, L, D, const N: usize> StaticSizeVecAccess<T, L, D, N> {
         L: InPlaceGet<usize>,
         D: AsMut<[u8]>,
     {
-        let length = self.length.get()?;
+        let length = self.length.get_in_place();
         if index < length {
             let mut data = self.data.as_mut();
             data.try_advance(index * T::on_chain_static_size())?;
@@ -91,12 +91,12 @@ impl<T, L, D, const N: usize> StaticSizeVecAccess<T, L, D, N> {
         L: InPlaceGet<usize> + InPlaceSet<usize>,
         D: AsMut<[u8]>,
     {
-        let length = self.length.get()?;
+        let length = self.length.get_in_place();
         if length < N {
             let mut data = self.data.as_mut();
             data.try_advance(length * T::on_chain_static_size())?;
             T::create_with_arg(data.try_advance(T::on_chain_static_size())?, arg)?;
-            self.length.set(length + 1)?;
+            self.length.set_in_place(length + 1);
             Ok(())
         } else {
             Err(GenericError::Custom {
