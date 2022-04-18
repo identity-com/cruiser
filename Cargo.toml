@@ -25,6 +25,12 @@ members = [
 [profile.dev]
 opt-level = 0
 
+[profile.release]
+strip = "debuginfo"
+opt-level = 3
+codegen-units = 1
+lto = true
+
 [features]
 default = []
 client = ["solana-sdk", "solana-client", "rand", "rand_chacha"]

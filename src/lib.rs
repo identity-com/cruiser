@@ -1,8 +1,5 @@
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
-#![cfg_attr(
-    target_arch = "bpf",
-    feature(const_panic, const_raw_ptr_deref, const_fn_trait_bound)
-)]
+#![cfg_attr(target_arch = "bpf", feature(const_fn_trait_bound))]
 #![feature(const_trait_impl)]
 #![feature(const_ptr_offset)]
 #![feature(const_slice_from_raw_parts)]

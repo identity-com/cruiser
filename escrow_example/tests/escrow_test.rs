@@ -27,6 +27,7 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
         .unwrap()
         .join("deploy");
     let build = Command::new("cargo")
+        .env("RUSTFLAGS", "-D warnings")
         .arg("build-bpf")
         .arg("--workspace")
         .spawn()?
@@ -65,7 +66,9 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
     panic::set_hook(Box::new(move |panic_info| {
         println!("{}", panic_info);
         let local_validator = local_validator_clone.lock();
-        block_on(async move { local_validator.await.kill().await }).unwrap();
+        if let Err(error) = block_on(async move { local_validator.await.kill().await }) {
+            eprintln!("Error killing validator: {}", error);
+        }
         hook(panic_info);
     }));
 
