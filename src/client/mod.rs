@@ -10,15 +10,19 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSendTransactionConfig;
 use solana_program::hash::Hash;
 use solana_program::pubkey::Pubkey;
-use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::{Keypair, Signature, SignerError};
 use solana_sdk::signer::Signer;
-use solana_sdk::transaction::Transaction;
+use solana_sdk::transaction::{Transaction, TransactionError};
+use solana_transaction_status::TransactionConfirmationStatus;
+use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hasher;
 use std::iter::once;
 use std::ops::Deref;
+use std::time::Duration;
+use tokio::time::sleep;
 
 /// Transaction building helper
 #[derive(Debug)]
@@ -102,22 +106,124 @@ impl<'a> TransactionBuilder<'a> {
             recent_blockhash,
         )
     }
+
+    /// Sends and confirms this transaction
+    pub async fn send_and_confirm_transaction(
+        &self,
+        client: &RpcClient,
+        config: RpcSendTransactionConfig,
+        commitment: CommitmentConfig,
+        loop_rate: Duration,
+    ) -> ClientResult<(Signature, ConfirmationResult)> {
+        let (sig, last_valid_block_height) = self.send_transaction(client, config).await?;
+        Self::confirm_transaction(sig, last_valid_block_height, client, commitment, loop_rate)
+            .await
+            .map(|result| (sig, result))
+    }
+
     /// Executes this using the given client and config
     pub async fn send_transaction(
         &self,
         client: &RpcClient,
-        commitment: CommitmentConfig,
         config: RpcSendTransactionConfig,
-    ) -> ClientResult<Signature> {
-        let transaction = self.to_transaction(
-            client
-                .get_latest_blockhash_with_commitment(commitment)
-                .await?
-                .0,
-        );
+    ) -> ClientResult<(Signature, u64)> {
+        let (block_hash, last_valid_block_height) = client
+            .get_latest_blockhash_with_commitment(CommitmentConfig::processed())
+            .await?;
+        let transaction = self.to_transaction(block_hash);
         client
-            .send_and_confirm_transaction_with_spinner_and_config(&transaction, commitment, config)
+            .send_transaction_with_config(&transaction, config)
             .await
+            .map(|sig| (sig, last_valid_block_height))
+    }
+
+    /// Confirms a given transaction signature
+    #[allow(clippy::missing_panics_doc)]
+    pub async fn confirm_transaction(
+        signature: Signature,
+        last_valid_block_height: u64,
+        client: &RpcClient,
+        commitment: CommitmentConfig,
+        loop_rate: Duration,
+    ) -> ClientResult<ConfirmationResult> {
+        let mut found_block = false;
+        loop {
+            sleep(loop_rate).await;
+            let mut status = client.get_signature_statuses(&[signature]).await?;
+            assert_eq!(status.value.len(), 1, "Expected one status");
+            let status = status.value.remove(0).unwrap();
+            if let Some(confirmation_status) = status.confirmation_status {
+                found_block = true;
+                if OrderedConfirmationStatus(confirmation_status) >= commitment {
+                    return Ok(match status.err {
+                        None => ConfirmationResult::Success,
+                        Some(error) => ConfirmationResult::Failure(error),
+                    });
+                }
+            }
+            if client
+                .get_block_height_with_commitment(if found_block {
+                    commitment
+                } else {
+                    CommitmentConfig::processed()
+                })
+                .await?
+                >= last_valid_block_height
+            {
+                return Ok(ConfirmationResult::Dropped);
+            }
+        }
+    }
+}
+
+/// The result of confirming a transaction
+#[must_use]
+#[derive(Debug, Clone)]
+pub enum ConfirmationResult {
+    /// Transaction succeeded
+    Success,
+    /// Transaction failed
+    Failure(TransactionError),
+    /// Transaction was dropped
+    Dropped,
+}
+
+trait ToConfirmationStatus {
+    fn to_confirmation_status(&self) -> TransactionConfirmationStatus;
+}
+impl ToConfirmationStatus for CommitmentConfig {
+    fn to_confirmation_status(&self) -> TransactionConfirmationStatus {
+        #[allow(clippy::wildcard_in_or_patterns)]
+        match self.commitment {
+            CommitmentLevel::Processed => TransactionConfirmationStatus::Processed,
+            CommitmentLevel::Confirmed => TransactionConfirmationStatus::Confirmed,
+            CommitmentLevel::Finalized | _ => TransactionConfirmationStatus::Finalized,
+        }
+    }
+}
+#[derive(Clone)]
+struct OrderedConfirmationStatus(TransactionConfirmationStatus);
+impl From<OrderedConfirmationStatus> for u8 {
+    fn from(from: OrderedConfirmationStatus) -> Self {
+        match from {
+            OrderedConfirmationStatus(TransactionConfirmationStatus::Processed) => 0,
+            OrderedConfirmationStatus(TransactionConfirmationStatus::Confirmed) => 1,
+            OrderedConfirmationStatus(TransactionConfirmationStatus::Finalized) => 2,
+        }
+    }
+}
+impl PartialEq<CommitmentConfig> for OrderedConfirmationStatus {
+    fn eq(&self, other: &CommitmentConfig) -> bool {
+        u8::from(self.clone()).eq(&u8::from(OrderedConfirmationStatus(
+            other.to_confirmation_status(),
+        )))
+    }
+}
+impl PartialOrd<CommitmentConfig> for OrderedConfirmationStatus {
+    fn partial_cmp(&self, other: &CommitmentConfig) -> Option<Ordering> {
+        u8::from(self.clone()).partial_cmp(&u8::from(OrderedConfirmationStatus(
+            other.to_confirmation_status(),
+        )))
     }
 }
 

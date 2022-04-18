@@ -33,7 +33,7 @@ lto = true
 
 [features]
 default = []
-client = ["solana-sdk", "solana-client", "rand", "rand_chacha"]
+client = ["solana-transaction-status", "solana-sdk", "solana-client", "rand", "rand_chacha", "tokio", "tokio/time"]
 experimental = []
 small_vec = ["experimental"]
 interface = ["experimental"]
@@ -52,8 +52,10 @@ static_assertions = "1.1.0"
 
 ## OPTIONAL
 spl-token = { version = "=3.2.0", optional = true, features = ["no-entrypoint"] }
+solana-transaction-status = { version = "1.9.14", optional = true }
 solana-sdk = { version = "1.9.14", optional = true }
 solana-client = { version = "1.9.14", optional = true }
+tokio = { version = "1.17.0", optional = true }
 
 # These are older as solana sdk relies on rand_core 0.5.1
 rand = { version = "0.7.3", optional = true }

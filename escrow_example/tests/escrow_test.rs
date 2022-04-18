@@ -1,5 +1,5 @@
 use cruiser::client::token::{create_mint, create_token_account, mint_to};
-use cruiser::client::TransactionBuilder;
+use cruiser::client::{ConfirmationResult, TransactionBuilder};
 use cruiser::rand::{thread_rng, Rng};
 use cruiser::solana_client::nonblocking::rpc_client::RpcClient;
 use cruiser::solana_client::rpc_config::{RpcSendTransactionConfig, RpcTransactionConfig};
@@ -137,7 +137,7 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
                 ),
             )?;
 
-            let sig = TransactionBuilder::new(&funder)
+            let (sig, result) = TransactionBuilder::new(&funder)
                 .signed_instructions(create_send_mint)
                 .signed_instructions(create_receive_mint)
                 .signed_instructions(create_send_token_account)
@@ -147,8 +147,18 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
                     &funder,
                     100,
                 ))
-                .send_transaction(&rpc, CommitmentConfig::confirmed(), send_config)
+                .send_and_confirm_transaction(
+                    &rpc,
+                    send_config,
+                    CommitmentConfig::confirmed(),
+                    Duration::from_millis(500),
+                )
                 .await?;
+            match result {
+                ConfirmationResult::Success => {}
+                ConfirmationResult::Failure(error) => return Err(error.into()),
+                ConfirmationResult::Dropped => return Err("Transaction dropped".into()),
+            }
             println!(
                 "Initialize logs: {:#?}",
                 rpc.get_transaction_with_config(
@@ -166,7 +176,7 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
                 .log_messages
             );
 
-            let sig = TransactionBuilder::new(&funder)
+            let (sig, result) = TransactionBuilder::new(&funder)
                 .signed_instructions(
                     init_escrow(
                         program_id,
@@ -179,17 +189,18 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
                     )
                     .await?,
                 )
-                .send_transaction(
+                .send_and_confirm_transaction(
                     &rpc,
+                    send_config,
                     CommitmentConfig::confirmed(),
-                    RpcSendTransactionConfig {
-                        skip_preflight: false,
-                        preflight_commitment: Some(CommitmentLevel::Confirmed),
-                        encoding: None,
-                        max_retries: None,
-                    },
+                    Duration::from_millis(500),
                 )
                 .await?;
+            match result {
+                ConfirmationResult::Success => {}
+                ConfirmationResult::Failure(error) => return Err(error.into()),
+                ConfirmationResult::Dropped => return Err("Transaction dropped".into()),
+            }
 
             println!(
                 "Initialize logs: {:#?}",
