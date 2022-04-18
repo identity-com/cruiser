@@ -288,7 +288,7 @@ jobs:
     strategy:
       matrix:
         rust: [ 'nightly-2022-03-22' ]
-        solana: ['v1.9.17', 'stable']
+        solana: ['stable']
         os: [ ubuntu-latest ]
 
     steps:
