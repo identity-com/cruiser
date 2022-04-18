@@ -11,12 +11,10 @@ use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
 use cruiser::{borsh, AccountInfo, CPIChecked, ToSolanaAccountInfo};
 
 pub struct InitEscrow;
-impl<AI> Instruction<AI> for InitEscrow
-where
-    AI: AccountInfo,
-{
+impl<AI> Instruction<AI> for InitEscrow {
     type Accounts = InitEscrowAccounts<AI>;
     type Data = InitEscrowData;
+    type ReturnType = ();
 }
 #[derive(AccountArgument)]
 #[account_argument(account_info = AI, generics = [where AI: AccountInfo])]

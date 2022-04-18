@@ -4,6 +4,8 @@ pub mod close_account;
 pub mod cruiser_program_account;
 pub mod data_account;
 pub mod discriminant_account;
+#[cfg(feature = "in_place")]
+pub mod in_place_account;
 pub mod init_account;
 pub mod init_or_zeroed_account;
 pub mod rent_exempt;

@@ -2,11 +2,16 @@
 
 use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable};
 use crate::account_types::PhantomAccount;
-use crate::instruction_list::{InstructionListCPIDynamic, InstructionListCPIStatic};
+use crate::instruction::ReturnValue;
+use crate::instruction_list::{
+    InstructionListCPIDynamic, InstructionListCPIStatic, InstructionListItem,
+};
 use crate::pda_seeds::PDASeedSet;
 use crate::program::{CruiserProgram, Program, ProgramKey};
-use crate::{AccountInfo, CruiserResult, ToSolanaAccountInfo, CPI};
-use solana_program::entrypoint::ProgramResult;
+use crate::util::get_return_data_buffered;
+use crate::{AccountInfo, CPIMethod, CruiserResult, ToSolanaAccountInfo};
+use cruiser::instruction::Instruction;
+use solana_program::program::MAX_RETURN_DATA;
 use solana_program::pubkey::Pubkey;
 use std::iter::once;
 
@@ -33,33 +38,54 @@ where
     P: CruiserProgram,
 {
     /// Calls one of this program's functions that has statically sized account length
-    pub fn invoke<'b, 'c: 'b, const N: usize>(
+    pub fn invoke<'b, 'c: 'b, I, const N: usize>(
         &self,
-        cpi: impl CPI,
-        instruction: &mut impl InstructionListCPIStatic<P::InstructionList, N, AccountInfo = AI>,
+        cpi: impl CPIMethod,
+        instruction: &mut I,
         seeds: impl IntoIterator<Item = &'b PDASeedSet<'c>>,
-    ) -> ProgramResult {
+    ) -> CruiserResult<<I::Instruction as Instruction<AI>>::ReturnType>
+    where
+        P::InstructionList: InstructionListItem<I>,
+        I: InstructionListCPIStatic<N, InstructionList = P::InstructionList, AccountInfo = AI>,
+    {
         PDASeedSet::invoke_signed_multiple(
             cpi,
             &instruction.instruction(&Self::KEY),
             &instruction.to_accounts_static(&self.0),
             seeds,
-        )
+        )?;
+        Self::ret()
     }
 
     /// Calls one of this program's functions that has dynamically sized account length
-    pub fn invoke_variable_sized<'b, 'c: 'b>(
+    pub fn invoke_variable_sized<'b, 'c: 'b, I>(
         &self,
-        cpi: impl CPI,
-        instruction: &mut impl InstructionListCPIDynamic<P::InstructionList, AccountInfo = AI>,
+        cpi: impl CPIMethod,
+        instruction: &mut I,
         seeds: impl IntoIterator<Item = &'b PDASeedSet<'c>>,
-    ) -> ProgramResult {
+    ) -> CruiserResult<<I::Instruction as Instruction<AI>>::ReturnType>
+    where
+        P::InstructionList: InstructionListItem<I>,
+        I: InstructionListCPIDynamic<InstructionList = P::InstructionList, AccountInfo = AI>,
+    {
         PDASeedSet::invoke_signed_variable_size_multiple(
             cpi,
             &instruction.instruction(&Self::KEY),
             instruction.to_accounts_dynamic().chain(once(&self.0)),
             seeds,
-        )
+        )?;
+        Self::ret()
+    }
+
+    fn ret<R: ReturnValue>() -> CruiserResult<R> {
+        let mut buffer = Box::new([0; MAX_RETURN_DATA]);
+        let mut return_program = Pubkey::new_from_array([0; 32]);
+        let size = get_return_data_buffered(&mut buffer, &mut return_program)?;
+        if return_program == Self::KEY {
+            R::from_returned(Some((buffer, size)), &return_program)
+        } else {
+            R::from_returned(None, &return_program)
+        }
     }
 }
 impl<AI, P> ProgramKey for CruiserProgramAccount<AI, P>

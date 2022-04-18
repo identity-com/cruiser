@@ -36,7 +36,7 @@ macro_rules! impl_compressed_for_prim {
         $(impl_compressed_for_prim!($ty);)+
     };
     ($ty:ty) => {
-        unsafe impl CompressedNumber for $ty {
+        unsafe impl const CompressedNumber for $ty {
             type Num = $ty;
 
             fn from_number(number: Self::Num) -> Self {

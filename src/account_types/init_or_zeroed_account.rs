@@ -3,7 +3,7 @@
 use std::iter::once;
 use std::ops::{Deref, DerefMut};
 
-use crate::cpi::CPI;
+use crate::cpi::CPIMethod;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 
@@ -138,7 +138,7 @@ where
     AI: ToSolanaAccountInfo<'b>,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
-    C: CPI,
+    C: CPIMethod,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: InitArgs<'a, AI, C>) -> CruiserResult<()> {
         match self {
@@ -153,7 +153,7 @@ where
     AI: ToSolanaAccountInfo<'b>,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
-    C: CPI,
+    C: CPIMethod,
 {
     fn validate(
         &mut self,

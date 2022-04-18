@@ -1,5 +1,6 @@
 //! Automatic size calculation for on-chain data. Derive not created yet, must be done manually for now.
 
+use std::marker::PhantomData;
 use std::mem::size_of;
 
 use solana_program::pubkey::Pubkey;
@@ -33,15 +34,25 @@ where
         1 + T::on_chain_max_size(arg)
     }
 }
+impl<T> const OnChainSize<()> for PhantomData<T> {
+    fn on_chain_max_size(_: ()) -> usize {
+        0
+    }
+}
+// This is byte length of the string, not chars
+impl const OnChainSize<usize> for String {
+    fn on_chain_max_size(arg: usize) -> usize {
+        Vec::<u8>::on_chain_max_size(arg)
+    }
+}
 impl<T> const OnChainSize<usize> for Vec<T>
 where
     T: ~const OnChainStaticSize,
 {
     fn on_chain_max_size(arg: usize) -> usize {
-        4 + arg * T::on_chain_static_size()
+        u32::on_chain_static_size() + arg * T::on_chain_static_size()
     }
 }
-#[cfg(not(feature = "const_eval"))]
 impl<T, I, A> OnChainSize<(I,)> for Vec<T>
 where
     I: IntoIterator<Item = A>,
@@ -49,22 +60,6 @@ where
 {
     fn on_chain_max_size(arg: (I,)) -> usize {
         4 + arg.0.into_iter().map(T::on_chain_max_size).sum::<usize>()
-    }
-}
-#[cfg(feature = "const_eval")]
-impl<T, I, A> const OnChainSize<(I,)> for Vec<T>
-where
-    I: ~const IntoIterator<Item = A> + ~const Drop,
-    I::IntoIter: ~const Iterator + ~const Drop,
-    A: ~const Drop,
-    T: ~const OnChainSize<A>,
-{
-    fn on_chain_max_size(arg: (I,)) -> usize {
-        let mut sum = 4;
-        for arg in arg.0 {
-            sum += T::on_chain_max_size(arg);
-        }
-        sum
     }
 }
 impl<A, T, const N: usize> OnChainSize<[A; N]> for Vec<T>
@@ -147,7 +142,8 @@ macro_rules! impl_on_chain_size_for_prim {
     };
 }
 impl_on_chain_size_for_prim!(
-    all: bool,
+    all: (),
+    bool,
     u8,
     u16,
     u32,
@@ -158,5 +154,15 @@ impl_on_chain_size_for_prim!(
     i32,
     i64,
     i128,
-    Pubkey
+    Pubkey,
+    std::num::NonZeroU8,
+    std::num::NonZeroU16,
+    std::num::NonZeroU32,
+    std::num::NonZeroU64,
+    std::num::NonZeroU128,
+    std::num::NonZeroI8,
+    std::num::NonZeroI16,
+    std::num::NonZeroI32,
+    std::num::NonZeroI64,
+    std::num::NonZeroI128,
 );

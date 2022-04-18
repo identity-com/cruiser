@@ -3,21 +3,28 @@
 use borsh::BorshDeserialize;
 use cruiser::account_argument::AccountInfoIterator;
 use cruiser::instruction::Instruction;
+use num_traits::One;
+use solana_program::program::{set_return_data, MAX_RETURN_DATA};
 use solana_program::pubkey::Pubkey;
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::num::NonZeroU64;
-use std::ops::{Bound, Deref, RangeBounds};
-use std::ptr::slice_from_raw_parts_mut;
+use std::ops::{Add, Bound, Deref, RangeBounds};
+use std::ptr::{slice_from_raw_parts, slice_from_raw_parts_mut};
 
 use crate::account_argument::{AccountArgument, FromAccounts, ValidateArgument};
-use crate::instruction::InstructionProcessor;
+use crate::instruction::{InstructionProcessor, ReturnValue};
 use crate::{CruiserResult, GenericError};
+
+pub use chain_exact_size::*;
+pub use with_data::*;
 
 pub mod assert;
 pub(crate) mod bytes_ext;
+mod chain_exact_size;
 pub mod short_iter;
 pub mod short_vec;
+mod with_data;
 
 /// A version of [`Cow`](std::borrow::Cow) that only operates as a ref.
 #[derive(Debug, Copy, Clone)]
@@ -91,9 +98,25 @@ where
     let mut accounts =
         <I::Accounts as FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
     ValidateArgument::validate(&mut accounts, program_id, validate_data)?;
-    P::process(program_id, instruction_data, &mut accounts)?;
+    let ret = P::process(program_id, instruction_data, &mut accounts)?;
+    ret.return_self(set_return_data)?;
     <I::Accounts as AccountArgument>::write_back(accounts, program_id)?;
     Ok(())
+}
+
+extern "C" {
+    fn sol_get_return_data(data: *mut u8, length: u64, program_id: *mut Pubkey) -> u64;
+}
+/// Gets return data from a cpi call. Returns the size of data returned, 0 means no return was found.
+/// Copied from [`get_return_data`](solana_program::program::get_return_data).
+pub fn get_return_data_buffered(
+    buffer: &mut [u8; MAX_RETURN_DATA],
+    program_id: &mut Pubkey,
+) -> CruiserResult<usize> {
+    // Copied from solana src
+    let size = unsafe { sol_get_return_data(buffer.as_mut_ptr(), buffer.len() as u64, program_id) };
+
+    Ok(min(size as usize, MAX_RETURN_DATA))
 }
 
 /// (start, end), inclusive
@@ -204,41 +227,42 @@ pub trait Length {
     /// Gets the length
     fn len(&self) -> usize;
     /// Tells whether the length is 0
+    #[default_method_body_is_const]
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }
-impl<T> Length for [T] {
+impl<T> const Length for [T] {
     fn len(&self) -> usize {
         self.len()
     }
 }
-impl<'a, T> Length for &'a [T] {
+impl<'a, T> const Length for &'a [T] {
     fn len(&self) -> usize {
-        self.deref().len()
+        <[T]>::len(self)
     }
 }
-impl<'a, T> Length for &'a mut [T] {
+impl<'a, T> const Length for &'a mut [T] {
     fn len(&self) -> usize {
-        self.deref().len()
+        <[T]>::len(self)
     }
 }
-impl<T, const N: usize> Length for [T; N] {
-    fn len(&self) -> usize {
-        N
-    }
-}
-impl<'a, T, const N: usize> Length for &'a [T; N] {
+impl<T, const N: usize> const Length for [T; N] {
     fn len(&self) -> usize {
         N
     }
 }
-impl<'a, T, const N: usize> Length for &'a mut [T; N] {
+impl<'a, T, const N: usize> const Length for &'a [T; N] {
     fn len(&self) -> usize {
         N
     }
 }
-
+impl<'a, T, const N: usize> const Length for &'a mut [T; N] {
+    fn len(&self) -> usize {
+        N
+    }
+}
+// TODO: impl this const when bpf toolchain updated
 /// Advances a given slice while maintaining lifetimes
 pub trait Advance<'a>: Length {
     /// The output of advancing
@@ -246,7 +270,12 @@ pub trait Advance<'a>: Length {
 
     /// Advances self forward by `amount`, returning the advanced over portion.
     /// Panics if not enough data.
-    fn advance(&'a mut self, amount: usize) -> Self::AdvanceOut {
+    // #[default_method_body_is_const]
+    // #[allow(clippy::trait_duplication_in_bounds)]
+    fn advance(&'a mut self, amount: usize) -> Self::AdvanceOut
+// where
+    //     Self: ~const Length,
+    {
         assert!(amount <= self.len());
         // Safety: amount is not greater than the length of self
         unsafe { self.advance_unchecked(amount) }
@@ -254,7 +283,12 @@ pub trait Advance<'a>: Length {
 
     /// Advances self forward by `amount`, returning the advanced over portion.
     /// Errors if not enough data.
-    fn try_advance(&'a mut self, amount: usize) -> CruiserResult<Self::AdvanceOut> {
+    // #[default_method_body_is_const]
+    // #[allow(clippy::trait_duplication_in_bounds)]
+    fn try_advance(&'a mut self, amount: usize) -> CruiserResult<Self::AdvanceOut>
+// where
+    //     Self: ~const Length,
+    {
         if self.len() < amount {
             Err(GenericError::NotEnoughData {
                 needed: amount,
@@ -274,6 +308,7 @@ pub trait Advance<'a>: Length {
     /// Caller must guarantee that `amount` is not greater than the length of self.
     unsafe fn advance_unchecked(&'a mut self, amount: usize) -> Self::AdvanceOut;
 }
+// TODO: impl this const when bpf toolchain updated
 /// Advances a given slice giving back an array
 pub trait AdvanceArray<'a, const N: usize>: Length {
     /// The output of advancing
@@ -281,7 +316,12 @@ pub trait AdvanceArray<'a, const N: usize>: Length {
 
     /// Advances self forward by `N`, returning the advanced over portion.
     /// Panics if not enough data.
-    fn advance_array(&'a mut self) -> Self::AdvanceOut {
+    // #[default_method_body_is_const]
+    // #[allow(clippy::trait_duplication_in_bounds)]
+    fn advance_array(&'a mut self) -> Self::AdvanceOut
+// where
+    //     Self: ~const Length,
+    {
         assert!(N <= self.len());
         // Safety: N is not greater than the length of self
         unsafe { self.advance_array_unchecked() }
@@ -289,7 +329,12 @@ pub trait AdvanceArray<'a, const N: usize>: Length {
 
     /// Advances self forward by `N`, returning the advanced over portion.
     /// Errors if not enough data.
-    fn try_advance_array(&'a mut self) -> CruiserResult<Self::AdvanceOut> {
+    // #[default_method_body_is_const]
+    // #[allow(clippy::trait_duplication_in_bounds)]
+    fn try_advance_array(&'a mut self) -> CruiserResult<Self::AdvanceOut>
+// where
+    //     Self: ~const Length,
+    {
         if self.len() < N {
             Err(GenericError::NotEnoughData {
                 needed: N,
@@ -331,6 +376,28 @@ impl<'a, 'b, T, const N: usize> AdvanceArray<'a, N> for &'b mut [T] {
         )
     }
 }
+impl<'a, 'b, T> Advance<'a> for &'b [T] {
+    type AdvanceOut = &'b [T];
+
+    unsafe fn advance_unchecked(&'a mut self, amount: usize) -> Self::AdvanceOut {
+        // Safety neither slice overlaps and points to valid r/w data
+        let len = self.len();
+        let ptr = self.as_ptr();
+        *self = &*slice_from_raw_parts(ptr.add(amount), len - amount);
+        &*slice_from_raw_parts(ptr, amount)
+    }
+}
+impl<'a, 'b, T, const N: usize> AdvanceArray<'a, N> for &'b [T] {
+    type AdvanceOut = &'b [T; N];
+
+    unsafe fn advance_array_unchecked(&'a mut self) -> Self::AdvanceOut {
+        // Safe conversion because returned array will always be same size as value passed in (`N`)
+        &*(
+            // Safety: Same requirements as this function
+            self.advance_unchecked(N).as_ptr().cast::<[T; N]>()
+        )
+    }
+}
 
 /// Number can become non-zero, panicking if can't
 pub trait ToNonZero {
@@ -352,5 +419,37 @@ impl ToNonZero for NonZeroU64 {
 
     fn to_non_zero(self) -> Self::NonZero {
         self
+    }
+}
+
+/// Converts range bounds to a range of `[start, end)`
+pub fn range_bounds_to_range<R, T>(range_bounds: R, minimum_lower: T, maximum_upper: T) -> (T, T)
+where
+    R: RangeBounds<T>,
+    T: One + Add<Output = T> + Ord + Copy,
+{
+    (
+        match range_bounds.start_bound() {
+            Bound::Included(val) => *val,
+            Bound::Excluded(val) => *val + T::one(),
+            Bound::Unbounded => minimum_lower,
+        }
+        .max(minimum_lower),
+        match range_bounds.end_bound() {
+            Bound::Included(val) => *val + T::one(),
+            Bound::Excluded(val) => *val,
+            Bound::Unbounded => maximum_upper,
+        }
+        .min(maximum_upper),
+    )
+}
+
+/// Can collect into this to void all values
+#[derive(Debug, Clone, Copy)]
+pub struct VoidCollect;
+impl<T> FromIterator<T> for VoidCollect {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        iter.into_iter().for_each(|_| {});
+        VoidCollect
     }
 }

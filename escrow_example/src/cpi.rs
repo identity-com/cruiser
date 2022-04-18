@@ -1,15 +1,19 @@
+use crate::instructions::exchange::Exchange;
+use crate::instructions::init_escrow::InitEscrow;
 use crate::EscrowInstructions;
 use cruiser::account_argument::ToSolanaAccountMeta;
 use cruiser::borsh::BorshSerialize;
-use cruiser::instruction_list::{InstructionList, InstructionListCPI, InstructionListCPIStatic};
+use cruiser::instruction_list::{
+    InstructionListCPI, InstructionListCPIStatic, InstructionListItem,
+};
 use cruiser::util::MaybeOwned;
 use cruiser::{CruiserResult, Pubkey, SolanaInstruction};
 
-pub struct InitEscrow<'a, AI> {
+pub struct InitEscrowCPI<'a, AI> {
     accounts: [MaybeOwned<'a, AI>; 6],
     data: Option<Vec<u8>>,
 }
-impl<'a, AI> InitEscrow<'a, AI> {
+impl<'a, AI> InitEscrowCPI<'a, AI> {
     pub fn new(
         initializer: impl Into<MaybeOwned<'a, AI>>,
         temp_token_account: impl Into<MaybeOwned<'a, AI>>,
@@ -20,8 +24,7 @@ impl<'a, AI> InitEscrow<'a, AI> {
         amount: u64,
     ) -> CruiserResult<Self> {
         let mut data = Vec::with_capacity(8 + 8);
-        EscrowInstructions::InitEscrow
-            .discriminant_compressed()
+        <EscrowInstructions as InstructionListItem<InitEscrow>>::discriminant_compressed()
             .serialize(&mut data)?;
         amount.serialize(&mut data)?;
         Ok(Self {
@@ -37,10 +40,12 @@ impl<'a, AI> InitEscrow<'a, AI> {
         })
     }
 }
-impl<'a, AI> InstructionListCPI<EscrowInstructions> for InitEscrow<'a, AI>
+impl<'a, AI> InstructionListCPI for InitEscrowCPI<'a, AI>
 where
     AI: ToSolanaAccountMeta,
 {
+    type InstructionList = EscrowInstructions;
+    type Instruction = InitEscrow;
     type AccountInfo = AI;
 
     fn instruction(&mut self, program_id: &Pubkey) -> SolanaInstruction {
@@ -56,7 +61,7 @@ where
         }
     }
 }
-impl<'a, AI> InstructionListCPIStatic<EscrowInstructions, 7> for InitEscrow<'a, AI>
+impl<'a, AI> InstructionListCPIStatic<7> for InitEscrowCPI<'a, AI>
 where
     AI: ToSolanaAccountMeta,
 {
@@ -74,11 +79,11 @@ where
     }
 }
 
-pub struct Exchange<'a, AI> {
+pub struct ExchangeCPI<'a, AI> {
     accounts: [MaybeOwned<'a, AI>; 9],
     data: Option<Vec<u8>>,
 }
-impl<'a, AI> Exchange<'a, AI> {
+impl<'a, AI> ExchangeCPI<'a, AI> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         taker: impl Into<MaybeOwned<'a, AI>>,
@@ -93,8 +98,7 @@ impl<'a, AI> Exchange<'a, AI> {
         amount: u64,
     ) -> CruiserResult<Self> {
         let mut data = Vec::with_capacity(8 + 8);
-        EscrowInstructions::Exchange
-            .discriminant_compressed()
+        <EscrowInstructions as InstructionListItem<Exchange>>::discriminant_compressed()
             .serialize(&mut data)?;
         amount.serialize(&mut data)?;
         Ok(Self {
@@ -113,10 +117,12 @@ impl<'a, AI> Exchange<'a, AI> {
         })
     }
 }
-impl<'a, AI> InstructionListCPI<EscrowInstructions> for Exchange<'a, AI>
+impl<'a, AI> InstructionListCPI for ExchangeCPI<'a, AI>
 where
     AI: ToSolanaAccountMeta,
 {
+    type InstructionList = EscrowInstructions;
+    type Instruction = Exchange;
     type AccountInfo = AI;
 
     fn instruction(&mut self, program_id: &Pubkey) -> SolanaInstruction {
@@ -132,7 +138,7 @@ where
         }
     }
 }
-impl<'a, AI> InstructionListCPIStatic<EscrowInstructions, 10> for Exchange<'a, AI>
+impl<'a, AI> InstructionListCPIStatic<10> for ExchangeCPI<'a, AI>
 where
     AI: ToSolanaAccountMeta,
 {

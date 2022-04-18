@@ -3,7 +3,7 @@
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
-use crate::cpi::CPI;
+use crate::cpi::CPIMethod;
 use borsh::{BorshDeserialize, BorshSerialize};
 use cruiser::util::short_iter::ShortIter;
 use solana_program::pubkey::Pubkey;
@@ -13,7 +13,7 @@ use solana_program::sysvar::Sysvar;
 use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable, ValidateArgument};
 use crate::account_list::AccountListItem;
 use crate::account_types::discriminant_account::{DiscriminantAccount, WriteDiscriminant};
-use crate::account_types::system_program::{Create, SystemProgram};
+use crate::account_types::system_program::{CreateAccount, SystemProgram};
 use crate::compressed_numbers::CompressedNumber;
 use crate::pda_seeds::PDASeedSet;
 use crate::CruiserResult;
@@ -108,7 +108,7 @@ where
     AI: ToSolanaAccountInfo<'b>,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
-    C: CPI,
+    C: CPIMethod,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: InitArgs<'a, AI, C>) -> CruiserResult<()> {
         let rent = match arg.rent {
@@ -127,7 +127,7 @@ where
 
         arg.system_program.create_account(
             arg.cpi,
-            &Create {
+            &CreateAccount {
                 funder: arg.funder,
                 account: &self.info,
                 lamports: rent,

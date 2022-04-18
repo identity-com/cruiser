@@ -1,8 +1,9 @@
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
-#![allow(stable_features)]
-#![feature(associated_type_defaults)]
+#![cfg_attr(target_arch = "bpf", feature(const_fn_trait_bound))]
 #![feature(const_trait_impl)]
-#![feature(const_fn_trait_bound)]
+#![feature(const_ptr_offset)]
+#![feature(const_slice_from_raw_parts)]
+#![feature(const_refs_to_cell)]
 #![feature(const_mut_refs)]
 #![feature(const_for)]
 #![warn(
@@ -16,8 +17,7 @@
     clippy::cast_possible_truncation,
     clippy::module_name_repetitions,
     clippy::missing_errors_doc,
-    clippy::too_many_lines,
-    clippy::mut_mut
+    clippy::too_many_lines
 )]
 //! A generator program that will be able to generate solana program code from a much easier starting place.
 //!
@@ -56,8 +56,6 @@ pub mod indexer;
 pub mod pda_seeds;
 #[cfg(feature = "spl-token")]
 pub mod spl;
-#[cfg(feature = "testing")]
-pub mod testing;
 pub mod types;
 pub mod util;
 
