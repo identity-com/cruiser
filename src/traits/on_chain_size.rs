@@ -53,7 +53,6 @@ where
         u32::on_chain_static_size() + arg * T::on_chain_static_size()
     }
 }
-#[cfg(not(feature = "const_eval"))]
 impl<T, I, A> OnChainSize<(I,)> for Vec<T>
 where
     I: IntoIterator<Item = A>,
@@ -61,22 +60,6 @@ where
 {
     fn on_chain_max_size(arg: (I,)) -> usize {
         4 + arg.0.into_iter().map(T::on_chain_max_size).sum::<usize>()
-    }
-}
-#[cfg(feature = "const_eval")]
-impl<T, I, A> const OnChainSize<(I,)> for Vec<T>
-where
-    I: ~const IntoIterator<Item = A> + ~const Drop,
-    I::IntoIter: ~const Iterator + ~const Drop,
-    A: ~const Drop,
-    T: ~const OnChainSize<A>,
-{
-    fn on_chain_max_size(arg: (I,)) -> usize {
-        let mut sum = 4;
-        for arg in arg.0 {
-            sum += T::on_chain_max_size(arg);
-        }
-        sum
     }
 }
 impl<A, T, const N: usize> OnChainSize<[A; N]> for Vec<T>

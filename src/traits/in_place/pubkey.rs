@@ -12,6 +12,12 @@ impl<'a> InPlaceCreate<'a, ()> for Pubkey {
         Ok(())
     }
 }
+impl<'a, 'b> InPlaceCreate<'a, &'b Pubkey> for Pubkey {
+    fn create_with_arg(data: &mut [u8], arg: &'b Pubkey) -> CruiserResult {
+        data[..32].copy_from_slice(arg.as_ref());
+        Ok(())
+    }
+}
 impl<'a> InPlaceRead<'a, ()> for Pubkey {
     fn read_with_arg(mut data: &'a [u8], _arg: ()) -> CruiserResult<Self::Access> {
         let data: &[u8; 32] = data.try_advance_array()?;

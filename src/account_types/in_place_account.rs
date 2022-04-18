@@ -1,6 +1,6 @@
 //! An account that lets you access data in-place.
 
-use crate::account_argument::{AccountArgument, ValidateArgument};
+use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable, ValidateArgument};
 use crate::account_list::AccountListItem;
 use crate::account_types::system_program::{CreateAccount, SystemProgram};
 use crate::account_types::PhantomAccount;
@@ -15,7 +15,7 @@ use solana_program::pubkey::Pubkey;
 use solana_program::rent::Rent;
 use solana_program::sysvar::Sysvar;
 
-/// An account that lets you access data in-place.
+/// An account that lets you access data in-place. If created will use init or zeroed logic.
 #[derive(AccountArgument, Debug)]
 #[account_argument(account_info = AI, generics = [where AI: AccountInfo], no_validate)]
 pub struct InPlaceAccount<AI, AL, D>(AI, PhantomAccount<AI, (AL, D)>);
@@ -124,5 +124,27 @@ where
         D::create_with_arg(data, arg.data)?;
 
         Ok(())
+    }
+}
+impl<AI, AL, D, I> MultiIndexable<I> for InPlaceAccount<AI, AL, D>
+where
+    AI: MultiIndexable<I> + AccountInfo,
+{
+    fn index_is_signer(&self, indexer: I) -> CruiserResult<bool> {
+        self.0.index_is_signer(indexer)
+    }
+    fn index_is_writable(&self, indexer: I) -> CruiserResult<bool> {
+        self.0.index_is_writable(indexer)
+    }
+    fn index_is_owner(&self, owner: &Pubkey, indexer: I) -> CruiserResult<bool> {
+        self.0.index_is_owner(owner, indexer)
+    }
+}
+impl<AI, AL, D, I> SingleIndexable<I> for InPlaceAccount<AI, AL, D>
+where
+    AI: SingleIndexable<I> + AccountInfo,
+{
+    fn index_info(&self, indexer: I) -> CruiserResult<&Self::AccountInfo> {
+        self.0.index_info(indexer)
     }
 }

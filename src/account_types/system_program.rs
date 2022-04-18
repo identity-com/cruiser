@@ -4,7 +4,7 @@ use std::fmt::Debug;
 
 use solana_program::entrypoint::ProgramResult;
 use solana_program::pubkey::Pubkey;
-use solana_program::system_instruction::create_account;
+use solana_program::system_instruction::{create_account, transfer};
 
 use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable};
 use crate::cpi::CPIMethod;
@@ -73,6 +73,23 @@ where
                 create.owner,
             ),
             &[&self.info, create.funder, create.account],
+            seeds,
+        )
+    }
+
+    /// Calls the system program's [`transfer`] instruction with given PDA seeds.
+    pub fn transfer<'b, 'c: 'b>(
+        &self,
+        cpi: impl CPIMethod,
+        from: &AI,
+        to: &AI,
+        lamports: u64,
+        seeds: impl IntoIterator<Item = &'b PDASeedSet<'c>>,
+    ) -> ProgramResult {
+        PDASeedSet::invoke_signed_multiple(
+            cpi,
+            &transfer(from.key(), to.key(), lamports),
+            &[&self.info, from, to],
             seeds,
         )
     }

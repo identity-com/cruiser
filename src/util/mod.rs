@@ -16,10 +16,12 @@ use crate::account_argument::{AccountArgument, FromAccounts, ValidateArgument};
 use crate::instruction::{InstructionProcessor, ReturnValue};
 use crate::{CruiserResult, GenericError};
 
+pub use chain_exact_size::*;
 pub use with_data::*;
 
 pub mod assert;
 pub(crate) mod bytes_ext;
+mod chain_exact_size;
 pub mod short_iter;
 pub mod short_vec;
 mod with_data;

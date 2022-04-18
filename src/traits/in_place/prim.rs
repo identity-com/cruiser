@@ -2,6 +2,7 @@ use crate::in_place::{InPlace, InPlaceCreate, InPlaceGet, InPlaceRead, InPlaceSe
 use crate::util::AdvanceArray;
 use crate::CruiserResult;
 use std::marker::PhantomData;
+use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 
 impl<'a> InPlace<'a> for u8 {
@@ -10,6 +11,12 @@ impl<'a> InPlace<'a> for u8 {
 }
 impl<'a> InPlaceCreate<'a, ()> for u8 {
     fn create_with_arg(_data: &mut [u8], _arg: ()) -> CruiserResult {
+        Ok(())
+    }
+}
+impl<'a> InPlaceCreate<'a, u8> for u8 {
+    fn create_with_arg(data: &mut [u8], arg: u8) -> CruiserResult {
+        data[0] = arg;
         Ok(())
     }
 }
@@ -151,6 +158,12 @@ macro_rules! impl_from_ne {
         }
         impl<'a> InPlaceCreate<'a, ()> for $ty {
             fn create_with_arg(_data: &mut [u8], _arg: ()) -> CruiserResult {
+                Ok(())
+            }
+        }
+        impl<'a> InPlaceCreate<'a, $ty> for $ty {
+            fn create_with_arg(data: &mut [u8], arg: $ty) -> CruiserResult {
+                data[..size_of::<$ty>()].copy_from_slice(&arg.into_ne_bytes());
                 Ok(())
             }
         }
