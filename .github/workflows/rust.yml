@@ -1,9 +1,13 @@
-name: Programs-Cryptid-Signer
+name: Cruiser Rust Checks
 on:
   push:
     branches:
       - master
   pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   get_time:
     name: Get the current timestamp
@@ -36,13 +40,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin/cargo-make
-            ~/.cargo/.crates2.json
-            ~/.cargo/.crates.toml
+            ~/.cargo
             ./Cargo.lock
-            ./target
           key: cargo-update-${{ matrix.rust }}-${{ needs.get_time.outputs.time }}
           restore-keys: |
             cargo-update-${{ matrix.rust }}-
@@ -64,11 +63,6 @@ jobs:
         with:
           command: fetch
 
-      - name: Check once
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
@@ -78,20 +72,14 @@ jobs:
       - name: Tar files together
         run: |
           set -e
-          tar -cvf registry.tar ~/.cargo/registry
-          tar -cvf target.tar ./target
+          tar -cvf cargo.tar ~/.cargo
 
       - name: Upload files
         uses: actions/upload-artifact@v3
         with:
           name: cargo-${{ matrix.rust }}
           path: |
-            registry.tar
-            git.tar
-            target.tar
-            ~/.cargo/bin/cargo-make
-            ~/.cargo/.crates2.json
-            ~/.cargo/.crates.toml
+            cargo.tar
             ./Cargo.lock
 
   fetch_solana:
@@ -142,7 +130,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: cargo-${{ matrix.rust }}
-          path: "~"
 
       - name: Display files
         run: |
@@ -151,8 +138,8 @@ jobs:
       - name: Extract tars
         run: |
           set -e
-          tar -xvf registry.tar --directory ~/.cargo/registry
-          tar -xvf target.tar --directory ./target
+          mkdir -p ~/.cargo
+          tar -xvf cargo.tar --directory ~/.cargo
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Display files
