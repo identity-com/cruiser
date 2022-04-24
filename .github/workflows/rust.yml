@@ -102,6 +102,45 @@ jobs:
           if-no-files-found: error
           path: solana.tar
 
+  check_versions:
+    name: Check versions is not on crates.io
+    needs: [ update_cargo ]
+    if: ${{ github.ref == 'refs/heads/master' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-check_versions-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-check_versions-
+
+      - name: Check versions
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: check_versions
+
   check_fmt:
     name: Format cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo ]

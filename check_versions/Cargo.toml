@@ -1,15 +1,12 @@
 [package]
-name = "check_all"
+name = "check_versions"
 version = "0.0.0"
 authors = ["Brett Etter <buzzec@buzzec.net>"]
 edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
+toml = "0.5.9"
 structopt = "0.3.26"
 tokio = { version = "1.17.0", features = ["full"] }
-pbr = "1.0.4"
-prettytable-rs = "0.8.0"
-ctrlc = "3.2.1"
-lazy_static = "1.4.0"
-futures = "0.3.21"
+crates_io_api = "0.8.0"
