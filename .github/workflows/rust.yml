@@ -301,8 +301,8 @@ jobs:
           command: make
           args: publish_all
 
-  test_all:
-    name: Test everything on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+  test_easy_proc_common:
+    name: Test easy_proc_common on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo, fetch_solana ]
     runs-on: ${{ matrix.os }}
     strategy:
@@ -339,12 +339,252 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ./target
-          key: cargo-test_all-${{ hashFiles('./Cargo.lock') }}
+          key: cargo-test_easy_proc_common-${{ hashFiles('./Cargo.lock') }}
           restore-keys: |
-            cargo-test_all-
+            cargo-test_easy_proc_common-
 
-      - name: Run test_all
+      - name: Run test_easy_proc_common
         uses: actions-rs/cargo@v1
         with:
           command: make
-          args: test_all
+          args: test_easy_proc_common
+
+  test_easy_proc_derive:
+    name: Test easy_proc_derive on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    needs: [ update_cargo, fetch_solana ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Use solana cache
+        uses: actions/download-artifact@v3
+        with:
+          name: solana-${{ matrix.solana }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          tar -xvf solana.tar --directory /
+          rm solana.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-test_easy_proc_derive-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-test_easy_proc_derive-
+
+      - name: Run test_easy_proc_derive
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: test_easy_proc_derive
+
+  test_easy_proc:
+    name: Test easy_proc on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    needs: [ update_cargo, fetch_solana ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Use solana cache
+        uses: actions/download-artifact@v3
+        with:
+          name: solana-${{ matrix.solana }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          tar -xvf solana.tar --directory /
+          rm solana.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-test_easy_proc-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-test_easy_proc-
+
+      - name: Run test_easy_proc
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: test_easy_proc
+
+  test_escrow_example:
+    name: Test escrow_example on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    needs: [ update_cargo, fetch_solana ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Use solana cache
+        uses: actions/download-artifact@v3
+        with:
+          name: solana-${{ matrix.solana }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          tar -xvf solana.tar --directory /
+          rm solana.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-test_escrow_example-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-test_escrow_example-
+
+      - name: Run test_escrow_example
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: test_escrow_example
+
+  test_cruiser_derive:
+    name: Test cruiser_derive on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    needs: [ update_cargo, fetch_solana ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Use solana cache
+        uses: actions/download-artifact@v3
+        with:
+          name: solana-${{ matrix.solana }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          tar -xvf solana.tar --directory /
+          rm solana.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-test_cruiser_derive-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-test_cruiser_derive-
+
+      - name: Run test_cruiser_derive
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: test_cruiser_derive
+
+  test_cruiser:
+    name: Test cruiser on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    needs: [ update_cargo, fetch_solana ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Use solana cache
+        uses: actions/download-artifact@v3
+        with:
+          name: solana-${{ matrix.solana }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          tar -xvf solana.tar --directory /
+          rm solana.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-test_cruiser-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-test_cruiser-
+
+      - name: Run test_cruiser
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: test_cruiser
