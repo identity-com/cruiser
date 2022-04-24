@@ -1,6 +1,8 @@
 name: Programs-Cryptid-Signer
 on:
   push:
+    branches:
+      - master
   pull_request:
 jobs:
   update_cargo:
@@ -28,7 +30,6 @@ jobs:
             ~/.cargo/bin/cargo-make
             ~/.cargo/.crates2.json
             ~/.cargo/.crates.toml
-            ./target
             ./Cargo.lock
           key: cargo-update-${{ matrix.rust }}-${{ steps.current-time.outputs.time }}
           restore-keys: |
@@ -39,6 +40,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
+          override: true
 
       - name: Update dependencies
         uses: actions-rs/cargo@v1
@@ -70,19 +72,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        solana: [ 'stable' ]
+        solana: [ '1.9.17', '1.9.18', 'stable' ]
         os: [ ubuntu-latest ]
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
-
-      - name: Use Rust ${{ matrix.rust }}
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          components: rustfmt, clippy
 
       - name: Install Solana
         run: |
@@ -94,7 +89,7 @@ jobs:
         with:
           name: solana-${{ matrix.solana }}
           path: |
-            ~/.cache
+            ~/.local/share/solana/install
 
   check_fmt:
     name: Format cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
@@ -116,13 +111,27 @@ jobs:
           name: cargo_updated-${{ matrix.rust }}
 
       - name: Display files
-        run: ls -R
+        run: ls ~/. -R
 
       - name: Use Rust ${{ matrix.rust }}
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-check_fmt-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-check_fmt-
+
+      - name: Install Make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
 
       - name: Run fmt
         uses: actions-rs/cargo@v1
