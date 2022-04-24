@@ -101,7 +101,6 @@ jobs:
           name: solana-${{ matrix.solana }}
           if-no-files-found: error
           path: solana.tar
-
   check_versions:
     name: Check versions is not on crates.io
     needs: [ update_cargo ]
@@ -140,7 +139,6 @@ jobs:
         with:
           command: make
           args: check_versions
-
   check_fmt:
     name: Format cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo ]
@@ -180,7 +178,6 @@ jobs:
         with:
           command: make
           args: check_fmt
-
   check_escrow_example:
     name: Check escrow_example on Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo ]
@@ -219,7 +216,6 @@ jobs:
         with:
           command: make
           args: check_escrow_example
-
   check_cruiser:
     name: Check cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo ]
@@ -258,7 +254,6 @@ jobs:
         with:
           command: make
           args: check_cruiser
-
   doc:
     name: Check docs on Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo ]
@@ -297,7 +292,6 @@ jobs:
         with:
           command: make
           args: doc
-
   publish_dry_run:
     name: Check publish dry run on Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo ]
@@ -339,7 +333,6 @@ jobs:
         with:
           command: make
           args: publish_dry_run
-
   test_easy_proc_common:
     name: Test easy_proc_common on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo, fetch_solana ]
@@ -387,7 +380,6 @@ jobs:
         with:
           command: make
           args: test_easy_proc_common
-
   test_easy_proc_derive:
     name: Test easy_proc_derive on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo, fetch_solana ]
@@ -435,7 +427,6 @@ jobs:
         with:
           command: make
           args: test_easy_proc_derive
-
   test_easy_proc:
     name: Test easy_proc on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo, fetch_solana ]
@@ -483,7 +474,6 @@ jobs:
         with:
           command: make
           args: test_easy_proc
-
   test_escrow_example:
     name: Test escrow_example on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo, fetch_solana ]
@@ -531,7 +521,6 @@ jobs:
         with:
           command: make
           args: test_escrow_example
-
   test_cruiser_derive:
     name: Test cruiser_derive on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo, fetch_solana ]
@@ -579,7 +568,6 @@ jobs:
         with:
           command: make
           args: test_cruiser_derive
-
   test_cruiser:
     name: Test cruiser on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
     needs: [ update_cargo, fetch_solana ]
@@ -627,3 +615,173 @@ jobs:
         with:
           command: make
           args: test_cruiser
+  publish_easy_proc_common:
+    name: Publish easy_proc_common
+    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
+    needs:
+      - check_versions
+      - check_fmt
+      - check_escrow_example
+      - check_cruiser
+      - doc
+      - publish_dry_run
+      - test_easy_proc_common
+      - test_easy_proc_derive
+      - test_easy_proc
+      - test_escrow_example
+      - test_cruiser_derive
+      - test_cruiser
+    runs-on: ubuntu-latest
+    environment:
+      name: prod_deploy
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Run publish dry run
+        uses: actions-rs/cargo@v1
+        env:
+          ALLOW_DIRTY: true
+        with:
+          command: make
+          args: publish_easy_proc_common
+
+  publish_easy_proc_derive:
+    name: Publish easy_proc_derive
+    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
+    needs:
+      - publish_easy_proc_common
+    runs-on: ubuntu-latest
+    environment:
+      name: prod_deploy
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Run publish dry run
+        uses: actions-rs/cargo@v1
+        env:
+          ALLOW_DIRTY: true
+        with:
+          command: make
+          args: publish_easy_proc_derive
+
+  publish_easy_proc:
+    name: Publish easy_proc
+    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
+    needs:
+      - publish_easy_proc_derive
+    runs-on: ubuntu-latest
+    environment:
+      name: prod_deploy
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Run publish dry run
+        uses: actions-rs/cargo@v1
+        env:
+          ALLOW_DIRTY: true
+        with:
+          command: make
+          args: publish_easy_proc
+
+  publish_cruiser_derive:
+    name: Publish cruiser_derive
+    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
+    needs:
+      - publish_easy_proc
+    runs-on: ubuntu-latest
+    environment:
+      name: prod_deploy
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Run publish dry run
+        uses: actions-rs/cargo@v1
+        env:
+          ALLOW_DIRTY: true
+        with:
+          command: make
+          args: publish_cruiser_derive
+
+  publish_cruiser:
+    name: Publish cruiser
+    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
+    needs:
+      - publish_cruiser_derive
+    runs-on: ubuntu-latest
+    environment:
+      name: prod_deploy
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          rm cargo.tar
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Run publish dry run
+        uses: actions-rs/cargo@v1
+        env:
+          ALLOW_DIRTY: true
+        with:
+          command: make
+          args: publish_cruiser
