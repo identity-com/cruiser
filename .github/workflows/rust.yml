@@ -7,6 +7,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
 
 jobs:
   get_time:
@@ -87,6 +88,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        # If updated must also update in `test_all`
         solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
         os: [ ubuntu-latest ]
 
@@ -98,7 +100,6 @@ jobs:
         run: |
           set -e
           sh -c "$(curl -sSfL https://release.solana.com/${{ matrix.solana }}/install)"
-          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Tar files together
         run: |
@@ -131,22 +132,11 @@ jobs:
         with:
           name: cargo-${{ matrix.rust }}
 
-      - name: Display files
-        run: |
-          ls -R
-
       - name: Extract tars
         run: |
           set -e
-          mkdir -p ~/.cargo
           tar -xvf cargo.tar --directory /
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Display files
-        run: ls ~/.cargo -R -a
-
-      - name: Display files2
-        run: ls -R -a
 
       - name: Cache output
         uses: actions/cache@v3
@@ -162,293 +152,203 @@ jobs:
           command: make
           args: check_fmt
 
-#  check_escrow_example:
-#    name: Check escrow_example on Rust ${{ matrix.rust }} and ${{ matrix.os }}
-#
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        rust: [ 'nightly-2022-03-22' ]
-#        os: [ ubuntu-latest ]
-#
-#    steps:
-#      - name: Checkout repo
-#        uses: actions/checkout@v2
-#
-#      - name: Use Rust ${{ matrix.rust }}
-#        uses: actions-rs/toolchain@v1
-#        with:
-#          toolchain: ${{ matrix.rust }}
-#          components: rustfmt, clippy
-#
-#      - name: Get timestamp
-#        uses: gerred/actions/current-time@master
-#        id: current-time
-#
-#      - name: Cache dependencies
-#        uses: actions/cache@v3
-#        with:
-#          path: |
-#            ~/.cargo/registry
-#            ~/.cargo/git
-#            ~/.cargo/bin/cargo-make
-#            ~/.cargo/.crates2.json
-#            ~/.cargo/.crates.toml
-#            ./target
-#            ./Cargo.lock
-#          key: cargo-check_escrow_example-${{ steps.current-time.outputs.time }}
-#          restore-keys: |
-#            cargo-check_escrow_example-
-#
-#      - name: Update dependencies
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: update
-#
-#      - name: Install Make
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: install
-#          args: cargo-make
-#
-#      - name: Run check_escrow_example
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: make
-#          args: check_escrow_example
-#
-#  check_cruiser:
-#    name: Check cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
-#
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        rust: [ 'nightly-2022-03-22' ]
-#        os: [ ubuntu-latest ]
-#
-#    steps:
-#      - name: Checkout repo
-#        uses: actions/checkout@v2
-#
-#      - name: Use Rust ${{ matrix.rust }}
-#        uses: actions-rs/toolchain@v1
-#        with:
-#          toolchain: ${{ matrix.rust }}
-#          components: rustfmt, clippy
-#
-#      - name: Get timestamp
-#        uses: gerred/actions/current-time@master
-#        id: current-time
-#
-#      - name: Cache dependencies
-#        uses: actions/cache@v3
-#        with:
-#          path: |
-#            ~/.cargo/registry
-#            ~/.cargo/git
-#            ~/.cargo/bin/cargo-make
-#            ~/.cargo/.crates2.json
-#            ~/.cargo/.crates.toml
-#            ./target
-#            ./Cargo.lock
-#          key: cargo-check_cruiser-${{ steps.current-time.outputs.time }}
-#          restore-keys: |
-#            cargo-check_cruiser-
-#
-#      - name: Update dependencies
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: update
-#
-#      - name: Install Make
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: install
-#          args: cargo-make
-#
-#      - name: Run check_cruiser
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: make
-#          args: check_cruiser
-#
-#  doc:
-#    name: Check docs on Rust ${{ matrix.rust }} and ${{ matrix.os }}
-#
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        rust: [ 'nightly-2022-03-22' ]
-#        os: [ ubuntu-latest ]
-#
-#    steps:
-#      - name: Checkout repo
-#        uses: actions/checkout@v2
-#
-#      - name: Use Rust ${{ matrix.rust }}
-#        uses: actions-rs/toolchain@v1
-#        with:
-#          toolchain: ${{ matrix.rust }}
-#          components: rustfmt, clippy
-#
-#      - name: Get timestamp
-#        uses: gerred/actions/current-time@master
-#        id: current-time
-#
-#      - name: Cache dependencies
-#        uses: actions/cache@v3
-#        with:
-#          path: |
-#            ~/.cargo/registry
-#            ~/.cargo/git
-#            ~/.cargo/bin/cargo-make
-#            ~/.cargo/.crates2.json
-#            ~/.cargo/.crates.toml
-#            ./target
-#            ./Cargo.lock
-#          key: cargo-doc-${{ steps.current-time.outputs.time }}
-#          restore-keys: |
-#            cargo-doc-
-#
-#      - name: Update dependencies
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: update
-#
-#      - name: Install Make
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: install
-#          args: cargo-make
-#
-#      - name: Run doc
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: make
-#          args: doc
-#
-#  publish_dry_run:
-#    name: Check publish dry run on Rust ${{ matrix.rust }} and ${{ matrix.os }}
-#
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        rust: [ 'nightly-2022-03-22' ]
-#        os: [ ubuntu-latest ]
-#
-#    steps:
-#      - name: Checkout repo
-#        uses: actions/checkout@v2
-#
-#      - name: Use Rust ${{ matrix.rust }}
-#        uses: actions-rs/toolchain@v1
-#        with:
-#          toolchain: ${{ matrix.rust }}
-#          components: rustfmt, clippy
-#
-#      - name: Get timestamp
-#        uses: gerred/actions/current-time@master
-#        id: current-time
-#
-#      - name: Cache dependencies
-#        uses: actions/cache@v3
-#        with:
-#          path: |
-#            ~/.cargo/registry
-#            ~/.cargo/git
-#            ~/.cargo/bin/cargo-make
-#            ~/.cargo/.crates2.json
-#            ~/.cargo/.crates.toml
-#            ./target
-#            ./Cargo.lock
-#          key: cargo-publishability-${{ steps.current-time.outputs.time }}
-#          restore-keys: |
-#            cargo-publishability-
-#
-#      - name: Update dependencies
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: update
-#
-#      - name: Install Make
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: install
-#          args: cargo-make
-#
-#      - name: Run publish dry run
-#        uses: actions-rs/cargo@v1
-#        env:
-#          DRY_RUN: true
-#          ALLOW_DIRTY: true
-#        with:
-#          command: make
-#          args: publish_all
-#
-#  test_all:
-#    name: Test everything on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
-#
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        rust: [ 'nightly-2022-03-22' ]
-#        solana: [ 'stable' ]
-#        os: [ ubuntu-latest ]
-#
-#    steps:
-#      - name: Checkout repo
-#        uses: actions/checkout@v2
-#
-#      - name: Use Rust ${{ matrix.rust }}
-#        uses: actions-rs/toolchain@v1
-#        with:
-#          toolchain: ${{ matrix.rust }}
-#          components: rustfmt, clippy
-#
-#      - name: Cache Solana version
-#        uses: actions/cache@v3
-#        with:
-#          path: |
-#            ~/.cache
-#          key: solana-${{ matrix.solana }}
-#
-#      - name: Install Solana
-#        run: |
-#          sh -c "$(curl -sSfL https://release.solana.com/${{ matrix.solana }}/install)"
-#          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-#
-#      - name: Get timestamp
-#        uses: gerred/actions/current-time@master
-#        id: current-time
-#
-#      - name: Cache dependencies
-#        uses: actions/cache@v3
-#        with:
-#          path: |
-#            ~/.cargo/registry
-#            ~/.cargo/git
-#            ~/.cargo/bin/cargo-make
-#            ~/.cargo/.crates2.json
-#            ~/.cargo/.crates.toml
-#            ./target
-#            ./Cargo.lock
-#          key: cargo-test_all-${{ matrix.solana }}-${{ steps.current-time.outputs.time }}
-#          restore-keys: |
-#            cargo-test_all-${{ matrix.solana }}-
-#
-#      - name: Update dependencies
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: update
-#
-#      - name: Install Make
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: install
-#          args: cargo-make
-#
-#      - name: Run test_all
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: make
-#          args: test_all
+  check_escrow_example:
+    name: Check escrow_example on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    needs: [ update_cargo ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-check_escrow_example-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-check_escrow_example-
+
+      - name: Run check_escrow_example
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: check_escrow_example
+
+  check_cruiser:
+    name: Check cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    needs: [ update_cargo ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-check_escrow_example-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-check_escrow_example-
+
+      - name: Run check_cruiser
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: check_cruiser
+
+  doc:
+    name: Check docs on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    needs: [ update_cargo ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-doc-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-doc-
+
+      - name: Run doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: doc
+
+  publish_dry_run:
+    name: Check publish dry run on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    needs: [ update_cargo ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-publish_dry_run-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-publish_dry_run-
+
+      - name: Run publish dry run
+        uses: actions-rs/cargo@v1
+        env:
+          DRY_RUN: true
+          ALLOW_DIRTY: true
+        with:
+          command: make
+          args: publish_all
+
+  test_all:
+    name: Test everything on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [ 'nightly-2022-03-22' ]
+        solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
+        os: [ ubuntu-latest ]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use cargo cache
+        uses: actions/download-artifact@v3
+        with:
+          name: cargo-${{ matrix.rust }}
+
+      - name: Use solana cache
+        uses: actions/download-artifact@v3
+        with:
+          name: solana-${{ matrix.solana }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf cargo.tar --directory /
+          tar -xvf solana.tar --directory /
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Cache output
+        uses: actions/cache@v3
+        with:
+          path: ./target
+          key: cargo-publish_dry_run-${{ hashFiles('./Cargo.lock') }}
+          restore-keys: |
+            cargo-publish_dry_run-
+
+      - name: Run test_all
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: test_all
