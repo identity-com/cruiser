@@ -11,13 +11,8 @@ env:
 
 jobs:
   update_cargo:
-    name: Updates cargo dependencies on Rust ${{ matrix.rust }} and ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
-
+    name: Updates cargo dependencies
+    runs-on: ubuntu-latest
     steps:
       - name: Get timestamp
         uses: gerred/actions/current-time@master
@@ -32,14 +27,14 @@ jobs:
           path: |
             ~/.cargo
             ./Cargo.lock
-          key: cargo-update-${{ matrix.rust }}-${{ steps.current-time.outputs.time }}
+          key: cargo-update-${{ steps.current-time.outputs.time }}
           restore-keys: |
-            cargo-update-${{ matrix.rust }}-
+            cargo-update-
 
-      - name: Use Rust ${{ matrix.rust }}
+      - name: Use Rust 'nightly-2022-03-22'
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: 'nightly-2022-03-22'
           components: rustfmt, clippy
           override: true
 
@@ -67,14 +62,14 @@ jobs:
       - name: Upload files
         uses: actions/upload-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
           path: |
             cargo.tar
             ./Cargo.lock
 
   fetch_solana:
     name: Fetch Solana version ${{ matrix.solana }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         # If updated must also update in `test_all`
@@ -105,11 +100,7 @@ jobs:
     name: Check versions is not on crates.io
     needs: [ update_cargo ]
     if: ${{ github.ref == 'refs/heads/master' || github.base_ref == 'master' }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -117,7 +108,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -140,15 +131,9 @@ jobs:
           command: make
           args: check_versions
   check_fmt:
-    name: Format cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Format cruiser
     needs: [ update_cargo ]
-
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -156,7 +141,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -179,14 +164,9 @@ jobs:
           command: make
           args: check_fmt
   check_escrow_example:
-    name: Check escrow_example on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Check escrow_example
     needs: [ update_cargo ]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -194,7 +174,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -217,14 +197,9 @@ jobs:
           command: make
           args: check_escrow_example
   check_cruiser:
-    name: Check cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Check cruiser
     needs: [ update_cargo ]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -232,7 +207,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -255,14 +230,9 @@ jobs:
           command: make
           args: check_cruiser
   doc:
-    name: Check docs on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Check docs
     needs: [ update_cargo ]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -270,7 +240,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -293,13 +263,9 @@ jobs:
           command: make
           args: doc
   publish_easy_proc_common_dry_run:
-    name: Check publish_easy_proc_common publish dry run on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Check publish_easy_proc_common publish dry run
     needs: [ update_cargo ]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
@@ -308,7 +274,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -334,14 +300,9 @@ jobs:
           command: make
           args: publish_easy_proc_common
   publish_easy_proc_derive_dry_run:
-    name: Check publish_easy_proc_derive publish dry run on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Check publish_easy_proc_derive publish dry run
     needs: [ update_cargo ]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -349,7 +310,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -375,13 +336,10 @@ jobs:
           command: make
           args: publish_easy_proc_derive
   publish_easy_proc_dry_run:
-    name: Check publish_easy_proc publish dry run on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Check publish_easy_proc publish dry run
     needs: [ update_cargo ]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
+    runs-on: ubuntu-latest
+
 
     steps:
       - name: Checkout repo
@@ -390,7 +348,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -416,13 +374,10 @@ jobs:
           command: make
           args: publish_easy_proc
   publish_cruiser_derive_dry_run:
-    name: Check publish_cruiser_derive publish dry run on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Check publish_cruiser_derive publish dry run
     needs: [ update_cargo ]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
+    runs-on: ubuntu-latest
+
 
     steps:
       - name: Checkout repo
@@ -431,7 +386,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -457,13 +412,10 @@ jobs:
           command: make
           args: publish_cruiser_derive
   publish_cruiser_dry_run:
-    name: Check publish_cruiser publish dry run on Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Check publish_cruiser publish dry run
     needs: [ update_cargo ]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust: [ 'nightly-2022-03-22' ]
-        os: [ ubuntu-latest ]
+    runs-on: ubuntu-latest
+
 
     steps:
       - name: Checkout repo
@@ -472,7 +424,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -498,12 +450,11 @@ jobs:
           command: make
           args: publish_cruiser
   test_easy_proc_common:
-    name: Test easy_proc_common on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Test easy_proc_common on Solana ${{ matrix.solana }}
     needs: [ update_cargo, fetch_solana ]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [ 'nightly-2022-03-22' ]
         solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
         os: [ ubuntu-latest ]
 
@@ -514,7 +465,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Use solana cache
         uses: actions/download-artifact@v3
@@ -545,12 +496,11 @@ jobs:
           command: make
           args: test_easy_proc_common
   test_easy_proc_derive:
-    name: Test easy_proc_derive on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Test easy_proc_derive on Solana ${{ matrix.solana }}
     needs: [ update_cargo, fetch_solana ]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [ 'nightly-2022-03-22' ]
         solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
         os: [ ubuntu-latest ]
 
@@ -561,7 +511,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Use solana cache
         uses: actions/download-artifact@v3
@@ -592,12 +542,11 @@ jobs:
           command: make
           args: test_easy_proc_derive
   test_easy_proc:
-    name: Test easy_proc on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Test easy_proc on Solana ${{ matrix.solana }}
     needs: [ update_cargo, fetch_solana ]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [ 'nightly-2022-03-22' ]
         solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
         os: [ ubuntu-latest ]
 
@@ -608,7 +557,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Use solana cache
         uses: actions/download-artifact@v3
@@ -639,12 +588,11 @@ jobs:
           command: make
           args: test_easy_proc
   test_escrow_example:
-    name: Test escrow_example on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Test escrow_example on Solana ${{ matrix.solana }}
     needs: [ update_cargo, fetch_solana ]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [ 'nightly-2022-03-22' ]
         solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
         os: [ ubuntu-latest ]
 
@@ -655,7 +603,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Use solana cache
         uses: actions/download-artifact@v3
@@ -686,12 +634,11 @@ jobs:
           command: make
           args: test_escrow_example
   test_cruiser_derive:
-    name: Test cruiser_derive on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Test cruiser_derive on Solana ${{ matrix.solana }}
     needs: [ update_cargo, fetch_solana ]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [ 'nightly-2022-03-22' ]
         solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
         os: [ ubuntu-latest ]
 
@@ -702,7 +649,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Use solana cache
         uses: actions/download-artifact@v3
@@ -733,12 +680,11 @@ jobs:
           command: make
           args: test_cruiser_derive
   test_cruiser:
-    name: Test cruiser on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
+    name: Test cruiser on Solana ${{ matrix.solana }}
     needs: [ update_cargo, fetch_solana ]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [ 'nightly-2022-03-22' ]
         solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
         os: [ ubuntu-latest ]
 
@@ -749,7 +695,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Use solana cache
         uses: actions/download-artifact@v3
@@ -809,7 +755,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -841,7 +787,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -873,7 +819,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -905,7 +851,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
@@ -937,7 +883,7 @@ jobs:
       - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo-${{ matrix.rust }}
+          name: cargo-cache
 
       - name: Extract tars
         run: |
