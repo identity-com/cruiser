@@ -9,12 +9,15 @@ jobs:
     name: Get the current timestamp
     runs-on: ubuntu-latest
     outputs:
-      time: ${{ steps.get_time.outputs.time }}
+      time: ${{ steps.current-time.outputs.time }}
     steps:
       - name: Get timestamp
         uses: gerred/actions/current-time@master
         id: current-time
 
+      - name: Display timestamp
+        run: |
+          echo "The current timestamp is: ${{ steps.current-time.outputs.time }}"
 
   update_cargo:
     name: Updates cargo dependencies on Rust ${{ matrix.rust }} and ${{ matrix.os }}
@@ -56,10 +59,10 @@ jobs:
         with:
           command: update
 
-      - name: Run clippy once
+      - name: Check once
         uses: actions-rs/cargo@v1
         with:
-          command: clippy
+          command: check
 
       - name: Install Make
         uses: actions-rs/cargo@v1
@@ -140,14 +143,13 @@ jobs:
         run: |
           set -e
           tar -xvf registry.tar --directory ~/.cargo/registry
-          tar -xvf git.tar --directory ~/.cargo/git
           tar -xvf target.tar --directory ./target
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Display files
         run: ls ~/. -R
 
-      - name: Cache dependencies
+      - name: Cache output
         uses: actions/cache@v3
         with:
           path: ./target
