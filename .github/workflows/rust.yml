@@ -338,7 +338,7 @@ jobs:
           ALLOW_DIRTY: true
         with:
           command: make
-          args: publish_all
+          args: publish_dry_run
 
   test_easy_proc_common:
     name: Test easy_proc_common on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}

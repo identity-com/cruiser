@@ -203,6 +203,16 @@ dependencies = [
 workspace = false
 script = "cargo run -p check_versions -- -f Cargo.toml -f derive/Cargo.toml -f easy_proc/Cargo.toml -f easy_proc/common/Cargo.toml -f easy_proc/derive/Cargo.toml"
 
+[tasks.publish_dry_run]
+workspace = false
+dependencies = [
+    "publish_easy_proc_common",
+    "publish_easy_proc_derive",
+    "publish_easy_proc",
+    "publish_cruiser_derive",
+    "publish_cruiser",
+]
+
 [tasks.publish_all]
 workspace = false
 dependencies = [
