@@ -28,9 +28,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let mut binary_file = File::open(&file).await?;
 
         let metadata = binary_file.metadata().await?;
-        if !metadata.is_file() {
-            panic!("{} is not a file", file);
-        }
+        assert!(metadata.is_file(), "{} is not a file", file);
         let mut buffer = Vec::new();
         while binary_file.read_buf(&mut buffer).await? > 0 {}
         let cargo_toml = String::from_utf8(buffer)?.parse::<Value>()?;
@@ -51,7 +49,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .as_str()
             .ok_or("version is not a string")?;
 
-        let krate = client.get_crate(&name).await?;
+        let krate = client.get_crate(name).await?;
         if krate.versions.into_iter().any(|v| v.num == version) {
             eprintln!("{} version {} is already on crates.io", name, version);
             exit(104);
