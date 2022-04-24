@@ -23,6 +23,9 @@ jobs:
         uses: gerred/actions/current-time@master
         id: current-time
 
+      - name: Print stuff
+        run: echo "`${{ github.ref }}` and `${{ github.base_ref }}` and `${{ github.head_ref }}`"
+
       - name: Checkout repo
         uses: actions/checkout@v2
 
