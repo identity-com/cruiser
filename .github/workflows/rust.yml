@@ -115,7 +115,6 @@ jobs:
       - name: Tar files together
         run: |
           set -e
-          pwd
           tar -cvf solana.tar $HOME/.local/share/solana/install
 
       - name: Upload Solana
@@ -143,10 +142,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: cargo-${{ matrix.rust }}
+          path: "~"
 
       - name: Display files
         run: |
-          pwd
           ls -R
 
       - name: Extract tars
