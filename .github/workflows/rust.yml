@@ -59,6 +59,11 @@ jobs:
         with:
           command: update
 
+      - name: Fetch dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: fetch
+
       - name: Check once
         uses: actions-rs/cargo@v1
         with:
@@ -137,6 +142,9 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: cargo-${{ matrix.rust }}
+
+      - name: Display files
+        run: ls -R
 
       - name: Extract tars
         run: |
