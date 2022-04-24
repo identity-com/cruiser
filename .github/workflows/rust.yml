@@ -654,6 +654,7 @@ jobs:
         uses: actions-rs/cargo@v1
         env:
           ALLOW_DIRTY: true
+          PUBLISH_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
         with:
           command: make
           args: publish_easy_proc_common
@@ -685,6 +686,7 @@ jobs:
         uses: actions-rs/cargo@v1
         env:
           ALLOW_DIRTY: true
+          PUBLISH_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
         with:
           command: make
           args: publish_easy_proc_derive
@@ -716,6 +718,7 @@ jobs:
         uses: actions-rs/cargo@v1
         env:
           ALLOW_DIRTY: true
+          PUBLISH_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
         with:
           command: make
           args: publish_easy_proc
@@ -747,6 +750,7 @@ jobs:
         uses: actions-rs/cargo@v1
         env:
           ALLOW_DIRTY: true
+          PUBLISH_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
         with:
           command: make
           args: publish_cruiser_derive
@@ -778,6 +782,7 @@ jobs:
         uses: actions-rs/cargo@v1
         env:
           ALLOW_DIRTY: true
+          PUBLISH_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
         with:
           command: make
           args: publish_cruiser
