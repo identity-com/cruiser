@@ -10,30 +10,19 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
-  get_time:
-    name: Get the current timestamp
-    runs-on: ubuntu-latest
-    outputs:
-      time: ${{ steps.current-time.outputs.time }}
-    steps:
-      - name: Get timestamp
-        uses: gerred/actions/current-time@master
-        id: current-time
-
-      - name: Display timestamp
-        run: |
-          echo "The current timestamp is: ${{ steps.current-time.outputs.time }}"
-
   update_cargo:
     name: Updates cargo dependencies on Rust ${{ matrix.rust }} and ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    needs: [ get_time ]
     strategy:
       matrix:
         rust: [ 'nightly-2022-03-22' ]
         os: [ ubuntu-latest ]
 
     steps:
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
       - name: Checkout repo
         uses: actions/checkout@v2
 
@@ -43,7 +32,7 @@ jobs:
           path: |
             ~/.cargo
             ./Cargo.lock
-          key: cargo-update-${{ matrix.rust }}-${{ needs.get_time.outputs.time }}
+          key: cargo-update-${{ matrix.rust }}-${{ steps.current-time.outputs.time }}
           restore-keys: |
             cargo-update-${{ matrix.rust }}-
 
