@@ -104,7 +104,7 @@ jobs:
   check_versions:
     name: Check versions is not on crates.io
     needs: [ update_cargo ]
-    if: ${{ github.ref == 'refs/heads/master' }}
+    if: ${{ github.ref == 'refs/heads/master' || github.base_ref == 'refs/heads/master' }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -657,7 +657,6 @@ jobs:
         with:
           command: make
           args: publish_easy_proc_common
-
   publish_easy_proc_derive:
     name: Publish easy_proc_derive
     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
@@ -689,7 +688,6 @@ jobs:
         with:
           command: make
           args: publish_easy_proc_derive
-
   publish_easy_proc:
     name: Publish easy_proc
     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
@@ -721,7 +719,6 @@ jobs:
         with:
           command: make
           args: publish_easy_proc
-
   publish_cruiser_derive:
     name: Publish cruiser_derive
     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
@@ -753,7 +750,6 @@ jobs:
         with:
           command: make
           args: publish_cruiser_derive
-
   publish_cruiser:
     name: Publish cruiser
     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
