@@ -157,7 +157,10 @@ jobs:
             cargo-check_fmt-
 
       - name: Run fmt
-        run: cargo-make check_fmt
+        run: actions-rs/cargo@v1
+        with:
+          command: make
+          args: check_fmt
 
 #  check_escrow_example:
 #    name: Check escrow_example on Rust ${{ matrix.rust }} and ${{ matrix.os }}
