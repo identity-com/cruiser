@@ -5,9 +5,21 @@ on:
       - master
   pull_request:
 jobs:
+  get_time:
+    name: Get the current timestamp
+    runs-on: ubuntu-latest
+    outputs:
+      time: ${{ steps.get_time.outputs.time }}
+    steps:
+      - name: Get timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
+
   update_cargo:
     name: Updates cargo dependencies on Rust ${{ matrix.rust }} and ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    needs: [ get_time ]
     strategy:
       matrix:
         rust: [ 'nightly-2022-03-22' ]
@@ -16,10 +28,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
-
-      - name: Get timestamp
-        uses: gerred/actions/current-time@master
-        id: current-time
 
       - name: Cache dependencies
         uses: actions/cache@v3
@@ -31,7 +39,8 @@ jobs:
             ~/.cargo/.crates2.json
             ~/.cargo/.crates.toml
             ./Cargo.lock
-          key: cargo-update-${{ matrix.rust }}-${{ steps.current-time.outputs.time }}
+            ./target
+          key: cargo-update-${{ matrix.rust }}-${{ needs.get_time.outputs.time }}
           restore-keys: |
             cargo-update-${{ matrix.rust }}-
 
@@ -47,32 +56,43 @@ jobs:
         with:
           command: update
 
+      - name: Run clippy once
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+
       - name: Install Make
         uses: actions-rs/cargo@v1
         with:
           command: install
           args: cargo-make
 
-      - name: Upload updated dependancies
+      - name: Tar files together
+        run: |
+          set -e
+          tar -cvf registry.tar ~/.cargo/registry
+          tar -cvf git.tar ~/.cargo/git
+          tar -cvf target.tar ./target
+
+      - name: Upload files
         uses: actions/upload-artifact@v3
         with:
-          name: cargo_updated-${{ matrix.rust }}
+          name: cargo-${{ matrix.rust }}
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            registry.tar
+            git.tar
+            target.tar
             ~/.cargo/bin/cargo-make
             ~/.cargo/.crates2.json
             ~/.cargo/.crates.toml
-            ./target
             ./Cargo.lock
 
   fetch_solana:
     name: Fetch Solana version ${{ matrix.solana }}
-
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        solana: [ '1.9.17', '1.9.18', 'stable' ]
+        solana: [ 'v1.9.17', 'v1.9.18', 'stable' ]
         os: [ ubuntu-latest ]
 
     steps:
@@ -81,15 +101,21 @@ jobs:
 
       - name: Install Solana
         run: |
+          set -e
           sh -c "$(curl -sSfL https://release.solana.com/${{ matrix.solana }}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Tar files together
+        run: |
+          set -e
+          tar -cvf solana.tar $HOME/.local/share/solana/install
 
       - name: Upload Solana
         uses: actions/upload-artifact@v3
         with:
           name: solana-${{ matrix.solana }}
-          path: |
-            ~/.local/share/solana/install
+          if-no-files-found: error
+          path: solana.tar
 
   check_fmt:
     name: Format cruiser on Rust ${{ matrix.rust }} and ${{ matrix.os }}
@@ -105,19 +131,21 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v2
 
-      - name: Use rust cache
+      - name: Use cargo cache
         uses: actions/download-artifact@v3
         with:
-          name: cargo_updated-${{ matrix.rust }}
+          name: cargo-${{ matrix.rust }}
+
+      - name: Extract tars
+        run: |
+          set -e
+          tar -xvf registry.tar --directory ~/.cargo/registry
+          tar -xvf git.tar --directory ~/.cargo/git
+          tar -xvf target.tar --directory ./target
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Display files
         run: ls ~/. -R
-
-      - name: Use Rust ${{ matrix.rust }}
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          components: rustfmt, clippy
 
       - name: Cache dependencies
         uses: actions/cache@v3
@@ -126,12 +154,6 @@ jobs:
           key: cargo-check_fmt-${{ hashFiles('./Cargo.lock') }}
           restore-keys: |
             cargo-check_fmt-
-
-      - name: Install Make
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-make
 
       - name: Run fmt
         uses: actions-rs/cargo@v1
