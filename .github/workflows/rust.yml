@@ -309,7 +309,7 @@ jobs:
 
   test_all:
     name: Test everything on Solana ${{ matrix.solana }}, Rust ${{ matrix.rust }} and ${{ matrix.os }}
-
+    needs: [ update_cargo, fetch_solana ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
