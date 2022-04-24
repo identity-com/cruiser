@@ -125,6 +125,7 @@ jobs:
         run: |
           set -e
           tar -xvf cargo.tar --directory /
+          rm cargo.tar
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Cache output
@@ -163,6 +164,7 @@ jobs:
         run: |
           set -e
           tar -xvf cargo.tar --directory /
+          rm cargo.tar
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Cache output
@@ -201,6 +203,7 @@ jobs:
         run: |
           set -e
           tar -xvf cargo.tar --directory /
+          rm cargo.tar
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Cache output
@@ -239,6 +242,7 @@ jobs:
         run: |
           set -e
           tar -xvf cargo.tar --directory /
+          rm cargo.tar
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Cache output
@@ -277,6 +281,7 @@ jobs:
         run: |
           set -e
           tar -xvf cargo.tar --directory /
+          rm cargo.tar
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Cache output
@@ -324,7 +329,9 @@ jobs:
         run: |
           set -e
           tar -xvf cargo.tar --directory /
+          rm cargo.tar
           tar -xvf solana.tar --directory /
+          rm solana.tar
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
@@ -332,9 +339,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ./target
-          key: cargo-publish_dry_run-${{ hashFiles('./Cargo.lock') }}
+          key: cargo-test_all-${{ hashFiles('./Cargo.lock') }}
           restore-keys: |
-            cargo-publish_dry_run-
+            cargo-test_all-
 
       - name: Run test_all
         uses: actions-rs/cargo@v1
