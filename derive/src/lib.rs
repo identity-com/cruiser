@@ -24,6 +24,7 @@ use easy_proc::ArgumentList;
 use crate::account_argument::AccountArgumentDerive;
 use crate::account_list::AccountListDerive;
 use crate::error::ErrorDerive;
+use crate::get_properties::GetProperties;
 #[allow(unused_imports)]
 use crate::in_place::InPlaceDerive;
 use crate::instruction_list::InstructionListDerive;
@@ -32,6 +33,7 @@ use crate::verify_account_arg_impl::VerifyAccountArgs;
 mod account_argument;
 mod account_list;
 mod error;
+mod get_properties;
 #[allow(dead_code)]
 mod in_place;
 mod instruction_list;
@@ -193,6 +195,105 @@ pub fn derive_account_list(ts: TokenStream) -> TokenStream {
         println!("{}", stream);
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
+    stream.into()
+}
+
+/// Gets a set of properties (mutably) for a given in_place item.
+/// Immutable gets can be done directly on the item as they don't block each other.
+/// ```
+/// #![feature(const_trait_impl)]
+/// #![feature(generic_associated_types)]
+/// use std::ops::{Deref, DerefMut};
+/// use cruiser::in_place::{InPlace, InPlaceGetData, InPlaceProperties, get_properties, InPlacePropertiesList, InPlaceProperty};
+/// use cruiser::on_chain_size::{OnChainSize, OnChainStaticSize};
+/// use cruiser::Pubkey;
+///
+/// pub struct TestData {
+///     pub value: u8,
+///     pub cool: [u16; 2],
+///     pub key: Pubkey,
+/// }
+/// impl OnChainSize<()> for TestData {
+///     fn on_chain_max_size(arg: ()) -> usize {
+///         u8::on_chain_static_size()
+///             + <[u16; 2]>::on_chain_static_size()
+///             + Pubkey::on_chain_static_size()
+///     }
+/// }
+/// impl InPlace for TestData {
+///     type Access<A> = TestDataAccess<A>;
+/// }
+/// impl InPlaceProperties for TestData {
+///     type Properties = TestDataProperties;
+/// }
+///
+/// pub struct TestDataAccess<A>(A);
+/// impl<A> InPlaceGetData for TestDataAccess<A> {
+///     type Accessor = A;
+///
+///     fn get_raw_data(&self) -> &[u8]
+///     where
+///         Self::Accessor: Deref<Target = [u8]>,
+///     {
+///         &*self.0
+///     }
+///
+///     fn get_raw_data_mut(&mut self) -> &mut [u8]
+///     where
+///         Self::Accessor: DerefMut<Target = [u8]>,
+///     {
+///         &mut *self.0
+///     }
+/// }
+///
+/// #[derive(Copy, Clone, Debug)]
+/// pub enum TestDataProperties {
+///     Value,
+///     Cool,
+///     Key,
+/// }
+/// impl const InPlacePropertiesList for TestDataProperties {
+///     fn index(self) -> usize {
+///         self as usize
+///     }
+///
+///     fn offset(self) -> usize {
+///         match self {
+///             TestDataProperties::Value => 0,
+///             TestDataProperties::Cool => {
+///                 TestDataProperties::Value.offset() + u8::on_chain_static_size()
+///             }
+///             TestDataProperties::Key => {
+///                 TestDataProperties::Cool.offset()
+///                     + <[u16; 2] as OnChainStaticSize>::on_chain_static_size()
+///             }
+///         }
+///     }
+///
+///     fn size(self) -> usize {
+///         match self {
+///             TestDataProperties::Value => u8::on_chain_static_size(),
+///             TestDataProperties::Cool => <[u16; 2]>::on_chain_static_size(),
+///             TestDataProperties::Key => Pubkey::on_chain_static_size(),
+///         }
+///     }
+/// }
+/// impl<A> InPlaceProperty<0> for TestDataAccess<A> {
+///     type Property = u8;
+/// }
+/// impl<A> InPlaceProperty<2> for TestDataAccess<A> {
+///     type Property = Pubkey;
+/// }
+///
+/// let mut value = TestData::write_with_arg(&mut [0; TestData::on_chain_max_size(())], ());
+/// let (value, key) = get_properties!(&mut value, TestData { value, key });
+/// ```
+#[cfg(feature = "in_place")]
+#[proc_macro_error]
+#[proc_macro]
+pub fn get_properties(tokens: TokenStream) -> TokenStream {
+    let stream = parse_macro_input!(tokens as GetProperties).into_token_stream();
+    println!("{}", stream);
     stream.into()
 }
 

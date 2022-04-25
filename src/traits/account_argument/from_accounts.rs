@@ -6,7 +6,7 @@ use std::iter::FusedIterator;
 /// Allows an account argument to be made from the account iterator and data `Arg`.
 /// `AI` is the [`AccountInfo`](crate::AccountInfo) type.
 /// This is the first step in the instruction lifecycle.
-pub trait FromAccounts<Arg>: Sized + AccountArgument {
+pub trait FromAccounts<Arg = ()>: Sized + AccountArgument {
     /// Creates this argument from an `AI` iterator and data `Arg`.
     /// - `program_id` is the current program's id.
     /// - `infos` is the iterator of `AI`s

@@ -15,7 +15,7 @@ use std::ops::{Deref, DerefMut};
 //         where
 //             T: AccountArgument<AI>{
 //             from: [
-//                 () where T: FromAccounts<()>;
+//                 () where T: FromAccounts;
 //                 <Arg> (Arg,) where T: FromAccounts<Arg>, Arg: Clone;
 //                 <Arg, F> (F, ()) where T: FromAccounts<Arg>, F: FnMut(usize) -> Arg;
 //             ];
@@ -43,9 +43,9 @@ where
         self.0.add_keys(add)
     }
 }
-impl<T> FromAccounts<()> for Rest<T>
+impl<T> FromAccounts for Rest<T>
 where
-    T: FromAccounts<()>,
+    T: FromAccounts,
 {
     fn from_accounts(
         program_id: &Pubkey,

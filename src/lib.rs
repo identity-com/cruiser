@@ -1,11 +1,15 @@
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
 #![cfg_attr(target_arch = "bpf", feature(const_fn_trait_bound))]
+#![cfg_attr(not(target_arch = "bpf"), feature(const_slice_index))]
 #![feature(const_trait_impl)]
 #![feature(const_ptr_offset)]
 #![feature(const_slice_from_raw_parts)]
 #![feature(const_refs_to_cell)]
 #![feature(const_mut_refs)]
 #![feature(const_for)]
+#![feature(generic_associated_types)]
+#![feature(maybe_uninit_uninit_array)]
+#![feature(maybe_uninit_array_assume_init)]
 #![warn(
     unused_import_braces,
     unused_imports,
@@ -17,8 +21,12 @@
     clippy::cast_possible_truncation,
     clippy::module_name_repetitions,
     clippy::missing_errors_doc,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    clippy::missing_panics_doc
 )]
+// Solana is on 1.59 currently, this requires the now deprecated where clause position
+#![cfg_attr(not(VERSION_1_59_0), allow(deprecated_where_clause_location))]
+
 //! A generator program that will be able to generate solana program code from a much easier starting place.
 //!
 //! # How it works

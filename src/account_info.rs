@@ -21,52 +21,57 @@ use solana_program::system_instruction::MAX_PERMITTED_DATA_LENGTH;
 use crate::AllAny;
 
 /// A trait representing accounts on Solana. Can take many different forms.
-pub trait AccountInfo: for<'a> AccountInfoAccess<'a> {}
-impl<T> AccountInfo for T where for<'a> T: AccountInfoAccess<'a> {}
-
-/// A trait representing accounts on Solana. Can take many different forms.
-/// Use [`AccountInfo`].
-pub trait AccountInfoAccess<'a>:
+pub trait AccountInfo:
     Clone
     + AccountArgument<AccountInfo = Self>
-    + FromAccounts<()>
-    + ValidateArgument<()>
-    + MultiIndexable<()>
+    + FromAccounts
+    + ValidateArgument
+    + MultiIndexable
     + MultiIndexable<AllAny>
-    + SingleIndexable<()>
+    + SingleIndexable
 {
     /// The return of [`AccountInfoAccess::lamports`]
-    type Lamports: Deref<Target = u64>;
+    type Lamports<'a>: Deref<Target = u64>
+    where
+        Self: 'a;
     /// The return of [`AccountInfoAccess::lamports_mut`]
-    type LamportsMut: DerefMut<Target = u64>;
+    type LamportsMut<'a>: DerefMut<Target = u64>
+    where
+        Self: 'a;
     /// The return of [`AccountInfoAccess::data`]
-    type Data: Deref<Target = [u8]>;
+    type Data<'a>: Deref<Target = [u8]>
+    where
+        Self: 'a;
     /// The return of [`AccountInfoAccess::data_mut`]
-    type DataMut: DerefMut<Target = [u8]>;
+    type DataMut<'a>: DerefMut<Target = [u8]>
+    where
+        Self: 'a;
     /// The return of [`AccountInfoAccess::owner`]
-    type Owner: Deref<Target = Pubkey>;
+    type Owner<'a>: Deref<Target = Pubkey>
+    where
+        Self: 'a;
 
     /// Gets the key of the account
     #[must_use]
-    fn key(&'a self) -> &Pubkey;
+    fn key(&self) -> &Pubkey;
     /// Returns true if this account is a signer
     #[must_use]
-    fn is_signer(&'a self) -> bool;
+    fn is_signer(&self) -> bool;
     /// Returns true if this account is writable
     #[must_use]
-    fn is_writable(&'a self) -> bool;
+    fn is_writable(&self) -> bool;
     /// Returns a shared ref to the lamports of this account
     #[must_use]
-    fn lamports(&'a self) -> Self::Lamports;
+    fn lamports(&self) -> Self::Lamports<'_>;
     /// Returns a mutable ref to the lamports of this account
     #[must_use]
-    fn lamports_mut(&'a self) -> Self::LamportsMut;
+    fn lamports_mut(&self) -> Self::LamportsMut<'_>;
     /// Returns a shared ref to the data of this account
     #[must_use]
-    fn data(&'a self) -> Self::Data;
+    fn data(&self) -> Self::Data<'_>;
     /// Returns a mutable ref to the data of this account
     #[must_use]
-    fn data_mut(&'a self) -> Self::DataMut;
+    fn data_mut(&self) -> Self::DataMut<'_>;
     /// Reallocates the data of this account allowing for size change after initialization. Must be done by the owning program.
     /// Should use [`SafeRealloc`] whenever possible.
     ///
@@ -81,7 +86,7 @@ pub trait AccountInfoAccess<'a>:
     unsafe fn realloc_unsafe(&self, new_len: usize, zero_init: bool) -> CruiserResult;
     /// Returns a shared ref to the owner of this account
     #[must_use]
-    fn owner(&'a self) -> Self::Owner;
+    fn owner(&self) -> Self::Owner<'_>;
     /// Unsafe access to changing the owner of this account. You should use [`SafeOwnerChangeAccess::owner_mut`] if possible.
     ///
     /// # Safety
@@ -96,55 +101,39 @@ pub trait AccountInfoAccess<'a>:
     unsafe fn set_owner_unsafe(&self, new_owner: &Pubkey);
     /// This account's data contains a loaded program (and is now read-only)
     #[must_use]
-    fn executable(&'a self) -> bool;
+    fn executable(&self) -> bool;
     /// The epoch at which this account will next owe rent
     #[must_use]
-    fn rent_epoch(&'a self) -> Epoch;
+    fn rent_epoch(&self) -> Epoch;
 }
 
 /// Account info can safely assign the owner.
-pub trait SafeOwnerChange: for<'a> SafeOwnerChangeAccess<'a> {}
-impl<T> SafeOwnerChange for T where for<'a> T: SafeOwnerChangeAccess<'a> {}
-/// Account info can safely assign the owner. Use [`SafeOwnerChange`].
-pub trait SafeOwnerChangeAccess<'a>: AccountInfoAccess<'a> {
+pub trait SafeOwnerChange: AccountInfo {
     /// The return value of [`SafeOwnerChangeAccess::owner_mut`]
-    type OwnerMut: DerefMut<Target = Pubkey>;
+    type OwnerMut<'a>: DerefMut<Target = Pubkey>
+    where
+        Self: 'a;
     /// Returns a mutable ref to the owner of this account
-    fn owner_mut(&'a self) -> Self::OwnerMut;
+    fn owner_mut(&self) -> Self::OwnerMut<'_>;
 }
 
 /// Account info can safely realloc.
-pub trait SafeRealloc: for<'a> SafeReallocAccess<'a> {}
-impl<T> SafeRealloc for T where for<'a> T: SafeReallocAccess<'a> {}
-/// Account info can safely realloc. Use [`SafeRealloc`].
-pub trait SafeReallocAccess<'a>: AccountInfoAccess<'a> {
+pub trait SafeRealloc: AccountInfo {
     /// Reallocates an account safely by checking data size.
     /// If this can be called in a cpi from the same program or earlier owning program of this account you should use [`SafeReallocAccess::realloc_cpi_safe`].
-    fn realloc(&'a self, new_len: usize, zero_init: bool) -> CruiserResult;
+    fn realloc(&self, new_len: usize, zero_init: bool) -> CruiserResult;
     /// Reallocates an account safely by checking data size, only allows for 1/4 the increase of [`MAX_PERMITTED_DATA_INCREASE`].
     /// This limited growth means that a cpi call can never exceed [`MAX_PERMITTED_DATA_INCREASE`].
-    fn realloc_cpi_safe(&'a self, new_len: usize, zero_init: bool) -> CruiserResult;
+    fn realloc_cpi_safe(&self, new_len: usize, zero_init: bool) -> CruiserResult;
 }
 
 /// Account info can be turned into a [`SolanaAccountInfo`].
-pub trait ToSolanaAccountInfo<'as_info>:
-    for<'account> ToSolanaAccountInfoAccess<'as_info, 'account>
-{
-}
-impl<'as_info, T> ToSolanaAccountInfo<'as_info> for T where
-    for<'account> T: ToSolanaAccountInfoAccess<'as_info, 'account>
-{
-}
-
-/// Account info can be turned into a [`SolanaAccountInfo`]. Use [`ToSolanaAccountInfo`].
-pub trait ToSolanaAccountInfoAccess<'as_info: 'account, 'account>:
-    AccountInfoAccess<'account>
-{
+pub trait ToSolanaAccountInfo<'as_info>: AccountInfo {
     /// Turns this into a solana account info for interoperability and CPI.
     ///
     /// # Safety
     /// Only use this when the resulting account info will never be used after another use of self or any values stemming from self.
-    unsafe fn to_solana_account_info(&'account self) -> SolanaAccountInfo<'as_info>;
+    unsafe fn to_solana_account_info(&self) -> SolanaAccountInfo<'as_info>;
 }
 
 // verify_account_arg_impl! {
@@ -308,45 +297,45 @@ impl CruiserAccountInfo {
         }
     }
 }
-impl<'a> AccountInfoAccess<'a> for CruiserAccountInfo {
-    type Lamports = Ref<'a, u64>;
-    type LamportsMut = RefMut<'a, u64>;
-    type Data = Ref<'a, [u8]>;
-    type DataMut = RefMut<'a, [u8]>;
-    type Owner = Ref<'a, Pubkey>;
+impl AccountInfo for CruiserAccountInfo {
+    type Lamports<'a> = Ref<'a, u64>;
+    type LamportsMut<'a> = RefMut<'a, u64>;
+    type Data<'a> = Ref<'a, [u8]>;
+    type DataMut<'a> = RefMut<'a, [u8]>;
+    type Owner<'a> = Ref<'a, Pubkey>;
 
     #[inline]
-    fn key(&'a self) -> &Pubkey {
+    fn key(&self) -> &Pubkey {
         self.key
     }
 
     #[inline]
-    fn is_signer(&'a self) -> bool {
+    fn is_signer(&self) -> bool {
         self.is_signer
     }
 
     #[inline]
-    fn is_writable(&'a self) -> bool {
+    fn is_writable(&self) -> bool {
         self.is_writable
     }
 
     #[inline]
-    fn lamports(&'a self) -> Self::Lamports {
+    fn lamports(&self) -> Self::Lamports<'_> {
         Ref::map(self.lamports.borrow(), |val| &**val)
     }
 
     #[inline]
-    fn lamports_mut(&'a self) -> Self::LamportsMut {
+    fn lamports_mut(&self) -> Self::LamportsMut<'_> {
         RefMut::map(self.lamports.borrow_mut(), |val| *val)
     }
 
     #[inline]
-    fn data(&'a self) -> Self::Data {
+    fn data(&self) -> Self::Data<'_> {
         Ref::map(self.data.borrow(), |val| &**val)
     }
 
     #[inline]
-    fn data_mut(&'a self) -> Self::DataMut {
+    fn data_mut(&self) -> Self::DataMut<'_> {
         RefMut::map(self.data.borrow_mut(), |val| *val)
     }
 
@@ -356,7 +345,7 @@ impl<'a> AccountInfoAccess<'a> for CruiserAccountInfo {
     }
 
     #[inline]
-    fn owner(&'a self) -> Self::Owner {
+    fn owner(&self) -> Self::Owner<'_> {
         Ref::map(self.owner.borrow(), |owner| &**owner)
     }
 
@@ -375,14 +364,14 @@ impl<'a> AccountInfoAccess<'a> for CruiserAccountInfo {
         self.rent_epoch
     }
 }
-impl<'a> SafeOwnerChangeAccess<'a> for CruiserAccountInfo {
-    type OwnerMut = RefMut<'a, Pubkey>;
+impl SafeOwnerChange for CruiserAccountInfo {
+    type OwnerMut<'a> = RefMut<'a, Pubkey>;
 
-    fn owner_mut(&'a self) -> Self::OwnerMut {
+    fn owner_mut(&self) -> Self::OwnerMut<'_> {
         RefMut::map(self.owner.borrow_mut(), |val| *val)
     }
 }
-impl<'a> SafeReallocAccess<'a> for CruiserAccountInfo {
+impl SafeRealloc for CruiserAccountInfo {
     fn realloc(&self, new_len: usize, zero_init: bool) -> CruiserResult {
         let max_new_len = self
             .original_data_len
@@ -427,19 +416,32 @@ impl<'a> SafeReallocAccess<'a> for CruiserAccountInfo {
         Ok(())
     }
 }
-impl<'as_info: 'account, 'account> ToSolanaAccountInfoAccess<'as_info, 'account>
-    for CruiserAccountInfo
-{
-    unsafe fn to_solana_account_info(&'account self) -> SolanaAccountInfo<'as_info> {
+impl<'as_info> ToSolanaAccountInfo<'as_info> for CruiserAccountInfo {
+    unsafe fn to_solana_account_info(&self) -> SolanaAccountInfo<'as_info> {
         self.to_solana_account_info()
     }
 }
-impl<'a, 'b> AccountInfoAccess<'a> for SolanaAccountInfo<'b> {
-    type Lamports = Ref<'a, u64>;
-    type LamportsMut = RefMut<'a, u64>;
-    type Data = Ref<'a, [u8]>;
-    type DataMut = RefMut<'a, [u8]>;
-    type Owner = &'a Pubkey;
+impl<'b> AccountInfo for SolanaAccountInfo<'b> {
+    type Lamports<'a>
+    where
+        Self: 'a,
+    = Ref<'a, u64>;
+    type LamportsMut<'a>
+    where
+        Self: 'a,
+    = RefMut<'a, u64>;
+    type Data<'a>
+    where
+        Self: 'a,
+    = Ref<'a, [u8]>;
+    type DataMut<'a>
+    where
+        Self: 'a,
+    = RefMut<'a, [u8]>;
+    type Owner<'a>
+    where
+        Self: 'a,
+    = &'a Pubkey;
 
     #[inline]
     fn key(&self) -> &Pubkey {
@@ -457,22 +459,22 @@ impl<'a, 'b> AccountInfoAccess<'a> for SolanaAccountInfo<'b> {
     }
 
     #[inline]
-    fn lamports(&'a self) -> Self::Lamports {
+    fn lamports(&self) -> Self::Lamports<'_> {
         Ref::map(self.lamports.borrow(), |val| &**val)
     }
 
     #[inline]
-    fn lamports_mut(&'a self) -> Self::LamportsMut {
+    fn lamports_mut(&self) -> Self::LamportsMut<'_> {
         RefMut::map(self.lamports.borrow_mut(), |val| *val)
     }
 
     #[inline]
-    fn data(&'a self) -> Self::Data {
+    fn data(&self) -> Self::Data<'_> {
         Ref::map(self.data.borrow(), |data| &**data)
     }
 
     #[inline]
-    fn data_mut(&'a self) -> Self::DataMut {
+    fn data_mut(&self) -> Self::DataMut<'_> {
         RefMut::map(self.data.borrow_mut(), |data| *data)
     }
 
@@ -482,7 +484,7 @@ impl<'a, 'b> AccountInfoAccess<'a> for SolanaAccountInfo<'b> {
     }
 
     #[inline]
-    fn owner(&'a self) -> Self::Owner {
+    fn owner(&self) -> Self::Owner<'_> {
         self.owner
     }
 
@@ -502,10 +504,8 @@ impl<'a, 'b> AccountInfoAccess<'a> for SolanaAccountInfo<'b> {
         self.rent_epoch
     }
 }
-impl<'as_info: 'account, 'account> ToSolanaAccountInfoAccess<'as_info, 'account>
-    for SolanaAccountInfo<'as_info>
-{
-    unsafe fn to_solana_account_info(&'account self) -> SolanaAccountInfo<'as_info> {
+impl<'as_info> ToSolanaAccountInfo<'as_info> for SolanaAccountInfo<'as_info> {
+    unsafe fn to_solana_account_info(&self) -> SolanaAccountInfo<'as_info> {
         self.clone()
     }
 }

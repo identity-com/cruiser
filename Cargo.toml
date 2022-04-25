@@ -37,7 +37,7 @@ client = ["solana-transaction-status", "solana-sdk", "solana-client", "rand", "r
 experimental = []
 small_vec = ["experimental"]
 interface = ["experimental"]
-in_place = ["experimental"]
+in_place = ["experimental", "cruiser_derive/in_place"]
 
 [dependencies]
 cruiser_derive = { version = "0.2.0", path = "./derive" }

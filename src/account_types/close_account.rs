@@ -91,7 +91,7 @@ where
 impl<AI, Arg, T> ValidateArgument<T> for CloseAccount<AI, Arg>
 where
     AI: AccountInfo,
-    Arg: AccountArgument<AccountInfo = AI> + SingleIndexable<()> + ValidateArgument<T>,
+    Arg: AccountArgument<AccountInfo = AI> + SingleIndexable + ValidateArgument<T>,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: T) -> CruiserResult<()> {
         self.0.validate(program_id, arg)?;
@@ -101,7 +101,7 @@ where
 impl<AI, Arg, T> MultiIndexable<T> for CloseAccount<AI, Arg>
 where
     AI: AccountInfo,
-    Arg: AccountArgument<AccountInfo = AI> + SingleIndexable<()> + MultiIndexable<T>,
+    Arg: AccountArgument<AccountInfo = AI> + SingleIndexable + MultiIndexable<T>,
 {
     fn index_is_signer(&self, indexer: T) -> CruiserResult<bool> {
         self.0.index_is_signer(indexer)
@@ -118,7 +118,7 @@ where
 impl<AI, Arg, T> SingleIndexable<T> for CloseAccount<AI, Arg>
 where
     AI: AccountInfo,
-    Arg: AccountArgument<AccountInfo = AI> + SingleIndexable<()> + SingleIndexable<T>,
+    Arg: AccountArgument<AccountInfo = AI> + SingleIndexable + SingleIndexable<T>,
 {
     fn index_info(&self, indexer: T) -> CruiserResult<&AI> {
         self.0.index_info(indexer)

@@ -26,6 +26,19 @@ pub mod short_iter;
 pub mod short_vec;
 mod with_data;
 
+/// Asserts that data is at least need in length
+pub fn assert_data_len(data_len: usize, need: usize) -> CruiserResult {
+    if data_len < need {
+        Err(GenericError::NotEnoughData {
+            needed: need,
+            remaining: data_len,
+        }
+        .into())
+    } else {
+        Ok(())
+    }
+}
+
 /// A version of [`Cow`](std::borrow::Cow) that only operates as a ref.
 #[derive(Debug, Copy, Clone)]
 pub enum MaybeOwned<'a, T> {

@@ -59,7 +59,7 @@ where
         self.account.add_keys(add)
     }
 }
-impl<AI> FromAccounts<()> for MintAccount<AI>
+impl<AI> FromAccounts for MintAccount<AI>
 where
     AI: AccountInfo,
 {
@@ -77,7 +77,7 @@ where
         TokenProgramAccount::<AI>::accounts_usage_hint(arg)
     }
 }
-impl<AI> ValidateArgument<()> for MintAccount<AI>
+impl<AI> ValidateArgument for MintAccount<AI>
 where
     AI: AccountInfo,
 {

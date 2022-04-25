@@ -30,7 +30,7 @@ where
         Ok(())
     }
 }
-impl<T> FromAccounts<()> for PhantomData<T>
+impl<T> FromAccounts for PhantomData<T>
 where
     T: AccountArgument,
 {
@@ -46,7 +46,7 @@ where
         (0, Some(0))
     }
 }
-impl<T> ValidateArgument<()> for PhantomData<T>
+impl<T> ValidateArgument for PhantomData<T>
 where
     T: AccountArgument,
 {
