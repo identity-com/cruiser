@@ -15,6 +15,7 @@ build = "build.rs"
 [workspace]
 members = [
     "check_all",
+    "check_versions",
     "derive",
     "easy_proc",
     "easy_proc/common",

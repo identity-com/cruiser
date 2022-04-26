@@ -58,7 +58,7 @@ script = "cargo test -p escrow_example --all-features"
 
 [tasks.windows_test_escrow_example]
 workspace = false
-env = { "HOME" = "C:\\Users\\${USERNAME}"}
+env = { "HOME" = "C:\\Users\\${USERNAME}" }
 script = "cargo test -p escrow_example --all-features"
 
 [tasks.test_cruiser_derive]
@@ -93,6 +93,9 @@ end
 if not is_empty ${DRY_RUN}
     array_push %{args} --dry-run
 end
+if not is_empty ${ALLOW_DIRTY}
+    array_push %{args} --allow-dirty
+end
 
 args_string = array_join ${args} " "
 echo running cargo %{args_string}
@@ -111,6 +114,9 @@ if not is_empty ${PUBLISH_TOKEN}
 end
 if not is_empty ${DRY_RUN}
     array_push %{args} --dry-run
+end
+if not is_empty ${ALLOW_DIRTY}
+    array_push %{args} --allow-dirty
 end
 
 args_string = array_join ${args} " "
@@ -131,6 +137,9 @@ end
 if not is_empty ${DRY_RUN}
     array_push %{args} --dry-run
 end
+if not is_empty ${ALLOW_DIRTY}
+    array_push %{args} --allow-dirty
+end
 
 args_string = array_join ${args} " "
 echo running cargo %{args_string}
@@ -149,6 +158,9 @@ if not is_empty ${PUBLISH_TOKEN}
 end
 if not is_empty ${DRY_RUN}
     array_push %{args} --dry-run
+end
+if not is_empty ${ALLOW_DIRTY}
+    array_push %{args} --allow-dirty
 end
 
 args_string = array_join ${args} " "
@@ -169,6 +181,9 @@ end
 if not is_empty ${DRY_RUN}
     array_push %{args} --dry-run
 end
+if not is_empty ${ALLOW_DIRTY}
+    array_push %{args} --allow-dirty
+end
 
 args_string = array_join ${args} " "
 echo running cargo %{args_string}
@@ -184,9 +199,14 @@ dependencies = [
     "test_all",
 ]
 
+[tasks.check_versions]
+workspace = false
+script = "cargo run -p check_versions -- -f Cargo.toml -f derive/Cargo.toml -f easy_proc/Cargo.toml -f easy_proc/common/Cargo.toml -f easy_proc/derive/Cargo.toml"
+
 [tasks.publish_all]
 workspace = false
 dependencies = [
+    "check_versions",
     "publish_easy_proc_common",
     "publish_easy_proc_derive",
     "publish_easy_proc",
