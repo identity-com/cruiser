@@ -62,7 +62,13 @@ where
             error: format!("Close `{}` is missing fundee", self_info.key()),
         })?;
         let mut self_lamports = self_info.lamports_mut();
-        *fundee.lamports_mut() += *self_lamports;
+        let mut fundee_lamports = fundee.lamports_mut();
+        *fundee_lamports =
+            fundee_lamports
+                .checked_add(*self_lamports)
+                .ok_or_else(|| GenericError::Custom {
+                    error: format!("Close `{}` would overflow fundee", self_info.key()),
+                })?;
         *self_lamports = 0;
         Ok(())
     }

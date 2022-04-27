@@ -1,36 +1,39 @@
-use crate::in_place::{InPlace, InPlaceCreate, InPlaceGetData, InPlaceRead, InPlaceWrite};
-use crate::on_chain_size::OnChainStaticSize;
-use crate::util::{assert_data_len, Advance};
+use crate::in_place::{InPlace, InPlaceCreate, InPlaceRead, InPlaceWrite};
+use crate::on_chain_size::OnChainSize;
+use crate::util::{
+    assert_data_len, Advance, MappableRef, MappableRefMut, TryMappableRef, TryMappableRefMut,
+};
 use crate::CruiserResult;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 /// In-place access to arrays
 #[derive(Debug)]
-pub struct InPlaceArray<T, A, const N: usize> {
+pub struct InPlaceArray<'a, T, A, const N: usize> {
     data: A,
-    phantom_t: PhantomData<fn() -> T>,
+    phantom_t: PhantomData<fn() -> &'a T>,
 }
-impl<T, A, const N: usize> InPlaceArray<T, A, N> {
+
+impl<'a, T, A, const N: usize> InPlaceArray<'a, T, A, N> {
     /// Returns an iterator over all arguments in the array with args passed
     pub fn all_with_args<Arg>(
         &self,
         args: [Arg; N],
-    ) -> impl Iterator<Item = CruiserResult<T::Access<&'_ [u8]>>>
+    ) -> impl Iterator<Item = CruiserResult<T::Access<'_, &'_ [u8]>>>
     where
         A: Deref<Target = [u8]>,
-        T: InPlaceRead<Arg> + OnChainStaticSize,
+        T: InPlaceRead<Arg> + OnChainSize,
     {
         let mut data = &*self.data;
         args.into_iter()
-            .map(move |arg| T::read_with_arg(data.try_advance(T::on_chain_static_size())?, arg))
+            .map(move |arg| T::read_with_arg(data.try_advance(T::ON_CHAIN_SIZE)?, arg))
     }
 
     /// An iterator over all elements of the array
-    pub fn all(&self) -> impl Iterator<Item = CruiserResult<T::Access<&'_ [u8]>>>
+    pub fn all(&self) -> impl Iterator<Item = CruiserResult<T::Access<'_, &'_ [u8]>>>
     where
         A: Deref<Target = [u8]>,
-        T: InPlaceRead + OnChainStaticSize,
+        T: InPlaceRead + OnChainSize,
     {
         self.all_with_args([(); N])
     }
@@ -39,21 +42,21 @@ impl<T, A, const N: usize> InPlaceArray<T, A, N> {
     pub fn all_with_args_mut<Arg>(
         &mut self,
         args: [Arg; N],
-    ) -> impl Iterator<Item = CruiserResult<T::Access<&'_ mut [u8]>>>
+    ) -> impl Iterator<Item = CruiserResult<T::AccessMut<'_, &'_ mut [u8]>>>
     where
         A: DerefMut<Target = [u8]>,
-        T: InPlaceWrite<Arg> + OnChainStaticSize,
+        T: InPlaceWrite<Arg> + OnChainSize,
     {
         let mut data = &mut *self.data;
         args.into_iter()
-            .map(move |arg| T::write_with_arg(data.try_advance(T::on_chain_static_size())?, arg))
+            .map(move |arg| T::write_with_arg(data.try_advance(T::ON_CHAIN_SIZE)?, arg))
     }
 
     /// An iterator over all the elements mutably
-    pub fn all_mut(&mut self) -> impl Iterator<Item = CruiserResult<T::Access<&'_ mut [u8]>>>
+    pub fn all_mut(&mut self) -> impl Iterator<Item = CruiserResult<T::AccessMut<'_, &'_ mut [u8]>>>
     where
         A: DerefMut<Target = [u8]>,
-        T: InPlaceWrite + OnChainStaticSize,
+        T: InPlaceWrite + OnChainSize,
     {
         self.all_with_args_mut([(); N])
     }
@@ -63,13 +66,13 @@ impl<T, A, const N: usize> InPlaceArray<T, A, N> {
         &self,
         index: usize,
         arg: Arg,
-    ) -> CruiserResult<Option<T::Access<&'_ [u8]>>>
+    ) -> CruiserResult<Option<T::Access<'_, &'_ [u8]>>>
     where
         A: Deref<Target = [u8]>,
-        T: InPlaceRead<Arg> + OnChainStaticSize,
+        T: InPlaceRead<Arg> + OnChainSize,
     {
         if index < N {
-            let data = &self.data[T::on_chain_static_size() * index..][..T::on_chain_static_size()];
+            let data = &self.data[T::ON_CHAIN_SIZE * index..][..T::ON_CHAIN_SIZE];
             Ok(Some(T::read_with_arg(data, arg)?))
         } else {
             Ok(None)
@@ -77,43 +80,32 @@ impl<T, A, const N: usize> InPlaceArray<T, A, N> {
     }
 
     /// Gets an item in the array
-    pub fn get(&self, index: usize) -> CruiserResult<Option<T::Access<&'_ [u8]>>>
+    pub fn get(&self, index: usize) -> CruiserResult<Option<T::Access<'_, &'_ [u8]>>>
     where
         A: Deref<Target = [u8]>,
-        T: InPlaceRead + OnChainStaticSize,
+        T: InPlaceRead + OnChainSize,
     {
         self.get_with_arg(index, ())
     }
 }
-impl<T, A, const N: usize> const InPlaceGetData for InPlaceArray<T, A, N> {
-    type Accessor = A;
 
-    fn get_raw_data(&self) -> &[u8]
-    where
-        Self::Accessor: ~const Deref<Target = [u8]>,
-    {
-        &*self.data
-    }
-
-    fn get_raw_data_mut(&mut self) -> &mut [u8]
-    where
-        Self::Accessor: ~const DerefMut<Target = [u8]>,
-    {
-        &mut self.data
-    }
-}
 impl<T, const N: usize> const InPlace for [T; N] {
-    type Access<A> = InPlaceArray<T, A, N>;
+    type Access<'a, A>
+    where
+        Self: 'a,
+        A: 'a + MappableRef + TryMappableRef,
+    = InPlaceArray<'a, T, A, N>;
 }
+
 impl<T, Arg, const N: usize> InPlaceCreate<[Arg; N]> for [T; N]
 where
-    T: OnChainStaticSize + InPlaceCreate<Arg>,
+    T: OnChainSize + InPlaceCreate<Arg>,
 {
     fn create_with_arg<A>(mut data: A, arg: [Arg; N]) -> CruiserResult
     where
         A: DerefMut<Target = [u8]>,
     {
-        let element_length = T::on_chain_static_size();
+        let element_length = T::ON_CHAIN_SIZE;
         let mut data = &mut *data;
         for arg in arg {
             T::create_with_arg(data.try_advance(element_length)?, arg)?;
@@ -121,9 +113,10 @@ where
         Ok(())
     }
 }
+
 impl<T, const N: usize> InPlaceCreate for [T; N]
 where
-    T: OnChainStaticSize + InPlaceCreate,
+    T: OnChainSize + InPlaceCreate,
 {
     fn create_with_arg<A>(data: A, arg: ()) -> CruiserResult
     where
@@ -132,30 +125,39 @@ where
         Self::create_with_arg(data, [arg; N])
     }
 }
+
 impl<T, const N: usize> InPlaceRead for [T; N]
 where
-    T: OnChainStaticSize,
+    T: OnChainSize,
 {
-    fn read_with_arg<A>(data: A, _arg: ()) -> CruiserResult<Self::Access<A>>
+    fn read_with_arg<'a, A>(data: A, _arg: ()) -> CruiserResult<Self::Access<'a, A>>
     where
-        A: Deref<Target = [u8]>,
+        Self: 'a,
+        A: 'a + Deref<Target = [u8]> + MappableRef + TryMappableRef,
     {
-        assert_data_len(data.len(), N * T::on_chain_static_size())?;
+        assert_data_len(data.len(), N * T::ON_CHAIN_SIZE)?;
         Ok(InPlaceArray {
             data,
             phantom_t: PhantomData,
         })
     }
 }
+
 impl<T, const N: usize> InPlaceWrite for [T; N]
 where
-    T: OnChainStaticSize,
+    T: OnChainSize,
 {
-    fn write_with_arg<A>(data: A, _arg: ()) -> CruiserResult<Self::Access<A>>
+    fn write_with_arg<'a, A>(data: A, _arg: ()) -> CruiserResult<Self::AccessMut<'a, A>>
     where
-        A: DerefMut<Target = [u8]>,
+        Self: 'a,
+        A: 'a
+            + DerefMut<Target = [u8]>
+            + MappableRef
+            + TryMappableRef
+            + MappableRefMut
+            + TryMappableRefMut,
     {
-        assert_data_len(data.len(), N * T::on_chain_static_size())?;
+        assert_data_len(data.len(), N * T::ON_CHAIN_SIZE)?;
         Ok(InPlaceArray {
             data,
             phantom_t: PhantomData,

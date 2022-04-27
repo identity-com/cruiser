@@ -16,4 +16,11 @@ fn main() {
         "cargo:rustc-cfg=VERSION_{}_{}_{}",
         version_meta.semver.major, version_meta.semver.minor, version_meta.semver.patch
     );
+    if version_meta.semver.minor > 59 {
+        println!("cargo:rustc-cfg=VERSION_GREATER_THAN_59");
+    }
+    assert!(
+        version_meta.semver.minor >= 59,
+        "rustc version too old for cruiser, please upgrade to 1.59 or newer (solana cli >=1.9.17)"
+    );
 }

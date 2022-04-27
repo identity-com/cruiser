@@ -1,7 +1,7 @@
 //! Client functions for the [`spl-token`] program.
 
 use crate::client::HashedSigner;
-use crate::on_chain_size::OnChainStaticSize;
+use crate::on_chain_size::OnChainSize;
 use crate::program::ProgramKey;
 use crate::spl::token::{MintAccount, TokenAccount, TokenProgram};
 use cruiser::SolanaInstruction;
@@ -29,17 +29,18 @@ pub async fn create_token_account<'a, F, E>(
 where
     F: Future<Output = Result<u64, E>>,
 {
+    const SPACE: usize = TokenAccount::<()>::ON_CHAIN_SIZE;
+
     let funder = funder.into();
     let account = account.into();
-    let space = TokenAccount::<()>::on_chain_static_size();
-    let rent = rent(space).await?;
+    let rent = rent(SPACE).await?;
     Ok((
         [
             create_account(
                 &funder.pubkey(),
                 &account.pubkey(),
                 rent,
-                space as u64,
+                SPACE as u64,
                 &TokenProgram::<()>::KEY,
             ),
             instruction::initialize_account(
@@ -73,17 +74,18 @@ pub async fn create_mint<'a, F, E>(
 where
     F: Future<Output = Result<u64, E>>,
 {
+    const SPACE: usize = MintAccount::<()>::ON_CHAIN_SIZE;
+
     let funder = funder.into();
     let account = account.into();
-    let space = MintAccount::<()>::on_chain_static_size();
-    let rent = rent(space).await?;
+    let rent = rent(SPACE).await?;
     Ok((
         [
             create_account(
                 &funder.pubkey(),
                 &account.pubkey(),
                 rent,
-                space as u64,
+                SPACE as u64,
                 &TokenProgram::<()>::KEY,
             ),
             instruction::initialize_mint(

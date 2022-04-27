@@ -5,128 +5,45 @@ use std::mem::size_of;
 
 use solana_program::pubkey::Pubkey;
 
-/// This value can be sized on-chain using arg `A`
-pub trait OnChainSize<A> {
-    /// Gets the on-chain size of this value
-    #[must_use]
-    fn on_chain_max_size(arg: A) -> usize;
-}
-/// This value can be statically sized
-pub trait OnChainStaticSize: OnChainSize<()> {
-    /// Gets the on-chain size of this value
-    #[must_use]
-    fn on_chain_static_size() -> usize;
-}
-impl<T> const OnChainStaticSize for T
-where
-    T: ~const OnChainSize<()>,
-{
-    fn on_chain_static_size() -> usize {
-        Self::on_chain_max_size(())
-    }
+/// This value has as static size on-chain
+pub trait OnChainSize {
+    /// The size on-chain
+    const ON_CHAIN_SIZE: usize;
 }
 
-impl<A, T> const OnChainSize<A> for Option<T>
+impl<T> const OnChainSize for Option<T>
 where
-    T: ~const OnChainSize<A>,
+    T: ~const OnChainSize,
 {
-    fn on_chain_max_size(arg: A) -> usize {
-        1 + T::on_chain_max_size(arg)
-    }
-}
-impl<T> const OnChainSize<()> for PhantomData<T> {
-    fn on_chain_max_size(_: ()) -> usize {
-        0
-    }
-}
-// This is byte length of the string, not chars
-impl const OnChainSize<usize> for String {
-    fn on_chain_max_size(arg: usize) -> usize {
-        Vec::<u8>::on_chain_max_size(arg)
-    }
-}
-impl<T> const OnChainSize<usize> for Vec<T>
-where
-    T: ~const OnChainStaticSize,
-{
-    fn on_chain_max_size(arg: usize) -> usize {
-        u32::on_chain_static_size() + arg * T::on_chain_static_size()
-    }
-}
-impl<T, I, A> OnChainSize<(I,)> for Vec<T>
-where
-    I: IntoIterator<Item = A>,
-    T: OnChainSize<A>,
-{
-    fn on_chain_max_size(arg: (I,)) -> usize {
-        4 + arg.0.into_iter().map(T::on_chain_max_size).sum::<usize>()
-    }
-}
-impl<A, T, const N: usize> OnChainSize<[A; N]> for Vec<T>
-where
-    T: OnChainSize<A>,
-{
-    fn on_chain_max_size(arg: [A; N]) -> usize {
-        4 + arg
-            .into_iter()
-            .map(|arg| T::on_chain_max_size(arg))
-            .sum::<usize>()
-    }
-}
-impl<T, const N: usize> const OnChainSize<()> for [T; N]
-where
-    T: ~const OnChainStaticSize,
-{
-    fn on_chain_max_size(_: ()) -> usize {
-        N * T::on_chain_static_size()
-    }
+    const ON_CHAIN_SIZE: usize = 1 + T::ON_CHAIN_SIZE;
 }
 
-impl<A, T, const N: usize> OnChainSize<[A; N]> for [T; N]
-where
-    T: OnChainSize<A>,
-{
-    fn on_chain_max_size(arg: [A; N]) -> usize {
-        arg.into_iter().map(T::on_chain_max_size).sum::<usize>()
-    }
+impl<T> const OnChainSize for PhantomData<T> {
+    const ON_CHAIN_SIZE: usize = 0;
 }
-impl<T1, T2> const OnChainSize<()> for (T1, T2)
+
+impl<T, const N: usize> const OnChainSize for [T; N]
 where
-    T1: ~const OnChainStaticSize,
-    T2: ~const OnChainStaticSize,
+    T: ~const OnChainSize,
 {
-    fn on_chain_max_size(_arg: ()) -> usize {
-        T1::on_chain_static_size() + T2::on_chain_static_size()
-    }
+    const ON_CHAIN_SIZE: usize = T::ON_CHAIN_SIZE * N;
 }
-impl<A1, A2, T1, T2> OnChainSize<(A1, A2)> for (T1, T2)
+
+impl<T1, T2> const OnChainSize for (T1, T2)
 where
-    T1: OnChainSize<A1>,
-    T2: OnChainSize<A2>,
+    T1: ~const OnChainSize,
+    T2: ~const OnChainSize,
 {
-    fn on_chain_max_size(arg: (A1, A2)) -> usize {
-        T1::on_chain_max_size(arg.0) + T2::on_chain_max_size(arg.1)
-    }
+    const ON_CHAIN_SIZE: usize = T1::ON_CHAIN_SIZE + T2::ON_CHAIN_SIZE;
 }
-impl<T1, T2, T3> const OnChainSize<()> for (T1, T2, T3)
+
+impl<T1, T2, T3> const OnChainSize for (T1, T2, T3)
 where
-    T1: ~const OnChainStaticSize,
-    T2: ~const OnChainStaticSize,
-    T3: ~const OnChainStaticSize,
+    T1: ~const OnChainSize,
+    T2: ~const OnChainSize,
+    T3: ~const OnChainSize,
 {
-    fn on_chain_max_size(_arg: ()) -> usize {
-        T1::on_chain_static_size() + T2::on_chain_static_size() + T3::on_chain_static_size()
-    }
-}
-impl<A1, A2, A3, T1, T2, T3> OnChainSize<(A1, A2, A3)> for (T1, T2, T3)
-where
-    T1: OnChainSize<A1>,
-    T2: OnChainSize<A2>,
-    T3: OnChainSize<A3>,
-{
-    fn on_chain_max_size(arg: (A1, A2, A3)) -> usize {
-        T1::on_chain_max_size(arg.0) + T2::on_chain_max_size(arg.1) + T3::on_chain_max_size(arg.2)
-    }
+    const ON_CHAIN_SIZE: usize = T1::ON_CHAIN_SIZE + T2::ON_CHAIN_SIZE + T3::ON_CHAIN_SIZE;
 }
 
 macro_rules! impl_on_chain_size_for_prim {
@@ -134,10 +51,8 @@ macro_rules! impl_on_chain_size_for_prim {
         $(impl_on_chain_size_for_prim!($ty);)+
     };
     ($ty:ty) => {
-        impl const OnChainSize<()> for $ty{
-            fn on_chain_max_size(_arg: ()) -> usize {
-                size_of::<$ty>()
-            }
+        impl const OnChainSize for $ty{
+            const ON_CHAIN_SIZE: usize = size_of::<$ty>();
         }
     };
 }

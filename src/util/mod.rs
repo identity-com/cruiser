@@ -6,16 +6,24 @@ use cruiser::instruction::Instruction;
 use num_traits::One;
 use solana_program::program::{set_return_data, MAX_RETURN_DATA};
 use solana_program::pubkey::Pubkey;
+use std::any::Any;
 use std::borrow::Cow;
+use std::cell::{Ref, RefMut};
 use std::cmp::{max, min};
+use std::convert::Infallible;
+use std::fmt::{Debug, Formatter};
+use std::marker::PhantomPinned;
+use std::mem::{size_of, transmute, ManuallyDrop, MaybeUninit};
 use std::num::NonZeroU64;
-use std::ops::{Add, Bound, Deref, RangeBounds};
-use std::ptr::{slice_from_raw_parts, slice_from_raw_parts_mut};
+use std::ops::{Add, Bound, Deref, DerefMut, RangeBounds};
+use std::pin::Pin;
+use std::ptr::{addr_of, addr_of_mut, slice_from_raw_parts, slice_from_raw_parts_mut};
 
 use crate::account_argument::{AccountArgument, FromAccounts, ValidateArgument};
 use crate::instruction::{InstructionProcessor, ReturnValue};
 use crate::{CruiserResult, GenericError};
 
+use crate::util::inner_ptr::InnerPtr;
 pub use chain_exact_size::*;
 pub use with_data::*;
 
@@ -25,6 +33,485 @@ mod chain_exact_size;
 pub mod short_iter;
 pub mod short_vec;
 mod with_data;
+
+/// Mapping function for a [`Deref`].
+/// Default implemented for all `T` that implement [`Deref`].
+pub trait MappableRef: Deref {
+    /// The output of the mapping.
+    type Output<'a, R: ?Sized>: Deref<Target = R>
+    where
+        R: 'a,
+        Self: 'a;
+
+    /// Maps the reference.
+    fn map_ref<'a, R: ?Sized>(self, f: impl FnOnce(&Self::Target) -> &R) -> Self::Output<'a, R>
+    where
+        Self: 'a;
+}
+
+/// Mapping function for a [`Deref`].
+/// Default implemented for all `T` that implement [`Deref`].
+/// Mapping function can error.
+pub trait TryMappableRef: Deref {
+    /// The output of the mapping.
+    type Output<'a, R: ?Sized>: Deref<Target = R>
+    where
+        R: 'a,
+        Self: 'a;
+
+    /// Tries to map the reference.
+    fn try_map_ref<'a, R, E>(
+        self,
+        f: impl FnOnce(&Self::Target) -> Result<&R, E>,
+    ) -> Result<Self::Output<'a, R>, E>
+    where
+        Self: 'a;
+}
+
+/// Mapping function for a [`DerefMut`].
+/// Default implemented for all `T` that implement [`DerefMut`].
+pub trait MappableRefMut: DerefMut {
+    /// The output of the mapping.
+    type Output<'a, R: ?Sized>: DerefMut<Target = R>
+    where
+        R: 'a,
+        Self: 'a;
+
+    /// Maps the mutable reference.
+    fn map_ref_mut<'a, R>(self, f: impl FnOnce(&mut Self::Target) -> &mut R) -> Self::Output<'a, R>
+    where
+        Self: 'a;
+}
+
+/// Mapping function for a [`DerefMut`].
+/// Default implemented for all `T` that implement [`DerefMut`].
+/// Mapping function can error.
+pub trait TryMappableRefMut: DerefMut {
+    /// The output of the mapping.
+    type Output<'a, R: ?Sized>: DerefMut<Target = R>
+    where
+        R: 'a,
+        Self: 'a;
+
+    /// Tries to map the mutable reference.
+    fn try_map_ref_mut<'a, R, E>(
+        self,
+        f: impl FnOnce(&mut Self::Target) -> Result<&mut R, E>,
+    ) -> Result<Self::Output<'a, R>, E>
+    where
+        Self: 'a;
+}
+
+impl<T: ?Sized> MappableRef for &'_ T {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = &'a R;
+
+    fn map_ref<'a, R: ?Sized>(self, f: impl FnOnce(&Self::Target) -> &R) -> Self::Output<'a, R>
+    where
+        Self: 'a,
+    {
+        f(self)
+    }
+}
+
+impl<T: ?Sized> TryMappableRef for &'_ T {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = &'a R;
+
+    fn try_map_ref<'a, R, E>(
+        self,
+        f: impl FnOnce(&Self::Target) -> Result<&R, E>,
+    ) -> Result<Self::Output<'a, R>, E>
+    where
+        Self: 'a,
+    {
+        f(self)
+    }
+}
+
+impl<T: ?Sized> MappableRef for &'_ mut T {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = &'a R;
+
+    fn map_ref<'a, R: ?Sized>(self, f: impl FnOnce(&Self::Target) -> &R) -> Self::Output<'a, R>
+    where
+        Self: 'a,
+    {
+        f(&*self)
+    }
+}
+
+impl<T: ?Sized> TryMappableRef for &'_ mut T {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = &'a R;
+
+    fn try_map_ref<'a, R, E>(
+        self,
+        f: impl FnOnce(&Self::Target) -> Result<&R, E>,
+    ) -> Result<Self::Output<'a, R>, E>
+    where
+        Self: 'a,
+    {
+        f(self)
+    }
+}
+
+impl<T: ?Sized> MappableRefMut for &'_ mut T {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = &'a mut R;
+
+    fn map_ref_mut<'a, R>(self, f: impl FnOnce(&mut Self::Target) -> &mut R) -> Self::Output<'a, R>
+    where
+        Self: 'a,
+    {
+        f(self)
+    }
+}
+
+impl<T: ?Sized> TryMappableRefMut for &'_ mut T {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = &'a mut R;
+
+    fn try_map_ref_mut<'a, R, E>(
+        self,
+        f: impl FnOnce(&mut Self::Target) -> Result<&mut R, E>,
+    ) -> Result<Self::Output<'a, R>, E>
+    where
+        Self: 'a,
+    {
+        f(self)
+    }
+}
+
+impl<T: ?Sized> MappableRef for Ref<'_, T> {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = Ref<'a, R>;
+
+    fn map_ref<'a, R: ?Sized>(self, f: impl FnOnce(&Self::Target) -> &R) -> Self::Output<'a, R>
+    where
+        Self: 'a,
+    {
+        Ref::map(self, f)
+    }
+}
+
+impl<T: ?Sized> TryMappableRef for Ref<'_, T> {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = RefMap<Self, &'a R>;
+
+    fn try_map_ref<'a, R, E>(
+        self,
+        f: impl FnOnce(&Self::Target) -> Result<&R, E>,
+    ) -> Result<Self::Output<'a, R>, E>
+    where
+        Self: 'a,
+    {
+        RefMap::try_new(self, f)
+    }
+}
+
+impl<T: ?Sized> MappableRef for RefMut<'_, T> {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = RefMap<Self, &'a R>;
+
+    fn map_ref<'a, R: ?Sized>(
+        self,
+        f: impl for<'b> FnOnce(&Self::Target) -> &R,
+    ) -> Self::Output<'a, R>
+    where
+        Self: 'a,
+    {
+        RefMap::new(self, f)
+    }
+}
+
+impl<T: ?Sized> TryMappableRef for RefMut<'_, T> {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = RefMap<Self, &'a R>;
+
+    fn try_map_ref<'a, R, E>(
+        self,
+        f: impl FnOnce(&Self::Target) -> Result<&R, E>,
+    ) -> Result<Self::Output<'a, R>, E>
+    where
+        Self: 'a,
+    {
+        RefMap::try_new(self, f)
+    }
+}
+
+impl<T: ?Sized> MappableRefMut for RefMut<'_, T> {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = RefMut<'a, R>;
+
+    fn map_ref_mut<'a, R>(self, f: impl FnOnce(&mut Self::Target) -> &mut R) -> Self::Output<'a, R>
+    where
+        Self: 'a,
+    {
+        RefMut::map(self, f)
+    }
+}
+
+impl<T: ?Sized> TryMappableRefMut for RefMut<'_, T> {
+    type Output<'a, R: ?Sized>
+    where
+        R: 'a,
+        Self: 'a,
+    = RefMap<Self, &'a mut R>;
+
+    fn try_map_ref_mut<'a, R, E>(
+        self,
+        f: impl FnOnce(&mut Self::Target) -> Result<&mut R, E>,
+    ) -> Result<Self::Output<'a, R>, E>
+    where
+        Self: 'a,
+    {
+        RefMap::try_new_mut(self, f)
+    }
+}
+
+#[derive(Debug)]
+struct RefMapInner<A, R> {
+    data_in: A,
+    data_out: InnerPtr<R>,
+    _pinned: PhantomPinned,
+}
+mod inner_ptr {
+    use super::*;
+
+    pub union InnerPtr<R> {
+        data: ManuallyDrop<R>,
+        _fat_ptr: &'static dyn Any,
+    }
+
+    impl<R> InnerPtr<R> {
+        pub fn new(data: R) -> Self {
+            Self {
+                data: ManuallyDrop::new(data),
+            }
+        }
+    }
+
+    impl<R> Debug for InnerPtr<R>
+    where
+        R: Debug,
+    {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            unsafe {
+                f.debug_struct("InnerPtr")
+                    .field("data", &self.data)
+                    .finish()
+            }
+        }
+    }
+
+    impl<R> Drop for InnerPtr<R> {
+        fn drop(&mut self) {
+            unsafe {
+                ManuallyDrop::drop(&mut self.data);
+            }
+        }
+    }
+
+    impl<R> Deref for InnerPtr<R> {
+        type Target = R;
+
+        fn deref(&self) -> &Self::Target {
+            unsafe { &self.data }
+        }
+    }
+
+    impl<R> DerefMut for InnerPtr<R> {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            unsafe { &mut self.data }
+        }
+    }
+}
+
+impl<'a, A, R: ?Sized> RefMap<A, &'a R>
+where
+    A: Deref + 'a,
+    A::Target: 'a,
+{
+    /// Create a new `RefMap` from data and a mapping function.
+    pub fn new(data_in: A, func: impl FnOnce(&'a A::Target) -> &'a R) -> Self {
+        #[allow(unused_qualifications)]
+        Self::try_new(data_in, |input| Result::<_, Infallible>::Ok(func(input))).unwrap()
+    }
+
+    /// Tries to create a new `RefMap` from data and a mapping function.
+    pub fn try_new<E>(
+        data_in: A,
+        func: impl FnOnce(&'a A::Target) -> Result<&'a R, E>,
+    ) -> Result<Self, E> {
+        let mut out = Box::pin(RefMapInner {
+            data_in,
+            data_out: InnerPtr::new(MaybeUninit::uninit()),
+            _pinned: PhantomPinned,
+        });
+        unsafe {
+            let out = out.as_mut().get_unchecked_mut();
+            *out.data_out = MaybeUninit::new(func(&*addr_of!(*out.data_in))?);
+        }
+        unsafe {
+            Ok(RefMap(transmute::<
+                Pin<Box<RefMapInner<A, MaybeUninit<&'a R>>>>,
+                Pin<Box<RefMapInner<A, &'a R>>>,
+            >(out)))
+        }
+    }
+}
+
+impl<'a, A, R: ?Sized> RefMap<A, &'a mut R>
+where
+    A: DerefMut + 'a,
+    A::Target: 'a,
+{
+    /// Create a new `RefMap` from mutable data and a mapping function.
+    pub fn new_mut(data_in: A, func: impl FnOnce(&'a mut A::Target) -> &'a mut R) -> Self {
+        #[allow(unused_qualifications)]
+        Self::try_new_mut(data_in, |input| Result::<_, Infallible>::Ok(func(input))).unwrap()
+    }
+
+    /// Tries to create a new `RefMap` from mutable data and a mapping function.
+    pub fn try_new_mut<E>(
+        data_in: A,
+        func: impl FnOnce(&'a mut A::Target) -> Result<&'a mut R, E>,
+    ) -> Result<Self, E> {
+        let mut out = Box::pin(RefMapInner {
+            data_in,
+            data_out: inner_ptr::InnerPtr::new(MaybeUninit::uninit()),
+            _pinned: PhantomPinned,
+        });
+        unsafe {
+            let out = out.as_mut().get_unchecked_mut();
+            *out.data_out = MaybeUninit::new(func(&mut *addr_of_mut!(*out.data_in))?);
+        }
+        unsafe {
+            Ok(RefMap(transmute::<
+                Pin<Box<RefMapInner<A, MaybeUninit<&'a mut R>>>>,
+                Pin<Box<RefMapInner<A, &'a mut R>>>,
+            >(out)))
+        }
+    }
+}
+
+/// Maps a given deref using a function
+#[derive(Debug)]
+pub struct RefMap<A, R>(Pin<Box<RefMapInner<A, R>>>);
+
+impl<A, R> Deref for RefMap<A, R>
+where
+    R: Deref,
+{
+    type Target = R::Target;
+    fn deref(&self) -> &Self::Target {
+        &*self.0.data_out
+    }
+}
+
+impl<A, R> DerefMut for RefMap<A, R>
+where
+    R: DerefMut,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *(self.0.as_mut().get_unchecked_mut()).data_out }
+    }
+}
+
+impl<A, R1: ?Sized> MappableRef for RefMap<A, &'_ R1> {
+    type Output<'a, R2: ?Sized>
+    where
+        R2: 'a,
+        Self: 'a,
+    = RefMap<A, &'a R2>;
+
+    fn map_ref<'a, R2: ?Sized>(
+        mut self,
+        f: impl FnOnce(&Self::Target) -> &R2,
+    ) -> Self::Output<'a, R2>
+    where
+        Self: 'a,
+    {
+        unsafe {
+            let old = self.0.as_mut().get_unchecked_mut();
+            assert!(size_of::<InnerPtr<&R2>>() <= size_of::<InnerPtr<&R1>>());
+            let new = f(&old.data_out);
+            let old = &mut *((old as *mut RefMapInner<A, &R1>).cast::<RefMapInner<A, &R2>>());
+            *old.data_out = new;
+            transmute::<RefMap<A, &'a R1>, RefMap<A, &'a R2>>(self)
+        }
+    }
+}
+
+/// Chunks an array into equal chunks.
+#[cfg(all(feature = "unstable", VERSION_GREATER_THAN_59))]
+pub fn chunk_array<T, const N: usize, const LEN: usize>(array: &[T; N]) -> [&[T; LEN]; N / LEN]
+where
+    [(); N / LEN]:,
+    [(); 0 - (N % LEN)]:,
+{
+    let ptr = array.as_ptr();
+    let mut out = MaybeUninit::uninit_array();
+    unsafe {
+        for (index, item) in out.iter_mut().enumerate() {
+            *item = MaybeUninit::new(&*ptr.add(index * LEN).cast::<[T; LEN]>());
+        }
+        MaybeUninit::array_assume_init(out)
+    }
+}
+
+/// Chunks an array into equal mutable chunks.
+#[cfg(all(feature = "unstable", VERSION_GREATER_THAN_59))]
+pub fn chunck_array_mut<T, const N: usize, const LEN: usize>(
+    array: &mut [T; N],
+) -> [&mut [T; LEN]; N / LEN]
+where
+    [(); N / LEN]:,
+    [(); 0 - (N % LEN)]:,
+{
+    let ptr = array.as_mut_ptr();
+    let mut out = MaybeUninit::uninit_array();
+    unsafe {
+        for (index, item) in out.iter_mut().enumerate() {
+            *item = MaybeUninit::new(&mut *ptr.add(index * LEN).cast::<[T; LEN]>());
+        }
+        MaybeUninit::array_assume_init(out)
+    }
+}
 
 /// Asserts that data is at least need in length
 pub fn assert_data_len(data_len: usize, need: usize) -> CruiserResult {
@@ -47,16 +534,19 @@ pub enum MaybeOwned<'a, T> {
     /// Owned value
     Owned(T),
 }
+
 impl<'a, T> From<T> for MaybeOwned<'a, T> {
     fn from(from: T) -> Self {
         Self::Owned(from)
     }
 }
+
 impl<'a, T> From<&'a T> for MaybeOwned<'a, T> {
     fn from(from: &'a T) -> Self {
         Self::Borrowed(from)
     }
 }
+
 impl<'a, T> Deref for MaybeOwned<'a, T> {
     type Target = T;
 
@@ -67,11 +557,13 @@ impl<'a, T> Deref for MaybeOwned<'a, T> {
         }
     }
 }
+
 impl<'a, T> AsRef<T> for MaybeOwned<'a, T> {
     fn as_ref(&self) -> &T {
         &**self
     }
 }
+
 impl<'a, T> MaybeOwned<'a, T> {
     /// Turns this into an owned value if is owned
     pub fn into_owned(self) -> Option<T> {
@@ -120,6 +612,7 @@ where
 extern "C" {
     fn sol_get_return_data(data: *mut u8, length: u64, program_id: *mut Pubkey) -> u64;
 }
+
 /// Gets return data from a cpi call. Returns the size of data returned, 0 means no return was found.
 /// Copied from [`get_return_data`](solana_program::program::get_return_data).
 pub fn get_return_data_buffered(
@@ -245,36 +738,43 @@ pub trait Length {
         self.len() == 0
     }
 }
+
 impl<T> const Length for [T] {
     fn len(&self) -> usize {
         self.len()
     }
 }
+
 impl<'a, T> const Length for &'a [T] {
     fn len(&self) -> usize {
         <[T]>::len(self)
     }
 }
+
 impl<'a, T> const Length for &'a mut [T] {
     fn len(&self) -> usize {
         <[T]>::len(self)
     }
 }
+
 impl<T, const N: usize> const Length for [T; N] {
     fn len(&self) -> usize {
         N
     }
 }
+
 impl<'a, T, const N: usize> const Length for &'a [T; N] {
     fn len(&self) -> usize {
         N
     }
 }
+
 impl<'a, T, const N: usize> const Length for &'a mut [T; N] {
     fn len(&self) -> usize {
         N
     }
 }
+
 // TODO: impl this const when bpf toolchain updated
 /// Advances a given slice while maintaining lifetimes
 pub trait Advance<'a>: Length {
@@ -321,6 +821,7 @@ pub trait Advance<'a>: Length {
     /// Caller must guarantee that `amount` is not greater than the length of self.
     unsafe fn advance_unchecked(&'a mut self, amount: usize) -> Self::AdvanceOut;
 }
+
 // TODO: impl this const when bpf toolchain updated
 /// Advances a given slice giving back an array
 pub trait AdvanceArray<'a, const N: usize>: Length {
@@ -367,6 +868,7 @@ pub trait AdvanceArray<'a, const N: usize>: Length {
     /// Caller must guarantee that `N` is not greater than the length of self.
     unsafe fn advance_array_unchecked(&'a mut self) -> Self::AdvanceOut;
 }
+
 impl<'a, 'b, T> Advance<'a> for &'b mut [T] {
     type AdvanceOut = &'b mut [T];
 
@@ -378,6 +880,7 @@ impl<'a, 'b, T> Advance<'a> for &'b mut [T] {
         &mut *slice_from_raw_parts_mut(ptr, amount)
     }
 }
+
 impl<'a, 'b, T, const N: usize> AdvanceArray<'a, N> for &'b mut [T] {
     type AdvanceOut = &'b mut [T; N];
 
@@ -389,6 +892,7 @@ impl<'a, 'b, T, const N: usize> AdvanceArray<'a, N> for &'b mut [T] {
         )
     }
 }
+
 impl<'a, 'b, T> Advance<'a> for &'b [T] {
     type AdvanceOut = &'b [T];
 
@@ -400,6 +904,7 @@ impl<'a, 'b, T> Advance<'a> for &'b [T] {
         &*slice_from_raw_parts(ptr, amount)
     }
 }
+
 impl<'a, 'b, T, const N: usize> AdvanceArray<'a, N> for &'b [T] {
     type AdvanceOut = &'b [T; N];
 
@@ -420,6 +925,7 @@ pub trait ToNonZero {
     /// Converts to non-zero
     fn to_non_zero(self) -> Self::NonZero;
 }
+
 impl ToNonZero for u64 {
     type NonZero = NonZeroU64;
 
@@ -427,6 +933,7 @@ impl ToNonZero for u64 {
         NonZeroU64::new(self).unwrap()
     }
 }
+
 impl ToNonZero for NonZeroU64 {
     type NonZero = NonZeroU64;
 
@@ -460,6 +967,7 @@ where
 /// Can collect into this to void all values
 #[derive(Debug, Clone, Copy)]
 pub struct VoidCollect;
+
 impl<T> FromIterator<T> for VoidCollect {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         iter.into_iter().for_each(|_| {});

@@ -1,10 +1,11 @@
-use crate::get_crate_name;
+use crate::{get_crate_name, NAME_NONCE};
 use heck::ToPascalCase;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
+use std::sync::atomic::Ordering;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{braced, Expr, Token, Type};
+use syn::{braced, Expr, Lifetime, Token, Type};
 
 pub struct GetProperties {
     value: Expr,
@@ -50,31 +51,45 @@ impl GetProperties {
             .collect::<Vec<_>>();
         let indexes = 0..property_count;
 
+        let nonce = NAME_NONCE.fetch_add(1, Ordering::SeqCst);
+        let a_lifetime = Lifetime::new(&format!("'a{}", nonce), Span::call_site());
+        let b_lifetime = Lifetime::new(&format!("'b{}", nonce), Span::call_site());
+        let a_ident = format_ident!("__A{}", nonce);
+
         quote! {{
-            fn get_properties<A>(
-                value: &mut <#ty as #crate_name::in_place::InPlace>::Access<A>
+            fn get_properties<#a_lifetime, #b_lifetime, #a_ident>(
+                value: &#b_lifetime mut <#ty as #crate_name::in_place::InPlace>::AccessMut<#a_lifetime, #a_ident>
             ) -> #crate_name::CruiserResult<(#(
-                <<<#ty as #crate_name::in_place::InPlace>::Access<A> as #crate_name::in_place::InPlaceProperty<
+                <<<#ty as #crate_name::in_place::InPlace>::AccessMut<#a_lifetime, #a_ident> as #crate_name::in_place::InPlaceProperty<
                     { #crate_name::in_place::InPlacePropertiesList::index(<#ty as #crate_name::in_place::InPlaceProperties>::Properties::#properties_pascal) },
-                >>::Property as #crate_name::in_place::InPlace>::Access<&'_ mut [u8]>
+                >>::Property as #crate_name::in_place::InPlace>::AccessMut<#b_lifetime, &#b_lifetime mut [u8]>
             ),*)>
             where
-                A: ::std::ops::DerefMut<Target = [u8]>
+                #ty: #crate_name::in_place::InPlaceProperties,
+                #a_ident: ::std::ops::DerefMut<Target = [u8]>
+                        + #a_lifetime
+                        + #crate_name::util::MappableRef
+                        + #crate_name::util::TryMappableRef
+                        + #crate_name::util::MappableRefMut
+                        + #crate_name::util::TryMappableRefMut,
             {
-                const OFFSETS: [(usize, usize); #property_count] = calc_property_offsets([
+                const OFFSETS: [(usize, Option<usize>); #property_count] = #crate_name::in_place::calc_property_offsets([
                     #(<#ty as #crate_name::in_place::InPlaceProperties>::Properties::#properties_pascal),*
                 ]);
 
-                let mut data = #crate_name::in_place::InPlaceGetData::get_raw_data_mut(value);
+                let mut data = #crate_name::in_place::InPlaceRawDataAccessMut::get_raw_data_mut(value);
                 Ok((
                     #({
                         #crate_name::util::Advance::try_advance(&mut data, OFFSETS[#indexes].0)?;
                         <<
-                            <#ty as InPlace>::Access<A> as #crate_name::in_place::InPlaceProperty<{ #crate_name::in_place::InPlacePropertiesList::index(<#ty as #crate_name::in_place::InPlaceProperties>::Properties::#properties_pascal) }>
+                            <#ty as InPlace>::AccessMut<#a_lifetime, #a_ident> as #crate_name::in_place::InPlaceProperty<{ #crate_name::in_place::InPlacePropertiesList::index(<#ty as #crate_name::in_place::InPlaceProperties>::Properties::#properties_pascal) }>
                         >::Property as #crate_name::in_place::InPlaceWrite<_>>::write_with_arg(
-                            match OFFSET[#indexes].1{
-                                Some(size) => #crate_name::util::Advance::try_advance(&mut data, OFFSETS[#indexes].1)?,
-                                None => data,
+                            match OFFSETS[#indexes].1{
+                                Some(size) => #crate_name::util::Advance::try_advance(&mut data, size)?,
+                                None => {
+                                    let data_len = data.len();
+                                    #crate_name::util::Advance::try_advance(&mut data, data_len)?
+                                },
                             },
                             #args,
                         )?
