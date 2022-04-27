@@ -263,6 +263,7 @@ jobs:
           command: make
           args: doc
   publish_easy_proc_common_dry_run:
+    if: ${{ false }}
     name: Check publish_easy_proc_common publish dry run
     needs: [ update_cargo ]
     runs-on: ubuntu-latest
@@ -296,10 +297,12 @@ jobs:
         env:
           DRY_RUN: true
           ALLOW_DIRTY: true
+          NO_VERIFY: true
         with:
           command: make
           args: publish_easy_proc_common
   publish_easy_proc_derive_dry_run:
+    if: ${{ false }}
     name: Check publish_easy_proc_derive publish dry run
     needs: [ update_cargo ]
     runs-on: ubuntu-latest
@@ -332,15 +335,16 @@ jobs:
         env:
           DRY_RUN: true
           ALLOW_DIRTY: true
+          NO_VERIFY: true
         with:
           command: make
           args: publish_easy_proc_derive
   publish_easy_proc_dry_run:
+    if: ${{ false }}
     name: Check publish_easy_proc publish dry run
     needs: [ update_cargo ]
     runs-on: ubuntu-latest
 
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -370,15 +374,16 @@ jobs:
         env:
           DRY_RUN: true
           ALLOW_DIRTY: true
+          NO_VERIFY: true
         with:
           command: make
           args: publish_easy_proc
   publish_cruiser_derive_dry_run:
+    if: ${{ false }}
     name: Check publish_cruiser_derive publish dry run
     needs: [ update_cargo ]
     runs-on: ubuntu-latest
 
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -408,14 +413,15 @@ jobs:
         env:
           DRY_RUN: true
           ALLOW_DIRTY: true
+          NO_VERIFY: true
         with:
           command: make
           args: publish_cruiser_derive
   publish_cruiser_dry_run:
+    if: ${{ false }}
     name: Check publish_cruiser publish dry run
     needs: [ update_cargo ]
     runs-on: ubuntu-latest
-
 
     steps:
       - name: Checkout repo
@@ -446,6 +452,7 @@ jobs:
         env:
           DRY_RUN: true
           ALLOW_DIRTY: true
+          NO_VERIFY: true
         with:
           command: make
           args: publish_cruiser

@@ -21,7 +21,7 @@ script = "cargo run -p check_all -- -p escrow_example -f entrypoint:processor -f
 
 [tasks.check_cruiser]
 workspace = false
-script = "cargo run -p check_all -- -p cruiser -f client -f experimental -f spl-token -f small_vec:experimental -f interface:experimental -f in_place:experimental"
+script = "cargo run -p check_all -- -p cruiser -f client -f experimental -f spl-token -f small_vec:experimental -f interface:experimental -f in_place:experimental -f unstable"
 
 [tasks.check_all]
 workspace = false
@@ -96,6 +96,9 @@ end
 if not is_empty ${ALLOW_DIRTY}
     array_push %{args} --allow-dirty
 end
+if not is_empty ${NO_VERIFY}
+    array_push %{args} --no-verify
+end
 
 args_string = array_join ${args} " "
 echo running cargo %{args_string}
@@ -117,6 +120,9 @@ if not is_empty ${DRY_RUN}
 end
 if not is_empty ${ALLOW_DIRTY}
     array_push %{args} --allow-dirty
+end
+if not is_empty ${NO_VERIFY}
+    array_push %{args} --no-verify
 end
 
 args_string = array_join ${args} " "
@@ -140,6 +146,9 @@ end
 if not is_empty ${ALLOW_DIRTY}
     array_push %{args} --allow-dirty
 end
+if not is_empty ${NO_VERIFY}
+    array_push %{args} --no-verify
+end
 
 args_string = array_join ${args} " "
 echo running cargo %{args_string}
@@ -162,6 +171,9 @@ end
 if not is_empty ${ALLOW_DIRTY}
     array_push %{args} --allow-dirty
 end
+if not is_empty ${NO_VERIFY}
+    array_push %{args} --no-verify
+end
 
 args_string = array_join ${args} " "
 echo running cargo %{args_string}
@@ -183,6 +195,9 @@ if not is_empty ${DRY_RUN}
 end
 if not is_empty ${ALLOW_DIRTY}
     array_push %{args} --allow-dirty
+end
+if not is_empty ${NO_VERIFY}
+    array_push %{args} --no-verify
 end
 
 args_string = array_join ${args} " "

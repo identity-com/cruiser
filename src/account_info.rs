@@ -30,23 +30,23 @@ pub trait AccountInfo:
     + MultiIndexable<AllAny>
     + SingleIndexable
 {
-    /// The return of [`AccountInfoAccess::lamports`]
+    /// The return of [`AccountInfo::lamports`]
     type Lamports<'a>: Deref<Target = u64>
     where
         Self: 'a;
-    /// The return of [`AccountInfoAccess::lamports_mut`]
+    /// The return of [`AccountInfo::lamports_mut`]
     type LamportsMut<'a>: DerefMut<Target = u64>
     where
         Self: 'a;
-    /// The return of [`AccountInfoAccess::data`]
+    /// The return of [`AccountInfo::data`]
     type Data<'a>: Deref<Target = [u8]>
     where
         Self: 'a;
-    /// The return of [`AccountInfoAccess::data_mut`]
+    /// The return of [`AccountInfo::data_mut`]
     type DataMut<'a>: DerefMut<Target = [u8]>
     where
         Self: 'a;
-    /// The return of [`AccountInfoAccess::owner`]
+    /// The return of [`AccountInfo::owner`]
     type Owner<'a>: Deref<Target = Pubkey>
     where
         Self: 'a;
@@ -87,7 +87,7 @@ pub trait AccountInfo:
     /// Returns a shared ref to the owner of this account
     #[must_use]
     fn owner(&self) -> Self::Owner<'_>;
-    /// Unsafe access to changing the owner of this account. You should use [`SafeOwnerChangeAccess::owner_mut`] if possible.
+    /// Unsafe access to changing the owner of this account. You should use [`SafeOwnerChange::owner_mut`] if possible.
     ///
     /// # Safety
     /// Solana's way of doing this for [`SolanaAccountInfo`] is to use [`write_volatile`](std::ptr::write_volatile) on a shared ref (see [`SolanaAccountInfo::assign`]).
@@ -109,7 +109,7 @@ pub trait AccountInfo:
 
 /// Account info can safely assign the owner.
 pub trait SafeOwnerChange: AccountInfo {
-    /// The return value of [`SafeOwnerChangeAccess::owner_mut`]
+    /// The return value of [`SafeOwnerChange::owner_mut`]
     type OwnerMut<'a>: DerefMut<Target = Pubkey>
     where
         Self: 'a;
@@ -120,7 +120,7 @@ pub trait SafeOwnerChange: AccountInfo {
 /// Account info can safely realloc.
 pub trait SafeRealloc: AccountInfo {
     /// Reallocates an account safely by checking data size.
-    /// If this can be called in a cpi from the same program or earlier owning program of this account you should use [`SafeReallocAccess::realloc_cpi_safe`].
+    /// If this can be called in a cpi from the same program or earlier owning program of this account you should use [`SafeRealloc::realloc_cpi_safe`].
     fn realloc(&self, new_len: usize, zero_init: bool) -> CruiserResult;
     /// Reallocates an account safely by checking data size, only allows for 1/4 the increase of [`MAX_PERMITTED_DATA_INCREASE`].
     /// This limited growth means that a cpi call can never exceed [`MAX_PERMITTED_DATA_INCREASE`].

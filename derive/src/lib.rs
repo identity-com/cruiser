@@ -6,7 +6,6 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use std::sync::atomic::AtomicU64;
 
 #[cfg(feature = "easy_proc_test")]
 use proc_macro2::Span;
@@ -44,7 +43,7 @@ mod log_level;
 mod verify_account_arg_impl;
 
 #[cfg(feature = "in_place")]
-static NAME_NONCE: AtomicU64 = AtomicU64::new(0);
+static NAME_NONCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// If no start specified starts at `1_000_000`
 #[proc_macro_error]
