@@ -244,7 +244,12 @@ pub fn derive_account_list(ts: TokenStream) -> TokenStream {
 ///     fn write_with_arg<'a, A>(data: A, _arg: ()) -> CruiserResult<Self::AccessMut<'a, A>>
 ///     where
 ///         Self: 'a,
-///         A: 'a + DerefMut<Target=[u8]> + MappableRef + TryMappableRef + MappableRefMut + TryMappableRefMut,
+///         A: 'a
+///             + DerefMut<Target=[u8]>
+///             + MappableRef
+///             + TryMappableRef
+///             + MappableRefMut
+///             + TryMappableRefMut,
 ///     {
 ///         TestDataAccess::new(data)
 ///     }
@@ -337,18 +342,19 @@ pub fn get_properties(tokens: TokenStream) -> TokenStream {
     stream.into()
 }
 
-// /// Derive macro for the `InPlace` trait.
-// #[proc_macro_error]
-// #[proc_macro_derive(InPlace, attributes(in_place))]
-// pub fn derive_in_place(input: TokenStream) -> TokenStream {
-//     let stream = parse_macro_input!(input as InPlaceDerive).into_token_stream();
-//     #[cfg(feature = "debug_in_place")]
-//     {
-//         println!("{}", stream);
-//         std::thread::sleep(std::time::Duration::from_millis(100));
-//     }
-//     stream.into()
-// }
+/// Derive macro for the `InPlace` trait.
+#[cfg(feature = "in_place")]
+#[proc_macro_error]
+#[proc_macro_derive(InPlace, attributes(in_place))]
+pub fn derive_in_place(input: TokenStream) -> TokenStream {
+    let stream = parse_macro_input!(input as InPlaceDerive).into_token_stream();
+    #[cfg(feature = "debug_in_place")]
+    {
+        println!("{}", stream);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    stream.into()
+}
 
 /// Verifies a given type implements the proper traits
 ///

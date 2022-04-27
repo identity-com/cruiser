@@ -5,12 +5,13 @@
 #![allow(deprecated_where_clause_location)]
 
 use cruiser::in_place::{
-    get_properties, GetNum, InPlace, InPlaceProperties, InPlacePropertiesList, InPlaceProperty,
-    InPlaceRawDataAccess, InPlaceRawDataAccessMut, InPlaceWrite,
+    get_properties, GetNum, InPlace, InPlaceCreate, InPlaceProperties, InPlacePropertiesList,
+    InPlaceProperty, InPlaceRawDataAccess, InPlaceRawDataAccessMut, InPlaceRead, InPlaceWrite,
+    SetNum,
 };
 use cruiser::on_chain_size::OnChainSize;
 use cruiser::util::{Length, MappableRef, MappableRefMut, TryMappableRef, TryMappableRefMut};
-use cruiser::{CruiserResult, GenericError, Pubkey};
+use cruiser::{CruiserResult, Pubkey};
 use std::error::Error;
 use std::ops::{Deref, DerefMut};
 
@@ -37,6 +38,35 @@ impl InPlaceProperties for TestData {
     type Properties = TestDataProperties;
 }
 
+impl InPlaceCreate for TestData {
+    fn create_with_arg<A: DerefMut<Target = [u8]>>(mut data: A, arg: ()) -> CruiserResult {
+        let mut data = &mut *data;
+        <u8 as InPlaceCreate>::create_with_arg(
+            cruiser::util::Advance::try_advance(&mut data, u8::ON_CHAIN_SIZE)?,
+            arg,
+        )?;
+        <[u16; 2] as InPlaceCreate>::create_with_arg(
+            cruiser::util::Advance::try_advance(&mut data, u8::ON_CHAIN_SIZE)?,
+            arg,
+        )?;
+        <Pubkey as InPlaceCreate>::create_with_arg(
+            cruiser::util::Advance::try_advance(&mut data, u8::ON_CHAIN_SIZE)?,
+            arg,
+        )?;
+        Ok(())
+    }
+}
+
+impl InPlaceRead for TestData {
+    fn read_with_arg<'a, A>(data: A, _arg: ()) -> CruiserResult<Self::Access<'a, A>>
+    where
+        Self: 'a,
+        A: 'a + Deref<Target = [u8]> + MappableRef + TryMappableRef,
+    {
+        Ok(TestDataAccess(data))
+    }
+}
+
 impl InPlaceWrite for TestData {
     fn write_with_arg<'a, A>(data: A, _arg: ()) -> CruiserResult<Self::AccessMut<'a, A>>
     where
@@ -48,28 +78,11 @@ impl InPlaceWrite for TestData {
             + MappableRefMut
             + TryMappableRefMut,
     {
-        TestDataAccess::new(data)
+        Ok(TestDataAccess(data))
     }
 }
 
 pub struct TestDataAccess<A>(A);
-
-impl<A> TestDataAccess<A> {
-    pub fn new(access: A) -> CruiserResult<Self>
-    where
-        A: Deref<Target = [u8]>,
-    {
-        if access.len() < TestData::ON_CHAIN_SIZE {
-            Err(GenericError::NotEnoughData {
-                needed: TestData::ON_CHAIN_SIZE,
-                remaining: access.len(),
-            }
-            .into())
-        } else {
-            Ok(Self(access))
-        }
-    }
-}
 
 impl<A> const InPlaceRawDataAccess for TestDataAccess<A>
 where
@@ -131,9 +144,17 @@ impl<A> const InPlaceProperty<2> for TestDataAccess<A> {
 #[test]
 fn main_test() -> Result<(), Box<dyn Error>> {
     let mut data = [0u8; TestData::ON_CHAIN_SIZE];
-    let mut value = TestData::write_with_arg(data.as_mut_slice(), ())?;
-    let (value, key) = get_properties!(&mut value, TestData { value, key })?;
+    let mut write_data = TestData::write_with_arg(data.as_mut_slice(), ())?;
+    let (mut value, mut key) = get_properties!(&mut write_data, TestData { value, key })?;
     assert_eq!(value.get_num(), 0);
+    value.set_num(2);
     assert_eq!(*key, Pubkey::new_from_array([0; 32]));
+    *key = Pubkey::new_from_array([1; 32]);
+    drop((value, key));
+    drop(write_data);
+    let mut write_data = TestData::write_with_arg(data.as_mut_slice(), ())?;
+    let (value, key) = get_properties!(&mut write_data, TestData { value, key })?;
+    assert_eq!(value.get_num(), 2);
+    assert_eq!(*key, Pubkey::new_from_array([1; 32]));
     Ok(())
 }

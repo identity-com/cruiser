@@ -11,9 +11,10 @@ pub use array::*;
 pub use prim::*;
 pub use pubkey::*;
 // pub use static_size_vec::*;
-
 pub use properties::*;
 // pub use unit::*;
+
+pub use cruiser_derive::InPlace;
 
 #[cfg(all(feature = "unstable", VERSION_GREATER_THAN_59))]
 use crate::util::AdvanceArray;
