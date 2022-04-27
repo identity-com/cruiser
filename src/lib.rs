@@ -1,24 +1,44 @@
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
 #![cfg_attr(target_arch = "bpf", feature(const_fn_trait_bound))]
+#![cfg_attr(not(target_arch = "bpf"), feature(const_slice_index))]
 #![feature(const_trait_impl)]
 #![feature(const_ptr_offset)]
 #![feature(const_slice_from_raw_parts)]
 #![feature(const_refs_to_cell)]
 #![feature(const_mut_refs)]
 #![feature(const_for)]
+#![feature(generic_associated_types)]
+#![feature(maybe_uninit_uninit_array)]
+#![feature(maybe_uninit_array_assume_init)]
+#![feature(associated_type_defaults)]
 #![warn(
     unused_import_braces,
     unused_imports,
     missing_docs,
     missing_debug_implementations,
-    clippy::pedantic
+    clippy::pedantic,
+    unused_qualifications
 )]
 #![allow(
     clippy::cast_possible_truncation,
     clippy::module_name_repetitions,
     clippy::missing_errors_doc,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    clippy::missing_panics_doc,
+    clippy::wildcard_imports
 )]
+// Solana is on 1.59 currently, this requires the now deprecated where clause position
+#![cfg_attr(VERSION_GREATER_THAN_59, allow(deprecated_where_clause_location))]
+// For in-place const stuff
+#![cfg_attr(
+    all(feature = "unstable", VERSION_GREATER_THAN_59),
+    allow(incomplete_features)
+)]
+#![cfg_attr(
+    all(feature = "unstable", VERSION_GREATER_THAN_59),
+    feature(generic_const_exprs, specialization)
+)]
+
 //! A generator program that will be able to generate solana program code from a much easier starting place.
 //!
 //! # How it works

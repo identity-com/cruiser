@@ -30,11 +30,16 @@ pub struct MintAccount<AI> {
     /// The account associated
     pub account: TokenProgramAccount<AI>,
 }
-impl<AI> OnChainSize<()> for MintAccount<AI> {
-    fn on_chain_max_size(_arg: ()) -> usize {
-        spl_token::state::Mint::get_packed_len()
-    }
+
+impl const OnChainSize for spl_token::state::Mint {
+    /// Pulled from packed source
+    const ON_CHAIN_SIZE: usize = 82;
 }
+
+impl<AI> OnChainSize for MintAccount<AI> {
+    const ON_CHAIN_SIZE: usize = spl_token::state::Mint::ON_CHAIN_SIZE;
+}
+
 impl<AI> Deref for MintAccount<AI>
 where
     AI: AccountInfo,
@@ -45,6 +50,7 @@ where
         &self.data
     }
 }
+
 impl<AI> AccountArgument for MintAccount<AI>
 where
     AI: AccountInfo,
@@ -59,7 +65,8 @@ where
         self.account.add_keys(add)
     }
 }
-impl<AI> FromAccounts<()> for MintAccount<AI>
+
+impl<AI> FromAccounts for MintAccount<AI>
 where
     AI: AccountInfo,
 {
@@ -77,7 +84,8 @@ where
         TokenProgramAccount::<AI>::accounts_usage_hint(arg)
     }
 }
-impl<AI> ValidateArgument<()> for MintAccount<AI>
+
+impl<AI> ValidateArgument for MintAccount<AI>
 where
     AI: AccountInfo,
 {
@@ -85,6 +93,7 @@ where
         Ok(())
     }
 }
+
 impl<AI, I> MultiIndexable<I> for MintAccount<AI>
 where
     AI: AccountInfo,
@@ -102,6 +111,7 @@ where
         self.account.index_is_owner(owner, indexer)
     }
 }
+
 impl<AI, I> SingleIndexable<I> for MintAccount<AI>
 where
     AI: AccountInfo,

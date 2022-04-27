@@ -49,7 +49,7 @@ impl<AI, T> AccountArgument for PhantomAccount<AI, T> {
         Ok(())
     }
 }
-impl<AI, T> FromAccounts<()> for PhantomAccount<AI, T> {
+impl<AI, T> FromAccounts for PhantomAccount<AI, T> {
     #[inline]
     fn from_accounts(
         _program_id: &Pubkey,
@@ -64,7 +64,7 @@ impl<AI, T> FromAccounts<()> for PhantomAccount<AI, T> {
         (0, Some(0))
     }
 }
-impl<AI, T> ValidateArgument<()> for PhantomAccount<AI, T> {
+impl<AI, T> ValidateArgument for PhantomAccount<AI, T> {
     #[inline]
     fn validate(&mut self, _program_id: &Pubkey, _arg: ()) -> CruiserResult<()> {
         Ok(())

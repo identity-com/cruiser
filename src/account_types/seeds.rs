@@ -5,7 +5,7 @@ use crate::account_argument::{
     ValidateArgument,
 };
 use crate::pda_seeds::{PDAGenerator, PDASeedSet, PDASeeder};
-use crate::{AccountInfo, AccountInfoAccess, CruiserResult};
+use crate::{AccountInfo, CruiserResult};
 use solana_program::pubkey::Pubkey;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
@@ -15,8 +15,8 @@ use std::ops::{Deref, DerefMut};
 //         <T, S> Seeds<T, S> where AI: AccountInfo, T: AccountArgument<AI>, S: PDASeeder{
 //             from: [<Arg> Arg where T: FromAccounts<Arg>];
 //             validate: [
-//                 <B> (S, B) where T: ValidateArgument<()> + SingleIndexable<()>, B: BumpSeed;
-//                 <B, V> (S, B, V) where T: ValidateArgument<V> + SingleIndexable<()>, B: BumpSeed;
+//                 <B> (S, B) where T: ValidateArgument + SingleIndexable, B: BumpSeed;
+//                 <B, V> (S, B, V) where T: ValidateArgument<V> + SingleIndexable, B: BumpSeed;
 //                 <B, V, I> (S, B, V, I) where T: ValidateArgument<V> + SingleIndexable<I>, B: BumpSeed;
 //             ];
 //             multi: [<Arg> Arg where T: MultiIndexable<Arg>];
@@ -104,7 +104,7 @@ where
 impl<T, S, B> ValidateArgument<(S, B)> for Seeds<T, S>
 where
     T::AccountInfo: AccountInfo,
-    T: ValidateArgument<()> + SingleIndexable<()>,
+    T: ValidateArgument + SingleIndexable,
     S: PDASeeder,
     B: BumpSeed,
 {
@@ -115,7 +115,7 @@ where
 impl<T, S, B, V> ValidateArgument<(S, B, V)> for Seeds<T, S>
 where
     T::AccountInfo: AccountInfo,
-    T: ValidateArgument<V> + SingleIndexable<()>,
+    T: ValidateArgument<V> + SingleIndexable,
     S: PDASeeder,
     B: BumpSeed,
 {

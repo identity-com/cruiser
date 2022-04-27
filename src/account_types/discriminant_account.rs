@@ -101,7 +101,7 @@ where
         self.info.add_keys(add)
     }
 }
-impl<AI, AL, D> FromAccounts<()> for DiscriminantAccount<AI, AL, D>
+impl<AI, AL, D> FromAccounts for DiscriminantAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
@@ -149,7 +149,7 @@ where
         CruiserAccountInfo::accounts_usage_hint(&())
     }
 }
-impl<AI, AL, D> ValidateArgument<()> for DiscriminantAccount<AI, AL, D>
+impl<AI, AL, D> ValidateArgument for DiscriminantAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,

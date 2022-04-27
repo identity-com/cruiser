@@ -14,26 +14,26 @@ use std::ops::RangeBounds;
 //         where
 //             T: AccountArgument<AI>{
 //             from: [
-//                 usize where T: FromAccounts<()>;
+//                 usize where T: FromAccounts;
 //                 <Arg> (usize, (Arg,)) where T: FromAccounts<Arg>, Arg: Clone;
 //                 <Arg, F> (usize, F, ()) where T: FromAccounts<Arg>, F: FnMut(usize) -> Arg;
 //                 <Arg, const N: usize> [Arg; N] where T: FromAccounts<Arg>;
 //                 <Arg> Vec<Arg> where T: FromAccounts<Arg>;
 //             ];
 //             validate: [
-//                 () where T: ValidateArgument<()>;
+//                 () where T: ValidateArgument;
 //                 <Arg> (Arg,) where T: ValidateArgument<Arg>, Arg: Clone;
 //                 <Arg, F> (F, ()) where T: ValidateArgument<Arg>, F: FnMut(usize) -> Arg;
 //             ];
 //             multi: [
-//                 usize where T: MultiIndexable<()>;
+//                 usize where T: MultiIndexable;
 //                 <I> (usize, I) where T: MultiIndexable<I>;
-//                 AllAny where T: MultiIndexable<()>;
+//                 AllAny where T: MultiIndexable;
 //                 <I> (AllAny, I) where T: MultiIndexable<I>, I: Clone;
 //                 <R, I> (R, AllAny, I) where T: MultiIndexable<I>, R: RangeBounds<usize>, I: Clone;
 //             ];
 //             single: [
-//                 usize where T: SingleIndexable<()>;
+//                 usize where T: SingleIndexable;
 //                 <I> (usize, I) where T: SingleIndexable<I>;
 //             ];
 //         }
@@ -59,7 +59,7 @@ where
 }
 impl<T> FromAccounts<usize> for Vec<T>
 where
-    T: FromAccounts<()>,
+    T: FromAccounts,
 {
     fn from_accounts(
         program_id: &Pubkey,
@@ -155,9 +155,9 @@ where
         sum_size_hints(arg.iter().map(|arg| T::accounts_usage_hint(arg)))
     }
 }
-impl<T> ValidateArgument<()> for Vec<T>
+impl<T> ValidateArgument for Vec<T>
 where
-    T: ValidateArgument<()>,
+    T: ValidateArgument,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: ()) -> CruiserResult<()> {
         self.validate(program_id, (arg,))
@@ -186,7 +186,7 @@ where
 }
 impl<T> MultiIndexable<usize> for Vec<T>
 where
-    T: MultiIndexable<()>,
+    T: MultiIndexable,
 {
     fn index_is_signer(&self, indexer: usize) -> CruiserResult<bool> {
         self.index_is_signer((indexer, ()))
@@ -218,7 +218,7 @@ where
 }
 impl<T> MultiIndexable<AllAny> for Vec<T>
 where
-    T: MultiIndexable<()>,
+    T: MultiIndexable,
 {
     fn index_is_signer(&self, indexer: AllAny) -> CruiserResult<bool> {
         self.index_is_signer((indexer, ()))
@@ -284,7 +284,7 @@ where
 }
 impl<T> SingleIndexable<usize> for Vec<T>
 where
-    T: SingleIndexable<()>,
+    T: SingleIndexable,
 {
     fn index_info(&self, indexer: usize) -> CruiserResult<&Self::AccountInfo> {
         self.index_info((indexer, ()))

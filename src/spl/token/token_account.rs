@@ -29,11 +29,17 @@ pub struct TokenAccount<AI> {
     /// The account associated
     pub account: TokenProgramAccount<AI>,
 }
-impl<AI> OnChainSize<()> for TokenAccount<AI> {
-    fn on_chain_max_size(_arg: ()) -> usize {
-        spl_token::state::Account::get_packed_len()
-    }
+
+impl const OnChainSize for spl_token::state::Account {
+    /// Pulled from packed source
+    const ON_CHAIN_SIZE: usize = 165;
 }
+
+impl<AI> OnChainSize for TokenAccount<AI> {
+    /// Pulled from packed source
+    const ON_CHAIN_SIZE: usize = spl_token::state::Account::ON_CHAIN_SIZE;
+}
+
 impl<AI> Deref for TokenAccount<AI> {
     type Target = spl_token::state::Account;
 
@@ -41,6 +47,7 @@ impl<AI> Deref for TokenAccount<AI> {
         &self.data
     }
 }
+
 impl<AI> AccountArgument for TokenAccount<AI>
 where
     AI: AccountInfo,
@@ -55,7 +62,8 @@ where
         self.account.add_keys(add)
     }
 }
-impl<AI> FromAccounts<()> for TokenAccount<AI>
+
+impl<AI> FromAccounts for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
@@ -73,7 +81,8 @@ where
         TokenProgramAccount::<AI>::accounts_usage_hint(arg)
     }
 }
-impl<AI> ValidateArgument<()> for TokenAccount<AI>
+
+impl<AI> ValidateArgument for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
@@ -82,9 +91,11 @@ where
         Ok(())
     }
 }
+
 /// Validates that the given key is the owner of the [`TokenAccount`]
 #[derive(Debug)]
 pub struct Owner<'a>(pub &'a Pubkey);
+
 impl<AI> ValidateArgument<Owner<'_>> for TokenAccount<AI>
 where
     AI: AccountInfo,
@@ -102,6 +113,7 @@ where
         }
     }
 }
+
 impl<AI, I> MultiIndexable<I> for TokenAccount<AI>
 where
     AI: AccountInfo,
@@ -119,6 +131,7 @@ where
         self.account.index_is_owner(owner, indexer)
     }
 }
+
 impl<AI, I> SingleIndexable<I> for TokenAccount<AI>
 where
     AI: AccountInfo,

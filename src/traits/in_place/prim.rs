@@ -1,129 +1,91 @@
-use crate::in_place::{InPlace, InPlaceCreate, InPlaceGet, InPlaceRead, InPlaceSet, InPlaceWrite};
-use crate::util::AdvanceArray;
-use crate::CruiserResult;
+use crate::in_place::{InPlace, InPlaceCreate, InPlaceRead, InPlaceWrite};
+use crate::util::{MappableRef, MappableRefMut, TryMappableRef, TryMappableRefMut};
+use crate::{CruiserResult, GenericError};
+use cruiser::on_chain_size::OnChainSize;
+use num_traits::Num;
 use std::marker::PhantomData;
-use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
-
-impl<'a> InPlace<'a> for u8 {
-    type Access = &'a u8;
-    type AccessMut = &'a mut u8;
-}
-impl<'a> InPlaceCreate<'a, ()> for u8 {
-    fn create_with_arg(_data: &mut [u8], _arg: ()) -> CruiserResult {
-        Ok(())
-    }
-}
-impl<'a> InPlaceCreate<'a, u8> for u8 {
-    fn create_with_arg(data: &mut [u8], arg: u8) -> CruiserResult {
-        data[0] = arg;
-        Ok(())
-    }
-}
-impl<'a> InPlaceRead<'a, ()> for u8 {
-    fn read_with_arg(mut data: &'a [u8], _arg: ()) -> CruiserResult<Self::Access> {
-        let out: &[_; 1] = data.try_advance_array()?;
-        Ok(&out[0])
-    }
-}
-impl<'a> InPlaceWrite<'a, ()> for u8 {
-    fn write_with_arg(mut data: &'a mut [u8], _arg: ()) -> CruiserResult<Self::AccessMut> {
-        let out: &mut [_; 1] = data.try_advance_array()?;
-        Ok(&mut out[0])
-    }
-}
-impl<'a> InPlaceGet<u8> for <u8 as InPlace<'a>>::Access {
-    fn get_in_place(&self) -> u8 {
-        **self
-    }
-}
-impl<'a> InPlaceGet<u8> for <u8 as InPlace<'a>>::AccessMut {
-    fn get_in_place(&self) -> u8 {
-        **self
-    }
-}
-impl<'a> InPlaceSet<u8> for <u8 as InPlace<'a>>::AccessMut {
-    fn set_in_place(&mut self, val: u8) {
-        **self = val;
-    }
-}
-impl<'a> InPlaceGet<usize> for <u8 as InPlace<'a>>::Access {
-    fn get_in_place(&self) -> usize {
-        **self as usize
-    }
-}
-impl<'a> InPlaceGet<usize> for <u8 as InPlace<'a>>::AccessMut {
-    fn get_in_place(&self) -> usize {
-        **self as usize
-    }
-}
-impl<'a> InPlaceSet<usize> for <u8 as InPlace<'a>>::AccessMut {
-    fn set_in_place(&mut self, val: usize) {
-        **self = val.try_into().expect("usize is too large to fit in u8");
-    }
-}
-
-impl<'a> InPlace<'a> for i8 {
-    type Access = &'a i8;
-    type AccessMut = &'a mut i8;
-}
-impl<'a> InPlaceCreate<'a, ()> for i8 {
-    fn create_with_arg(_data: &mut [u8], _arg: ()) -> CruiserResult {
-        Ok(())
-    }
-}
-impl<'a> InPlaceRead<'a, ()> for i8 {
-    fn read_with_arg(mut data: &'a [u8], _arg: ()) -> CruiserResult<Self::Access> {
-        let out: &[_; 1] = data.try_advance_array()?;
-        Ok(unsafe { &*(out.as_ptr().cast::<i8>()) })
-    }
-}
-impl<'a> InPlaceWrite<'a, ()> for i8 {
-    fn write_with_arg(mut data: &'a mut [u8], _arg: ()) -> CruiserResult<Self::AccessMut> {
-        let out: &mut [_; 1] = data.try_advance_array()?;
-        Ok(unsafe { &mut *(out.as_mut_ptr().cast::<i8>()) })
-    }
-}
-impl<'a> InPlaceGet<i8> for <i8 as InPlace<'a>>::Access {
-    fn get_in_place(&self) -> i8 {
-        **self
-    }
-}
-impl<'a> InPlaceGet<i8> for <i8 as InPlace<'a>>::AccessMut {
-    fn get_in_place(&self) -> i8 {
-        **self
-    }
-}
-impl<'a> InPlaceSet<i8> for <i8 as InPlace<'a>>::AccessMut {
-    fn set_in_place(&mut self, val: i8) {
-        **self = val;
-    }
-}
 
 /// An inplace version of primitive numbers to adhere to alignment
 #[derive(Debug)]
-pub struct PrimNumInPlace<T, D, const N: usize>(D, PhantomData<T>);
-impl<T, D, const N: usize> InPlaceGet<T> for PrimNumInPlace<T, D, N>
+pub struct PrimNumInPlace<T, A, const N: usize>(A, PhantomData<T>);
+fn new_prim<'a, T, A, const N: usize>(
+    data: A,
+) -> CruiserResult<PrimNumInPlace<T, A::Output<'a, [u8; N]>, N>>
 where
-    T: FromNE<N>,
-    D: Deref<Target = [u8; N]>,
+    T: NativeEndian<N>,
+    A: Deref<Target = [u8]> + TryMappableRef,
 {
-    fn get_in_place(&self) -> T {
-        T::from_ne_bytes(*self.0.deref())
+    Ok(PrimNumInPlace(
+        data.try_map_ref(|r| {
+            if r.len() < N {
+                Err(GenericError::NotEnoughData {
+                    needed: N,
+                    remaining: r.len(),
+                })
+            } else {
+                Ok((&r[..N]).try_into().unwrap())
+            }
+        })?,
+        PhantomData,
+    ))
+}
+fn new_prim_mut<'a, T, A, const N: usize>(
+    data: A,
+) -> CruiserResult<PrimNumInPlace<T, A::Output<'a, [u8; N]>, N>>
+where
+    T: NativeEndian<N>,
+    A: DerefMut<Target = [u8]> + TryMappableRefMut,
+{
+    Ok(PrimNumInPlace(
+        data.try_map_ref_mut(|r| {
+            if r.len() < N {
+                Err(GenericError::NotEnoughData {
+                    needed: N,
+                    remaining: r.len(),
+                })
+            } else {
+                Ok((&mut r[..N]).try_into().unwrap())
+            }
+        })?,
+        PhantomData,
+    ))
+}
+
+/// Gets a number from an in-place accessor
+pub trait GetNum {
+    /// The type of the number
+    type Num;
+    /// Gets the number
+    fn get_num(&self) -> Self::Num;
+}
+/// Sets a number in an in-place accessor
+pub trait SetNum: GetNum {
+    /// Sets the number
+    fn set_num(&mut self, value: Self::Num);
+}
+impl<T, A, const N: usize> GetNum for PrimNumInPlace<T, A, N>
+where
+    T: NativeEndian<N>,
+    A: Deref<Target = [u8; N]>,
+{
+    type Num = T;
+    fn get_num(&self) -> Self::Num {
+        T::from_ne_bytes(*self.0)
     }
 }
-impl<T, D, const N: usize> InPlaceSet<T> for PrimNumInPlace<T, D, N>
+impl<T, A, const N: usize> SetNum for PrimNumInPlace<T, A, N>
 where
-    T: FromNE<N>,
-    D: DerefMut<Target = [u8; N]>,
+    T: NativeEndian<N>,
+    A: DerefMut<Target = [u8; N]>,
 {
-    fn set_in_place(&mut self, val: T) {
-        *self.0.deref_mut() = val.into_ne_bytes();
+    fn set_num(&mut self, value: Self::Num) {
+        *self.0 = value.into_ne_bytes();
     }
 }
 
 /// A number that can be derived from native-endian bytes
-pub trait FromNE<const N: usize>: Sized {
+pub trait NativeEndian<const N: usize>: OnChainSize + Sized + Num {
     /// Creates this from native endian-bytes
     #[must_use]
     fn from_ne_bytes(bytes: [u8; N]) -> Self;
@@ -142,8 +104,8 @@ pub trait ToSolanaUsize {
 /// Value is initialized to 0
 pub trait InitToZero {}
 macro_rules! impl_from_ne {
-    ($ty:ty, $size:expr$(, $($larger:ty),*)?) => {
-        impl FromNE<$size> for $ty {
+    ($ty:ty, $size:expr) => {
+        impl NativeEndian<$size> for $ty {
             fn from_ne_bytes(bytes: [u8; $size]) -> Self {
                 Self::from_ne_bytes(bytes)
             }
@@ -152,29 +114,51 @@ macro_rules! impl_from_ne {
                 self.to_ne_bytes()
             }
         }
-        impl<'a> InPlace<'a> for $ty {
-            type Access = PrimNumInPlace<$ty, &'a [u8; $size], $size>;
-            type AccessMut = PrimNumInPlace<$ty, &'a mut [u8; $size], $size>;
+        impl InPlace for $ty {
+            type Access<'a, A>
+            where
+                Self: 'a,
+                A: 'a + MappableRef + TryMappableRef,
+            = PrimNumInPlace<$ty, <A as TryMappableRef>::Output<'a, [u8; $size]>, $size>;
+
+            type AccessMut<'a, A>
+            where
+                Self: 'a,
+                A: 'a + MappableRef + TryMappableRef + MappableRefMut + TryMappableRefMut,
+            = PrimNumInPlace<$ty, <A as TryMappableRefMut>::Output<'a, [u8; $size]>, $size>;
         }
-        impl<'a> InPlaceCreate<'a, ()> for $ty {
-            fn create_with_arg(_data: &mut [u8], _arg: ()) -> CruiserResult {
+        impl InPlaceCreate for $ty {
+            fn create_with_arg<A: DerefMut<Target = [u8]>>(_data: A, _arg: ()) -> CruiserResult {
                 Ok(())
             }
         }
-        impl<'a> InPlaceCreate<'a, $ty> for $ty {
-            fn create_with_arg(data: &mut [u8], arg: $ty) -> CruiserResult {
-                data[..size_of::<$ty>()].copy_from_slice(&arg.into_ne_bytes());
+        impl InPlaceCreate<$ty> for $ty {
+            fn create_with_arg<A: DerefMut<Target = [u8]>>(mut data: A, arg: $ty) -> CruiserResult {
+                data[..$size].copy_from_slice(&arg.into_ne_bytes());
                 Ok(())
             }
         }
-        impl<'a> InPlaceRead<'a, ()> for $ty {
-            fn read_with_arg(mut data: &'a [u8], _arg: ()) -> CruiserResult<Self::Access> {
-                Ok(PrimNumInPlace(data.try_advance_array()?, PhantomData))
+        impl InPlaceRead for $ty {
+            fn read_with_arg<'a, A>(data: A, _arg: ()) -> CruiserResult<Self::Access<'a, A>>
+            where
+                Self: 'a,
+                A: 'a + Deref<Target = [u8]> + MappableRef + TryMappableRef,
+            {
+                new_prim(data)
             }
         }
-        impl<'a> InPlaceWrite<'a, ()> for $ty {
-            fn write_with_arg(mut data: &'a mut [u8], _arg: ()) -> CruiserResult<Self::AccessMut> {
-                Ok(PrimNumInPlace(data.try_advance_array()?, PhantomData))
+        impl InPlaceWrite for $ty {
+            fn write_with_arg<'a, A>(data: A, _arg: ()) -> CruiserResult<Self::AccessMut<'a, A>>
+            where
+                Self: 'a,
+                A: 'a
+                    + DerefMut<Target = [u8]>
+                    + MappableRef
+                    + TryMappableRef
+                    + MappableRefMut
+                    + TryMappableRefMut,
+            {
+                new_prim_mut(data)
             }
         }
         impl ToSolanaUsize for $ty {
@@ -187,24 +171,14 @@ macro_rules! impl_from_ne {
             }
         }
         impl InitToZero for $ty {}
-        $($(
-        impl<D> InPlaceGet<$larger> for PrimNumInPlace<$ty, D, $size> where PrimNumInPlace<$ty, D, $size>: InPlaceGet<$ty> {
-            fn get_in_place(&self) -> $larger {
-                <Self as InPlaceGet<$ty>>::get_in_place(self) as $larger
-            }
-        }
-        impl<D> InPlaceSet<$larger> for PrimNumInPlace<$ty, D, $size> where PrimNumInPlace<$ty, D, $size>: InPlaceSet<$ty> {
-            fn set_in_place(&mut self, val: $larger) {
-                <Self as InPlaceSet<$ty>>::set_in_place(self, val.try_into().unwrap())
-            }
-        }
-        )*)?
     };
 }
-impl_from_ne!(u16, 2, u32, u64, usize);
-impl_from_ne!(u32, 4, u64, usize);
+impl_from_ne!(u8, 1);
+impl_from_ne!(u16, 2);
+impl_from_ne!(u32, 4);
 impl_from_ne!(u64, 8);
 impl_from_ne!(u128, 16);
+impl_from_ne!(i8, 1);
 impl_from_ne!(i16, 2);
 impl_from_ne!(i32, 4);
 impl_from_ne!(i64, 8);
@@ -212,11 +186,8 @@ impl_from_ne!(i128, 16);
 
 #[cfg(test)]
 mod test {
-    use crate::in_place::{
-        InPlace, InPlaceCreate, InPlaceGet, InPlaceRead, InPlaceSet, InPlaceUnitCreate,
-        InPlaceUnitRead, InPlaceUnitWrite, InPlaceWrite,
-    };
-    use cruiser::in_place::FromNE;
+    use crate::in_place::{GetNum, InPlace, InPlaceCreate, InPlaceRead, InPlaceWrite, SetNum};
+    use cruiser::in_place::NativeEndian;
     use num_traits::Zero;
     use rand::distributions::{Distribution, Standard};
     use rand::{thread_rng, Rng};
@@ -226,17 +197,17 @@ mod test {
     where
         R: Rng,
         Standard: Distribution<T>,
-        for<'a> T: FromNE<N>
+        T: NativeEndian<N>
             + Copy
             + PartialEq
             + Debug
-            + InPlace<'a>
-            + InPlaceCreate<'a, ()>
-            + InPlaceRead<'a, ()>
-            + InPlaceWrite<'a, ()>
+            + InPlace
+            + InPlaceCreate
+            + InPlaceRead
+            + InPlaceWrite
             + Zero,
-        for<'a> <T as InPlace<'a>>::Access: InPlaceGet<T>,
-        for<'a> <T as InPlace<'a>>::AccessMut: InPlaceGet<T> + InPlaceSet<T>,
+        for<'a> T::Access<'a, &'a [u8]>: GetNum<Num = T>,
+        for<'a> T::AccessMut<'a, &'a mut [u8]>: SetNum<Num = T>,
     {
         let value: T = rng.gen();
         let bytes = value.into_ne_bytes();
@@ -244,53 +215,30 @@ mod test {
         let value2 = T::from_ne_bytes(bytes);
         assert_eq!(value, value2);
 
-        T::create(&mut write_bytes).expect("Could not create");
-        let in_place = T::read(&write_bytes).expect("Could not read");
-        assert_eq!(in_place.get_in_place(), T::zero());
+        T::create_with_arg(write_bytes.as_mut_slice(), ()).expect("Could not create");
+        let in_place = T::read_with_arg(write_bytes.as_slice(), ()).expect("Could not read");
+        assert_eq!(in_place.get_num(), T::zero());
         drop(in_place);
-        let mut in_place = T::write(&mut write_bytes).expect("Could not write");
-        in_place.set_in_place(value);
-        assert_eq!(in_place.get_in_place(), value);
+        let mut in_place =
+            T::write_with_arg(write_bytes.as_mut_slice(), ()).expect("Could not write");
+        in_place.set_num(value);
+        assert_eq!(in_place.get_num(), value);
     }
 
     #[test]
     fn prim_test() {
         let mut rng = thread_rng();
         for _ in 0..1024 {
+            prim_test_func::<_, u8, 1>(&mut rng);
             prim_test_func::<_, u16, 2>(&mut rng);
             prim_test_func::<_, u32, 4>(&mut rng);
             prim_test_func::<_, u64, 8>(&mut rng);
             prim_test_func::<_, u128, 16>(&mut rng);
+            prim_test_func::<_, i8, 1>(&mut rng);
             prim_test_func::<_, i16, 2>(&mut rng);
             prim_test_func::<_, i32, 4>(&mut rng);
             prim_test_func::<_, i64, 8>(&mut rng);
             prim_test_func::<_, i128, 16>(&mut rng);
-        }
-    }
-
-    #[test]
-    fn short_prim_test() {
-        let mut rng = thread_rng();
-        for _ in 0..1024 {
-            let val = rng.gen::<u8>();
-            let mut val_data = [0];
-            u8::create(&mut val_data).expect("Could not create");
-            let in_place = u8::read(&val_data).expect("Could not read");
-            let got: u8 = in_place.get_in_place();
-            assert_eq!(got, 0u8);
-            let mut in_place = u8::write(&mut val_data).expect("Could not write");
-            in_place.set_in_place(val);
-            let got: u8 = in_place.get_in_place();
-            assert_eq!(got, val);
-
-            let val = rng.gen::<i8>();
-            let mut val_data = [0];
-            i8::create(&mut val_data).expect("Could not create");
-            let in_place = i8::read(&val_data).expect("Could not read");
-            assert_eq!(in_place.get_in_place(), 0);
-            let mut in_place = i8::write(&mut val_data).expect("Could not write");
-            in_place.set_in_place(val);
-            assert_eq!(in_place.get_in_place(), val);
         }
     }
 }

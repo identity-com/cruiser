@@ -21,6 +21,8 @@ debug_account_list = []
 easy_proc_test = []
 debug = ["debug_account", "debug_error", "debug_account_argument", "debug_instruction_list", "debug_account_list"]
 
+in_place = []
+
 [dependencies]
 proc-macro2 = "1.0.27"
 syn = "1.0.73"
@@ -32,4 +34,4 @@ easy_proc = { version = "0.2.0", path = "../easy_proc" }
 heck = "0.4.0"
 
 [dev-dependencies]
-cruiser = { path = ".." }
+cruiser = { path = "..", features = ["in_place"] }

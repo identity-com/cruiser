@@ -15,24 +15,24 @@ use std::ops::RangeBounds;
 //         where
 //             T: AccountArgument<AI>{
 //             from: [
-//                 () where T: FromAccounts<()>;
+//                 () where T: FromAccounts;
 //                 <Arg> (Arg,) where T: FromAccounts<Arg>, Arg: Clone;
 //                 <Arg> [Arg; N] where T: FromAccounts<Arg>;
 //             ];
 //             validate: [
-//                 () where T: ValidateArgument<()>;
+//                 () where T: ValidateArgument;
 //                 <Arg> (Arg,) where T: ValidateArgument<Arg>, Arg: Clone;
 //                 <Arg> [Arg; N] where T: ValidateArgument<Arg>;
 //             ];
 //             multi: [
-//                 usize where T: MultiIndexable<()>;
+//                 usize where T: MultiIndexable;
 //                 <I> (usize, I) where T: MultiIndexable<I>;
-//                 AllAny where T: MultiIndexable<()>;
+//                 AllAny where T: MultiIndexable;
 //                 <I> (AllAny, I) where T: MultiIndexable<I>, I: Clone;
 //                 <R, I> (R, AllAny, I) where T: MultiIndexable<I>, R: RangeBounds<usize>, I: Clone;
 //             ];
 //             single: [
-//                 usize where T: SingleIndexable<()>;
+//                 usize where T: SingleIndexable;
 //                 <I> (usize, I) where T: SingleIndexable<I>;
 //             ];
 //         }
@@ -64,9 +64,9 @@ where
         self.iter().try_for_each(|inner| inner.add_keys(&mut add))
     }
 }
-impl<T, const N: usize> FromAccounts<()> for [T; N]
+impl<T, const N: usize> FromAccounts for [T; N]
 where
-    T: FromAccounts<()>,
+    T: FromAccounts,
 {
     fn from_accounts(
         program_id: &Pubkey,
@@ -114,9 +114,9 @@ where
         sum_size_hints(arg.iter().map(|arg| T::accounts_usage_hint(arg)))
     }
 }
-impl<T, const N: usize> ValidateArgument<()> for [T; N]
+impl<T, const N: usize> ValidateArgument for [T; N]
 where
-    T: ValidateArgument<()>,
+    T: ValidateArgument,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: ()) -> CruiserResult<()> {
         self.iter_mut()
@@ -145,7 +145,7 @@ where
 }
 impl<T, const N: usize> MultiIndexable<usize> for [T; N]
 where
-    T: MultiIndexable<()>,
+    T: MultiIndexable,
 {
     fn index_is_signer(&self, indexer: usize) -> CruiserResult<bool> {
         self.index_is_signer((indexer, ()))
@@ -177,7 +177,7 @@ where
 }
 impl<T, const N: usize> MultiIndexable<AllAny> for [T; N]
 where
-    T: MultiIndexable<()>,
+    T: MultiIndexable,
 {
     fn index_is_signer(&self, indexer: AllAny) -> CruiserResult<bool> {
         self.index_is_signer((indexer, ()))
@@ -243,7 +243,7 @@ where
 }
 impl<T, const N: usize> SingleIndexable<usize> for [T; N]
 where
-    T: SingleIndexable<()>,
+    T: SingleIndexable,
 {
     fn index_info(&self, indexer: usize) -> CruiserResult<&Self::AccountInfo> {
         get_index(self, indexer)?.index_info(())

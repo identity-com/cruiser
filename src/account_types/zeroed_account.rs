@@ -103,7 +103,7 @@ where
         DiscriminantAccount::<AI, AL, D>::accounts_usage_hint(&())
     }
 }
-impl<AI, AL, D> ValidateArgument<()> for ZeroedAccount<AI, AL, D>
+impl<AI, AL, D> ValidateArgument for ZeroedAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,

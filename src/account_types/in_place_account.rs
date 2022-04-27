@@ -19,7 +19,7 @@ use solana_program::sysvar::Sysvar;
 #[derive(AccountArgument, Debug)]
 #[account_argument(account_info = AI, generics = [where AI: AccountInfo], no_validate)]
 pub struct InPlaceAccount<AI, AL, D>(AI, PhantomAccount<AI, (AL, D)>);
-impl<AI, AL, D> ValidateArgument<()> for InPlaceAccount<AI, AL, D>
+impl<AI, AL, D> ValidateArgument for InPlaceAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
@@ -64,9 +64,9 @@ pub struct Create<'a, AI, T, CPI> {
 impl<'a, 'b, AI, AL, D, C, CPI> ValidateArgument<Create<'a, AI, C, CPI>>
     for InPlaceAccount<AI, AL, D>
 where
-    AI: ToSolanaAccountInfo<'a>,
+    AI: ToSolanaAccountInfo<'b>,
     AL: AccountListItem<D>,
-    D: InPlaceCreate<'b, C>,
+    D: InPlaceCreate<C>,
     CPI: CPIMethod,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: Create<'a, AI, C, CPI>) -> CruiserResult {
