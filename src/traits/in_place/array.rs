@@ -19,7 +19,7 @@ impl<'a, T, A, const N: usize> InPlaceArray<'a, T, A, N> {
     pub fn all_with_args<Arg>(
         &self,
         args: [Arg; N],
-    ) -> impl Iterator<Item = CruiserResult<T::Access<'_, &'_ [u8]>>>
+    ) -> impl ExactSizeIterator<Item = CruiserResult<T::Access<'_, &'_ [u8]>>>
     where
         A: Deref<Target = [u8]>,
         T: InPlaceRead<Arg> + OnChainSize,
@@ -30,7 +30,7 @@ impl<'a, T, A, const N: usize> InPlaceArray<'a, T, A, N> {
     }
 
     /// An iterator over all elements of the array
-    pub fn all(&self) -> impl Iterator<Item = CruiserResult<T::Access<'_, &'_ [u8]>>>
+    pub fn all(&self) -> impl ExactSizeIterator<Item = CruiserResult<T::Access<'_, &'_ [u8]>>>
     where
         A: Deref<Target = [u8]>,
         T: InPlaceRead + OnChainSize,
@@ -42,7 +42,7 @@ impl<'a, T, A, const N: usize> InPlaceArray<'a, T, A, N> {
     pub fn all_with_args_mut<Arg>(
         &mut self,
         args: [Arg; N],
-    ) -> impl Iterator<Item = CruiserResult<T::AccessMut<'_, &'_ mut [u8]>>>
+    ) -> impl ExactSizeIterator<Item = CruiserResult<T::AccessMut<'_, &'_ mut [u8]>>>
     where
         A: DerefMut<Target = [u8]>,
         T: InPlaceWrite<Arg> + OnChainSize,
@@ -53,7 +53,9 @@ impl<'a, T, A, const N: usize> InPlaceArray<'a, T, A, N> {
     }
 
     /// An iterator over all the elements mutably
-    pub fn all_mut(&mut self) -> impl Iterator<Item = CruiserResult<T::AccessMut<'_, &'_ mut [u8]>>>
+    pub fn all_mut(
+        &mut self,
+    ) -> impl ExactSizeIterator<Item = CruiserResult<T::AccessMut<'_, &'_ mut [u8]>>>
     where
         A: DerefMut<Target = [u8]>,
         T: InPlaceWrite + OnChainSize,

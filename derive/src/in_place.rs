@@ -5,20 +5,38 @@ use proc_macro2::TokenStream;
 use proc_macro_error::abort;
 use quote::{format_ident, quote};
 use syn::parse::Parse;
-use syn::{Data, DataStruct, DeriveInput, Field, Fields, FieldsNamed, FieldsUnnamed, Ident, Type};
+use syn::{
+    Attribute, Data, DataStruct, DeriveInput, Field, Fields, FieldsNamed, FieldsUnnamed, Ident,
+    Type,
+};
 
 #[derive(ArgumentList, Default)]
 pub struct InPlaceArgs {
     access_struct_name: Option<Ident>,
     properties_enum_name: Option<Ident>,
 }
-
 impl InPlaceArgs {
-    const NAME: &'static str = "in_place";
+    const IDENT: &'static str = "in_place";
+}
+
+#[derive(ArgumentList, Default)]
+pub struct InPlaceFieldArgs {
+    #[argument(presence)]
+    dynamic_size: bool,
+}
+impl InPlaceFieldArgs {
+    const IDENT: &'static str = "in_place";
 }
 
 pub struct InPlaceDerive {
     tokens: TokenStream,
+}
+
+pub fn get_attr<'a, Attr: ArgumentList, I: IntoIterator<Item = &'a Attribute>>(
+    attrs: I,
+    attr_name: &'static str,
+) -> Option<Attr> {
+    find_attr(attrs, &format_ident!("{}", attr_name)).map(Attr::parse_arguments)
 }
 
 impl Parse for InPlaceDerive {
@@ -30,9 +48,7 @@ impl Parse for InPlaceDerive {
         let InPlaceArgs {
             access_struct_name,
             properties_enum_name,
-        } = find_attr(derive.attrs.iter(), &format_ident!("{}", InPlaceArgs::NAME))
-            .map(InPlaceArgs::parse_arguments)
-            .unwrap_or_default();
+        } = get_attr::<InPlaceArgs, _>(derive.attrs.iter(), InPlaceArgs::IDENT).unwrap_or_default();
         let access_struct_name =
             access_struct_name.unwrap_or_else(|| format_ident!("{}Access", derive.ident));
         let properties_enum_name =
@@ -86,7 +102,7 @@ impl Parse for InPlaceDerive {
                 }
             }
             impl #impl_generics #crate_name::in_place::InPlaceWrite for #ident #ty_generics #where_clause {
-                fn write_with_arg<'__a, __A>(data: __A, _arg: ()) -> #crate_name::CruiserResult<<Self as #crate_name::in_place::InPlace>::AccessMut<'__a, __A>>
+                fn write_with_arg<'__a, __A>(__data: __A, _arg: ()) -> #crate_name::CruiserResult<<Self as #crate_name::in_place::InPlace>::AccessMut<'__a, __A>>
                 where
                     Self: '__a,
                     __A: '__a
@@ -100,10 +116,10 @@ impl Parse for InPlaceDerive {
                 }
             }
 
-            #vis #access_struct_name<__A>(__A);
+            #vis struct #access_struct_name<__A>(__A);
             impl<__A> const #crate_name::in_place::InPlaceRawDataAccess for #access_struct_name<__A>
             where
-                A: ~const ::std::ops::Deref<Target = [u8]>,
+                __A: ~const ::std::ops::Deref<Target = [u8]>,
             {
                 fn get_raw_data(&self) -> &[u8] {
                     &*self.0
@@ -111,7 +127,7 @@ impl Parse for InPlaceDerive {
             }
             impl<__A> const #crate_name::in_place::InPlaceRawDataAccessMut for #access_struct_name<__A>
             where
-                A: ~const ::std::ops::DerefMut<Target = [u8]>,
+                __A: ~const ::std::ops::DerefMut<Target = [u8]>,
             {
                 fn get_raw_data_mut(&mut self) -> &mut [u8] {
                     &mut *self.0
@@ -119,10 +135,10 @@ impl Parse for InPlaceDerive {
             }
 
             #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-            #vis #properties_enum_name{
+            #vis enum #properties_enum_name{
                 #(#enum_idents,)*
             }
-            impl const #crate_name::InPlacePropertiesList for #properties_enum_name {
+            impl const #crate_name::in_place::InPlacePropertiesList for #properties_enum_name {
                 fn index(self) -> usize{
                     self as usize
                 }
@@ -131,7 +147,7 @@ impl Parse for InPlaceDerive {
                     #offset
                 }
 
-                fn size(self) -> usize {
+                fn size(self) -> ::std::option::Option<usize> {
                     #sizes
                 }
             }
@@ -273,9 +289,17 @@ impl InPlaceFields for FieldsUnnamed {
 fn create<'a>(iter: impl IntoIterator<Item = &'a Field>, crate_name: &TokenStream) -> TokenStream {
     let out = iter.into_iter().map(|field| {
         let Field { ty, .. } = field;
-        quote! {
+        let attr = get_attr::<InPlaceFieldArgs, _>(field.attrs.iter(), InPlaceFieldArgs::IDENT).unwrap_or_default();
+        if attr.dynamic_size{
+            quote! {
+                <#ty as #crate_name::in_place::InPlaceCreate>::create_with_arg(__data, ())?;
+            }
+        } else {
+            quote! {
                 <#ty as #crate_name::in_place::InPlaceCreate>::create_with_arg(#crate_name::util::Advance::try_advance(&mut __data, <#ty as #crate_name::on_chain_size::OnChainSize>::ON_CHAIN_SIZE)?, ())?;
             }
+        }
+
     });
     quote! {
         let mut __data = &mut *__data;
@@ -289,19 +313,25 @@ fn offsets<'a, 'b>(
     enum_idents: impl IntoIterator<Item = &'b Ident>,
 ) -> TokenStream {
     let mut last_ident = None;
-    let out = enum_idents.into_iter()
-        .map(|enum_ident| {
-            let offset = last_ident
-                .replace(enum_ident)
-                .map_or_else(|| quote! { 0 }, |enum_ident| {
-                    quote! {
-                            <Self as #crate_name::InPlacePropertiesList>::offset(Self::#enum_ident) + <Self as #crate_name::InPlacePropertiesList>::size(Self::#enum_ident)
+    let out = enum_idents.into_iter().map(|enum_ident| {
+        let offset = last_ident.replace(enum_ident).map_or_else(
+            || quote! { 0 },
+            |enum_ident| {
+                quote! {
+                <Self as #crate_name::in_place::InPlacePropertiesList>::offset(Self::#enum_ident)
+                    + match <Self as ::cruiser::in_place::InPlacePropertiesList>::size(Self::#enum_ident) {
+                        ::std::option::Option::Some(size) => size,
+                        ::std::option::Option::None => {
+                            ::std::panic!("Middle element unsized!")
                         }
-                });
-            quote! {
-                Self::#enum_ident => #offset,
-            }
-        });
+                    }
+                }
+            },
+        );
+        quote! {
+            Self::#enum_ident => #offset,
+        }
+    });
     quote! {
         match self {
             #(#out)*
@@ -314,10 +344,17 @@ fn sizes<'a, 'b>(
     crate_name: &TokenStream,
     enum_idents: impl IntoIterator<Item = &'b Ident>,
 ) -> TokenStream {
-    let out = iter.into_iter().zip(enum_idents).map(|(field, enum_ident)| {
-        let Field { ty, .. } = field;
-        quote! {
-            Self::#enum_ident => ::std::Option::Some(<#ty as #crate_name::on_chain_size::OnChainSize>::ON_CHAIN_SIZE),
+    let out = iter.into_iter().zip(enum_idents).map(|(field, enum_ident): (&Field, &Ident)| {
+        let attr = get_attr::<InPlaceFieldArgs, _>(field.attrs.iter(), InPlaceFieldArgs::IDENT).unwrap_or_default();
+        if attr.dynamic_size{
+            quote! {
+                Self::#enum_ident => ::std::option::Option::None,
+            }
+        } else {
+            let Field { ty, .. } = field;
+            quote! {
+                Self::#enum_ident => ::std::option::Option::Some(<#ty as #crate_name::on_chain_size::OnChainSize>::ON_CHAIN_SIZE),
+            }
         }
     });
     quote! {
