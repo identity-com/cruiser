@@ -1,6 +1,5 @@
-use crate::in_place::{InPlace, InPlaceRead, InPlaceWrite};
-use crate::CruiserResult;
-pub use cruiser_derive::get_properties;
+use crate::in_place::InPlace;
+pub use cruiser_derive::{get_properties, get_properties_mut};
 
 /// In-place data that has a properties accessor
 pub trait InPlaceProperties: InPlace {
@@ -34,28 +33,6 @@ pub trait InPlacePropertiesList: Copy {
 pub trait InPlaceProperty<const PROP: usize> {
     /// The type of this property
     type Property: InPlace;
-}
-
-/// Reads a given property
-pub trait InPlaceReadProperty<const PROP: usize>: InPlaceProperty<PROP> {
-    /// Reads the property
-    fn read_property_with_arg<R>(
-        &self,
-        arg: R,
-    ) -> CruiserResult<<Self::Property as InPlace>::Access<'_, &'_ [u8]>>
-    where
-        Self::Property: InPlaceRead<R>;
-}
-
-/// Writes a given property
-pub trait InPlaceWriteProperty<const PROP: usize>: InPlaceProperty<PROP> {
-    /// Writes the property
-    fn write_property_with_arg<W>(
-        &mut self,
-        arg: W,
-    ) -> CruiserResult<<Self::Property as InPlace>::Access<'_, &'_ mut [u8]>>
-    where
-        Self::Property: InPlaceWrite<W>;
 }
 
 /// Calculates offsets for properties. Will panic if `properties` is not sorted

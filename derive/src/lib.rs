@@ -203,23 +203,20 @@ pub fn derive_account_list(ts: TokenStream) -> TokenStream {
     stream.into()
 }
 
-/// Gets a set of properties (mutably) for a given in_place item.
-/// Immutable gets can be done directly on the item as they don't block each other.
+/// Gets a set of properties  for a given in_place item.
 /// ```
 /// #![feature(const_trait_impl)]
 /// #![feature(generic_associated_types)]
 /// #![feature(const_mut_refs)]
 /// // Solana uses rust 1.59, this does not support the new where clause location
 /// #![allow(deprecated_where_clause_location)]
-/// use std::ops::{Deref, DerefMut};
 /// use cruiser::in_place::{
-///     InPlace, InPlaceProperties, get_properties, InPlacePropertiesList, InPlaceProperty,
-///     InPlaceRawDataAccess, InPlaceRawDataAccessMut, InPlaceWrite, GetNum,
+///     InPlace, get_properties, InPlaceUnitWrite, GetNum,
 /// };
 /// use cruiser::on_chain_size::OnChainSize;
-/// use cruiser::{CruiserResult, GenericError, Pubkey};
-/// use cruiser::util::{MappableRef, MappableRefMut, TryMappableRef, TryMappableRefMut};
+/// use cruiser::Pubkey;
 ///
+/// #[derive(InPlace)]
 /// pub struct TestData {
 ///     pub value: u8,
 ///     pub cool: [u16; 2],
@@ -230,100 +227,9 @@ pub fn derive_account_list(ts: TokenStream) -> TokenStream {
 ///             + <[u16; 2]>::ON_CHAIN_SIZE
 ///             + Pubkey::ON_CHAIN_SIZE;
 /// }
-/// impl InPlace for TestData {
-///     type Access<'a, A>
-///     where
-///         Self: 'a,
-///         A: 'a + MappableRef + TryMappableRef
-///     = TestDataAccess<A>;
-/// }
-/// impl InPlaceProperties for TestData {
-///     type Properties = TestDataProperties;
-/// }
-/// impl InPlaceWrite for TestData {
-///     fn write_with_arg<'a, A>(data: A, _arg: ()) -> CruiserResult<Self::AccessMut<'a, A>>
-///     where
-///         Self: 'a,
-///         A: 'a + DerefMut<Target=[u8]> + MappableRef + TryMappableRef + MappableRefMut + TryMappableRefMut,
-///     {
-///         TestDataAccess::new(data)
-///     }
-/// }
-///
-/// pub struct TestDataAccess<A>(A);
-/// impl<A> TestDataAccess<A>{
-///     pub fn new(access: A) -> CruiserResult<Self>
-///     where
-///         A: Deref<Target=[u8]>,
-///     {
-///         if access.len() < TestData::ON_CHAIN_SIZE {
-///             Err(GenericError::NotEnoughData{
-///                 needed: TestData::ON_CHAIN_SIZE,
-///                 remaining: access.len()
-///             }.into())
-///         } else {
-///             Ok(Self(access))
-///         }
-///     }
-/// }
-/// impl<A> const InPlaceRawDataAccess for TestDataAccess<A>
-/// where
-///     A: ~const Deref<Target = [u8]>,
-/// {
-///     fn get_raw_data(&self) -> &[u8] {
-///         &*self.0
-///     }
-/// }
-/// impl<A> const InPlaceRawDataAccessMut for TestDataAccess<A>
-/// where
-///     A: ~const DerefMut<Target = [u8]>,
-/// {
-///     fn get_raw_data_mut(&mut self) -> &mut [u8] {
-///         &mut *self.0
-///     }
-/// }
-///
-/// #[derive(Copy, Clone, Debug)]
-/// pub enum TestDataProperties {
-///     Value,
-///     Cool,
-///     Key,
-/// }
-/// impl const InPlacePropertiesList for TestDataProperties {
-///     fn index(self) -> usize {
-///         self as usize
-///     }
-///
-///     fn offset(self) -> usize {
-///         match self {
-///             TestDataProperties::Value => 0,
-///             TestDataProperties::Cool => {
-///                 TestDataProperties::Value.offset() + u8::ON_CHAIN_SIZE
-///             }
-///             TestDataProperties::Key => {
-///                 TestDataProperties::Cool.offset()
-///                     + <[u16; 2] as OnChainSize>::ON_CHAIN_SIZE
-///             }
-///         }
-///     }
-///
-///     fn size(self) -> Option<usize> {
-///         match self {
-///             TestDataProperties::Value => Some(u8::ON_CHAIN_SIZE),
-///             TestDataProperties::Cool => Some(<[u16; 2]>::ON_CHAIN_SIZE),
-///             TestDataProperties::Key => Some(Pubkey::ON_CHAIN_SIZE),
-///         }
-///     }
-/// }
-/// impl<A> const InPlaceProperty<0> for TestDataAccess<A> {
-///     type Property = u8;
-/// }
-/// impl<A> const InPlaceProperty<2> for TestDataAccess<A> {
-///     type Property = Pubkey;
-/// }
 ///
 /// let mut data = [0u8; TestData::ON_CHAIN_SIZE];
-/// let mut value = TestData::write_with_arg(data.as_mut_slice(), ()).expect("could not write");
+/// let mut value = TestData::write(data.as_mut_slice()).expect("could not write");
 /// let (value, key) = get_properties!(&mut value, TestData { value, key }).expect("could not get properties");
 /// assert_eq!(value.get_num(), 0);
 /// assert_eq!(*key, Pubkey::new_from_array([0; 32]));
@@ -337,18 +243,63 @@ pub fn get_properties(tokens: TokenStream) -> TokenStream {
     stream.into()
 }
 
-// /// Derive macro for the `InPlace` trait.
-// #[proc_macro_error]
-// #[proc_macro_derive(InPlace, attributes(in_place))]
-// pub fn derive_in_place(input: TokenStream) -> TokenStream {
-//     let stream = parse_macro_input!(input as InPlaceDerive).into_token_stream();
-//     #[cfg(feature = "debug_in_place")]
-//     {
-//         println!("{}", stream);
-//         std::thread::sleep(std::time::Duration::from_millis(100));
-//     }
-//     stream.into()
-// }
+/// Gets a set of properties  for a given in_place item.
+/// ```
+/// #![feature(const_trait_impl)]
+/// #![feature(generic_associated_types)]
+/// #![feature(const_mut_refs)]
+/// // Solana uses rust 1.59, this does not support the new where clause location
+/// #![allow(deprecated_where_clause_location)]
+/// use cruiser::in_place::{
+///     InPlace, get_properties_mut, InPlaceUnitWrite, GetNum, SetNum
+/// };
+/// use cruiser::on_chain_size::OnChainSize;
+/// use cruiser::Pubkey;
+///
+/// #[derive(InPlace)]
+/// pub struct TestData {
+///     pub value: u8,
+///     pub cool: [u16; 2],
+///     pub key: Pubkey,
+/// }
+/// impl const OnChainSize for TestData {
+///     const ON_CHAIN_SIZE: usize = u8::ON_CHAIN_SIZE
+///             + <[u16; 2]>::ON_CHAIN_SIZE
+///             + Pubkey::ON_CHAIN_SIZE;
+/// }
+///
+/// let mut data = [0u8; TestData::ON_CHAIN_SIZE];
+/// let mut value = TestData::write(data.as_mut_slice()).expect("could not write");
+/// let (mut value, mut key) = get_properties_mut!(&mut value, TestData { value, key }).expect("could not get properties");
+/// value.set_num(1);
+/// *key = Pubkey::new_from_array([1; 32]);
+/// assert_eq!(value.get_num(), 1);
+/// assert_eq!(*key, Pubkey::new_from_array([1; 32]));
+/// ```
+#[cfg(feature = "in_place")]
+#[proc_macro_error]
+#[proc_macro]
+pub fn get_properties_mut(tokens: TokenStream) -> TokenStream {
+    let stream = parse_macro_input!(tokens as GetProperties)
+        .set_mutable(true)
+        .into_token_stream();
+    // println!("{}", stream);
+    stream.into()
+}
+
+/// Derive macro for the `InPlace` trait.
+#[cfg(feature = "in_place")]
+#[proc_macro_error]
+#[proc_macro_derive(InPlace, attributes(in_place))]
+pub fn derive_in_place(input: TokenStream) -> TokenStream {
+    let stream = parse_macro_input!(input as InPlaceDerive).into_token_stream();
+    #[cfg(feature = "debug_in_place")]
+    {
+        println!("{}", stream);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    stream.into()
+}
 
 /// Verifies a given type implements the proper traits
 ///
