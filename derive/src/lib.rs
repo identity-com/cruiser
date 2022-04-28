@@ -288,6 +288,7 @@ pub fn get_properties_mut(tokens: TokenStream) -> TokenStream {
 }
 
 /// Derive macro for the `InPlace` trait.
+/// This only supports a sub-set of cases that it eventually will.
 #[cfg(feature = "in_place")]
 #[proc_macro_error]
 #[proc_macro_derive(InPlace, attributes(in_place))]
