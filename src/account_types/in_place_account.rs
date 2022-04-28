@@ -9,8 +9,10 @@ use crate::in_place::InPlaceCreate;
 use crate::pda_seeds::PDASeedSet;
 use crate::program::ProgramKey;
 use crate::util::short_iter::ShortIter;
+use crate::util::{MappableRef, MappableRefMut, TryMappableRef, TryMappableRefMut};
 use crate::{AccountInfo, CPIMethod, CruiserResult, GenericError, ToSolanaAccountInfo};
 use borsh::{BorshDeserialize, BorshSerialize};
+use cruiser::in_place::{InPlaceRead, InPlaceWrite};
 use solana_program::pubkey::Pubkey;
 use solana_program::rent::Rent;
 use solana_program::sysvar::Sysvar;
@@ -19,6 +21,49 @@ use solana_program::sysvar::Sysvar;
 #[derive(AccountArgument, Debug)]
 #[account_argument(account_info = AI, generics = [where AI: AccountInfo], no_validate)]
 pub struct InPlaceAccount<AI, AL, D>(AI, PhantomAccount<AI, (AL, D)>);
+impl<AI, AL, D> InPlaceAccount<AI, AL, D>
+where
+    AI: AccountInfo,
+{
+    /// Reads the in-place data with an arg
+    pub fn read_with_arg<'a, A>(&'a self, arg: A) -> CruiserResult<D::Access<'a, AI::Data<'a>>>
+    where
+        D: InPlaceRead<A>,
+        AI::Data<'a>: MappableRef + TryMappableRef,
+    {
+        D::read_with_arg(self.0.data(), arg)
+    }
+
+    /// Reads the in-place data
+    pub fn read<'a, A>(&'a self) -> CruiserResult<D::Access<'a, AI::Data<'a>>>
+    where
+        D: InPlaceRead,
+        AI::Data<'a>: MappableRef + TryMappableRef,
+    {
+        self.read_with_arg(())
+    }
+
+    /// Writes the in-place data with an arg
+    pub fn write_with_arg<'a, A>(
+        &'a self,
+        arg: A,
+    ) -> CruiserResult<D::AccessMut<'a, AI::DataMut<'a>>>
+    where
+        D: InPlaceWrite<A>,
+        AI::DataMut<'a>: MappableRef + TryMappableRef + MappableRefMut + TryMappableRefMut,
+    {
+        D::write_with_arg(self.0.data_mut(), arg)
+    }
+
+    /// Writes the in-place data
+    pub fn write<'a, A>(&'a self) -> CruiserResult<D::AccessMut<'a, AI::DataMut<'a>>>
+    where
+        D: InPlaceWrite,
+        AI::DataMut<'a>: MappableRef + TryMappableRef + MappableRefMut + TryMappableRefMut,
+    {
+        self.write_with_arg(())
+    }
+}
 impl<AI, AL, D> ValidateArgument for InPlaceAccount<AI, AL, D>
 where
     AI: AccountInfo,
