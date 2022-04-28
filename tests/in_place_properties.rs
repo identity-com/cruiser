@@ -4,7 +4,9 @@
 // Solana uses rust 1.59, this does not support the new where clause location
 #![allow(deprecated_where_clause_location)]
 
-use cruiser::in_place::{get_properties, GetNum, InPlace, InPlaceWrite, SetNum};
+use cruiser::in_place::{
+    get_properties, get_properties_mut, GetNum, InPlace, InPlaceUnitRead, InPlaceUnitWrite, SetNum,
+};
 use cruiser::on_chain_size::OnChainSize;
 use cruiser::util::Length;
 use cruiser::Pubkey;
@@ -26,16 +28,16 @@ impl const OnChainSize for TestData {
 #[test]
 fn main_test() -> Result<(), Box<dyn Error>> {
     let mut data = [0u8; TestData::ON_CHAIN_SIZE];
-    let mut write_data = TestData::write_with_arg(data.as_mut_slice(), ())?;
-    let (mut value, mut key) = get_properties!(&mut write_data, TestData { value, key })?;
+    let mut write_data = TestData::write(data.as_mut_slice())?;
+    let (mut value, mut key) = get_properties_mut!(&mut write_data, TestData { value, key })?;
     assert_eq!(value.get_num(), 0);
     value.set_num(2);
     assert_eq!(*key, Pubkey::new_from_array([0; 32]));
     *key = Pubkey::new_from_array([1; 32]);
     drop((value, key));
     drop(write_data);
-    let mut write_data = TestData::write_with_arg(data.as_mut_slice(), ())?;
-    let (value, cool, key) = get_properties!(&mut write_data, TestData { value, cool, key })?;
+    let read_data = TestData::read(data.as_slice())?;
+    let (value, cool, key) = get_properties!(&read_data, TestData { value, cool, key })?;
     assert_eq!(value.get_num(), 2);
     assert_eq!(*key, Pubkey::new_from_array([1; 32]));
     cool.all()

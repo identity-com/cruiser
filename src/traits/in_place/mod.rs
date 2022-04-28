@@ -4,15 +4,15 @@ mod array;
 mod prim;
 mod pubkey;
 // mod static_size_vec;
-// mod unit;
 mod properties;
+mod unit;
 
 pub use array::*;
 pub use prim::*;
 pub use pubkey::*;
 // pub use static_size_vec::*;
 pub use properties::*;
-// pub use unit::*;
+pub use unit::*;
 
 pub use cruiser_derive::InPlace;
 

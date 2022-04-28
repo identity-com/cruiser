@@ -1,5 +1,5 @@
 use crate::in_place::InPlace;
-pub use cruiser_derive::get_properties;
+pub use cruiser_derive::{get_properties, get_properties_mut};
 
 /// In-place data that has a properties accessor
 pub trait InPlaceProperties: InPlace {
