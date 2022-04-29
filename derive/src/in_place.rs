@@ -15,6 +15,7 @@ pub struct InPlaceArgs {
     access_struct_name: Option<Ident>,
     properties_enum_name: Option<Ident>,
 }
+
 impl InPlaceArgs {
     const IDENT: &'static str = "in_place";
 }
@@ -24,6 +25,7 @@ pub struct InPlaceFieldArgs {
     #[argument(presence)]
     dynamic_size: bool,
 }
+
 impl InPlaceFieldArgs {
     const IDENT: &'static str = "in_place";
 }
@@ -116,6 +118,7 @@ impl Parse for InPlaceDerive {
                 }
             }
 
+            /// In place access for #ident
             #vis struct #access_struct_name<__A>(__A);
             impl<__A> const #crate_name::in_place::InPlaceRawDataAccess for #access_struct_name<__A>
             where
@@ -134,7 +137,9 @@ impl Parse for InPlaceDerive {
                 }
             }
 
+            /// In place properties for #ident
             #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+            #[allow(missing_docs)]
             #vis enum #properties_enum_name{
                 #(#enum_idents,)*
             }
@@ -290,7 +295,7 @@ fn create<'a>(iter: impl IntoIterator<Item = &'a Field>, crate_name: &TokenStrea
     let out = iter.into_iter().map(|field| {
         let Field { ty, .. } = field;
         let attr = get_attr::<InPlaceFieldArgs, _>(field.attrs.iter(), InPlaceFieldArgs::IDENT).unwrap_or_default();
-        if attr.dynamic_size{
+        if attr.dynamic_size {
             quote! {
                 <#ty as #crate_name::in_place::InPlaceCreate>::create_with_arg(__data, ())?;
             }
@@ -299,7 +304,6 @@ fn create<'a>(iter: impl IntoIterator<Item = &'a Field>, crate_name: &TokenStrea
                 <#ty as #crate_name::in_place::InPlaceCreate>::create_with_arg(#crate_name::util::Advance::try_advance(&mut __data, <#ty as #crate_name::on_chain_size::OnChainSize>::ON_CHAIN_SIZE)?, ())?;
             }
         }
-
     });
     quote! {
         let mut __data = &mut *__data;
@@ -346,7 +350,7 @@ fn sizes<'a, 'b>(
 ) -> TokenStream {
     let out = iter.into_iter().zip(enum_idents).map(|(field, enum_ident): (&Field, &Ident)| {
         let attr = get_attr::<InPlaceFieldArgs, _>(field.attrs.iter(), InPlaceFieldArgs::IDENT).unwrap_or_default();
-        if attr.dynamic_size{
+        if attr.dynamic_size {
             quote! {
                 Self::#enum_ident => ::std::option::Option::None,
             }

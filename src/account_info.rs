@@ -9,6 +9,7 @@ use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
     ValidateArgument,
 };
+use crate::util::{MappableRef, MappableRefMut, TryMappableRef, TryMappableRefMut};
 use crate::{CruiserResult, GenericError, SolanaAccountInfo};
 use solana_program::clock::Epoch;
 use solana_program::entrypoint::{BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE};
@@ -39,11 +40,15 @@ pub trait AccountInfo:
     where
         Self: 'a;
     /// The return of [`AccountInfo::data`]
-    type Data<'a>: Deref<Target = [u8]>
+    type Data<'a>: Deref<Target = [u8]> + MappableRef + TryMappableRef
     where
         Self: 'a;
     /// The return of [`AccountInfo::data_mut`]
     type DataMut<'a>: DerefMut<Target = [u8]>
+        + MappableRef
+        + TryMappableRef
+        + MappableRefMut
+        + TryMappableRefMut
     where
         Self: 'a;
     /// The return of [`AccountInfo::owner`]
