@@ -123,7 +123,7 @@ impl GetProperties {
                     #({
                         #crate_name::util::Advance::try_advance(&mut data, OFFSETS[#indexes].0)?;
                         <<
-                            <#ty as InPlace>::#access<#a_lifetime, #a_ident> as #crate_name::in_place::InPlaceProperty<{ #crate_name::in_place::InPlacePropertiesList::index(<#ty as #crate_name::in_place::InPlaceProperties>::Properties::#properties_pascal) }>
+                            <#ty as #crate_name::in_place::InPlace>::#access<#a_lifetime, #a_ident> as #crate_name::in_place::InPlaceProperty<{ #crate_name::in_place::InPlacePropertiesList::index(<#ty as #crate_name::in_place::InPlaceProperties>::Properties::#properties_pascal) }>
                         >::Property as #crate_name::in_place::#read_write(
                             match OFFSETS[#indexes].1{
                                 Some(size) => #crate_name::util::Advance::try_advance(&mut data, size)?,
