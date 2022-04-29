@@ -11,7 +11,6 @@
 #![feature(maybe_uninit_uninit_array)]
 #![feature(maybe_uninit_array_assume_init)]
 #![feature(associated_type_defaults)]
-#![feature(const_convert)]
 #![warn(
     unused_import_braces,
     unused_imports,

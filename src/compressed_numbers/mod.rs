@@ -70,7 +70,7 @@ impl_compressed_for_prim!(NonZeroI32);
 impl_compressed_for_prim!(NonZeroI64);
 impl_compressed_for_prim!(NonZeroI128);
 
-impl const CompressedNumber<NonZeroU64> for NonZeroU8 {
+impl CompressedNumber<NonZeroU64> for NonZeroU8 {
     fn from_number(number: NonZeroU64) -> Self {
         match number.try_into() {
             Ok(value) => value,
@@ -90,7 +90,7 @@ impl const CompressedNumber<NonZeroU64> for NonZeroU8 {
         1
     }
 }
-impl const CompressedNumber<NonZeroU64> for NonZeroU16 {
+impl CompressedNumber<NonZeroU64> for NonZeroU16 {
     fn from_number(number: NonZeroU64) -> Self {
         match number.try_into() {
             Ok(value) => value,
@@ -110,7 +110,7 @@ impl const CompressedNumber<NonZeroU64> for NonZeroU16 {
         2
     }
 }
-impl const CompressedNumber<NonZeroU64> for NonZeroU32 {
+impl CompressedNumber<NonZeroU64> for NonZeroU32 {
     fn from_number(number: NonZeroU64) -> Self {
         match number.try_into() {
             Ok(value) => value,
@@ -130,7 +130,7 @@ impl const CompressedNumber<NonZeroU64> for NonZeroU32 {
         4
     }
 }
-impl const CompressedNumber<u64> for u8 {
+impl CompressedNumber<u64> for u8 {
     fn from_number(number: u64) -> Self {
         match number.try_into() {
             Ok(value) => value,
@@ -150,7 +150,7 @@ impl const CompressedNumber<u64> for u8 {
         1
     }
 }
-impl const CompressedNumber<u64> for u16 {
+impl CompressedNumber<u64> for u16 {
     fn from_number(number: u64) -> Self {
         match number.try_into() {
             Ok(value) => value,
@@ -170,7 +170,7 @@ impl const CompressedNumber<u64> for u16 {
         2
     }
 }
-impl const CompressedNumber<u64> for u32 {
+impl CompressedNumber<u64> for u32 {
     fn from_number(number: u64) -> Self {
         match number.try_into() {
             Ok(value) => value,
