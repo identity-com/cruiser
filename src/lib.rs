@@ -25,7 +25,8 @@
     clippy::missing_errors_doc,
     clippy::too_many_lines,
     clippy::missing_panics_doc,
-    clippy::wildcard_imports
+    clippy::wildcard_imports,
+    clippy::match_wild_err_arm
 )]
 // Solana is on 1.59 currently, this requires the now deprecated where clause position
 #![cfg_attr(VERSION_GREATER_THAN_59, allow(deprecated_where_clause_location))]
