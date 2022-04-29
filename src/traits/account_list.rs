@@ -9,7 +9,7 @@ use crate::compressed_numbers::CompressedNumber;
 /// A list of all accounts used by a program.
 pub trait AccountList {
     /// The compression algorithm
-    type DiscriminantCompressed: CompressedNumber<Num = NonZeroU64>;
+    type DiscriminantCompressed: CompressedNumber<NonZeroU64>;
 }
 /// Allows an account list to support an account type
 ///

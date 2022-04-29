@@ -12,7 +12,7 @@ use solana_program::pubkey::Pubkey;
 /// A list of possible instructions for a program.
 pub trait InstructionList: Copy {
     /// The compression for the discriminant
-    type DiscriminantCompressed: CompressedNumber<Num = u64>;
+    type DiscriminantCompressed: CompressedNumber<u64>;
     /// The accounts for this list of instructions
     type AccountList: AccountList;
 
