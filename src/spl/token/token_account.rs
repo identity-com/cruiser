@@ -114,6 +114,37 @@ where
     }
 }
 
+/// Validates that the account has a given owner and mint
+#[derive(Debug, Copy, Clone)]
+pub struct OwnerAndMint<'a> {
+    owner: &'a Pubkey,
+    mint: &'a Pubkey,
+}
+
+impl<AI> ValidateArgument<OwnerAndMint<'_>> for TokenAccount<AI>
+where
+    AI: AccountInfo,
+{
+    fn validate(&mut self, program_id: &Pubkey, arg: OwnerAndMint) -> CruiserResult<()> {
+        self.validate(program_id, ())?;
+        if &self.data.owner != arg.owner {
+            Err(GenericError::InvalidAccount {
+                account: self.data.owner,
+                expected: *arg.owner,
+            }
+            .into())
+        } else if &self.data.mint != arg.mint {
+            Err(GenericError::InvalidAccount {
+                account: self.data.mint,
+                expected: *arg.mint,
+            }
+            .into())
+        } else {
+            Ok(())
+        }
+    }
+}
+
 impl<AI, I> MultiIndexable<I> for TokenAccount<AI>
 where
     AI: AccountInfo,

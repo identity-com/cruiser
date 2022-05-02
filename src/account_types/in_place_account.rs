@@ -21,6 +21,7 @@ use solana_program::sysvar::Sysvar;
 #[derive(AccountArgument, Debug)]
 #[account_argument(account_info = AI, generics = [where AI: AccountInfo], no_validate)]
 pub struct InPlaceAccount<AI, AL, D>(AI, PhantomAccount<AI, (AL, D)>);
+
 impl<AI, AL, D> InPlaceAccount<AI, AL, D>
 where
     AI: AccountInfo,
@@ -35,7 +36,7 @@ where
     }
 
     /// Reads the in-place data
-    pub fn read<'a, A>(&'a self) -> CruiserResult<D::Access<'a, AI::Data<'a>>>
+    pub fn read<'a>(&'a self) -> CruiserResult<D::Access<'a, AI::Data<'a>>>
     where
         D: InPlaceRead,
         AI::Data<'a>: MappableRef + TryMappableRef,
@@ -56,7 +57,7 @@ where
     }
 
     /// Writes the in-place data
-    pub fn write<'a, A>(&'a self) -> CruiserResult<D::AccessMut<'a, AI::DataMut<'a>>>
+    pub fn write<'a>(&'a self) -> CruiserResult<D::AccessMut<'a, AI::DataMut<'a>>>
     where
         D: InPlaceWrite,
         AI::DataMut<'a>: MappableRef + TryMappableRef + MappableRefMut + TryMappableRefMut,
@@ -64,6 +65,7 @@ where
         self.write_with_arg(())
     }
 }
+
 impl<AI, AL, D> ValidateArgument for InPlaceAccount<AI, AL, D>
 where
     AI: AccountInfo,
@@ -86,6 +88,7 @@ where
         }
     }
 }
+
 /// Allows [`InPlaceAccount`] to init a zeroed or system program account.
 #[derive(Debug)]
 pub struct Create<'a, AI, T, CPI> {
@@ -106,6 +109,7 @@ pub struct Create<'a, AI, T, CPI> {
     /// The [`CPIMethod`] to use.
     pub cpi: CPI,
 }
+
 impl<'a, 'b, AI, AL, D, C, CPI> ValidateArgument<Create<'a, AI, C, CPI>>
     for InPlaceAccount<AI, AL, D>
 where
@@ -171,6 +175,7 @@ where
         Ok(())
     }
 }
+
 impl<AI, AL, D, I> MultiIndexable<I> for InPlaceAccount<AI, AL, D>
 where
     AI: MultiIndexable<I> + AccountInfo,
@@ -185,6 +190,7 @@ where
         self.0.index_is_owner(owner, indexer)
     }
 }
+
 impl<AI, AL, D, I> SingleIndexable<I> for InPlaceAccount<AI, AL, D>
 where
     AI: SingleIndexable<I> + AccountInfo,
