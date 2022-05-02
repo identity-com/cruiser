@@ -73,6 +73,7 @@ pub mod account_types;
 pub mod client;
 pub mod compressed_numbers;
 pub mod entrypoint;
+pub mod impls;
 pub mod indexer;
 pub mod pda_seeds;
 #[cfg(feature = "spl-token")]
@@ -83,7 +84,6 @@ pub mod util;
 mod account_info;
 mod cpi;
 mod generic_error;
-mod impls;
 mod traits;
 
 pub use account_info::*;

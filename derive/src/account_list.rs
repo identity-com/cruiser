@@ -13,6 +13,7 @@ pub struct AccountListAttribute {
     #[argument(default = syn::parse_str("u64").unwrap())]
     discriminant_type: Type,
 }
+
 impl Default for AccountListAttribute {
     fn default() -> Self {
         Self {
@@ -20,6 +21,7 @@ impl Default for AccountListAttribute {
         }
     }
 }
+
 pub struct AccountListDerive {
     generics: Generics,
     attribute: AccountListAttribute,
@@ -28,6 +30,7 @@ pub struct AccountListDerive {
     variant_types: Vec<Type>,
     variant_discriminants: Vec<TokenStream>,
 }
+
 impl AccountListDerive {
     pub fn into_token_stream(self) -> TokenStream {
         let crate_name = get_crate_name();
@@ -79,6 +82,7 @@ impl AccountListDerive {
         }
     }
 }
+
 impl Parse for AccountListDerive {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let derive: DeriveInput = input.parse()?;
@@ -119,19 +123,14 @@ impl Parse for AccountListDerive {
                 }
             }
             variant_idents.push(variant.ident);
-            let value = match variant.discriminant {
-                None => {
-                    if let Some(last) = last {
-                        quote! {
-                            (#last) + 1
-                        }
-                    } else {
-                        quote! {
-                            1
-                        }
-                    }
+            let value = if let Some(last) = last {
+                quote! {
+                    (#last) + 1
                 }
-                Some((_, discriminant)) => quote! { #discriminant },
+            } else {
+                quote! {
+                    1
+                }
             };
             variant_discriminants.push(value.clone());
             last = Some(value.clone());

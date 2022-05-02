@@ -168,6 +168,7 @@ struct ValidateFieldAttribute {
     owner: Vec<IndexesValue<Expr, UnitDefault>>,
     #[argument(custom)]
     key: Option<IndexesValue<Expr, UnitDefault>>,
+    custom: Vec<Expr>,
 }
 impl ValidateFieldAttribute {
     const IDENT: &'static str = "validate";
@@ -191,6 +192,7 @@ impl Default for ValidateFieldAttribute {
             writable: Vec::new(),
             owner: Vec::new(),
             key: None,
+            custom: Vec::new(),
         }
     }
 }
@@ -930,12 +932,19 @@ impl AccountArgumentDeriveStruct {
         program_id: &TokenStream,
         infos: &TokenStream,
     ) -> TokenStream {
-        let tokens = named
+        let mut assignments = Vec::with_capacity(named.len());
+        let mut builders = Vec::with_capacity(named.len());
+        for (assign, build) in named
             .iter()
-            .map(|field| field.from_accounts(id, program_id, infos));
+            .map(|field| field.from_accounts(id, program_id, infos))
+        {
+            assignments.push(assign);
+            builders.push(build);
+        }
         quote! {
+            #(#assignments)*
             ::std::result::Result::Ok(Self{
-                #(#tokens,)*
+                #(#builders,)*
             })
         }
     }
@@ -1025,10 +1034,10 @@ impl NamedField {
         id: &str,
         program_id: &TokenStream,
         infos: &TokenStream,
-    ) -> TokenStream {
+    ) -> (TokenStream, TokenStream) {
         let ident = &self.ident;
         let expr = self.field.from_accounts(id, program_id, infos);
-        quote! { #ident: #expr }
+        (quote! { let mut #ident = #expr; }, quote! { #ident })
     }
 
     fn validate_argument(
@@ -1122,6 +1131,15 @@ impl UnnamedField {
             let key = key.value;
             quote! { #crate_name::util::assert::assert_is_key(&#accessor, #key, #indexer)?; }
         });
+        let custom = attr.custom.into_iter().map(|custom| {
+            quote! {
+                if !(#custom) {
+                    return Err(#crate_name::GenericError::Custom{
+                        error: "Custom validation failed".to_string(),
+                    }.into());
+                }
+            }
+        });
 
         quote! {
             #crate_name::account_argument::ValidateArgument::<_>::validate(&mut #accessor, #program_id, #validate)?;
@@ -1129,6 +1147,7 @@ impl UnnamedField {
             #(#writable)*
             #(#owner)*
             #(#key)*
+            #(#custom)*
         }
     }
 }
