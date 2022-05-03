@@ -24,7 +24,7 @@ use crate::spl::token::TokenProgramAccount;
 // }
 
 /// A Mint account owned by the token program
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MintAccount<AI> {
     data: spl_token::state::Mint,
     /// The account associated
