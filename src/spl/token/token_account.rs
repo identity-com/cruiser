@@ -23,7 +23,7 @@ use crate::spl::token::TokenProgramAccount;
 // }
 
 /// A token account owned by the token program
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TokenAccount<AI> {
     data: spl_token::state::Account,
     /// The account associated
@@ -93,7 +93,7 @@ where
 }
 
 /// Validates that the given key is the owner of the [`TokenAccount`]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Owner<'a>(pub &'a Pubkey);
 
 impl<AI> ValidateArgument<Owner<'_>> for TokenAccount<AI>
@@ -107,6 +107,28 @@ where
         } else {
             Err(GenericError::InvalidAccount {
                 account: self.data.owner,
+                expected: *arg.0,
+            }
+            .into())
+        }
+    }
+}
+
+/// Validates that the given key is the mint of the [`TokenAccount`]
+#[derive(Debug, Copy, Clone)]
+pub struct Mint<'a>(pub &'a Pubkey);
+
+impl<AI> ValidateArgument<Mint<'_>> for TokenAccount<AI>
+where
+    AI: AccountInfo,
+{
+    fn validate(&mut self, program_id: &Pubkey, arg: Mint) -> CruiserResult<()> {
+        self.validate(program_id, ())?;
+        if &self.data.mint == arg.0 {
+            Ok(())
+        } else {
+            Err(GenericError::InvalidAccount {
+                account: self.data.mint,
                 expected: *arg.0,
             }
             .into())

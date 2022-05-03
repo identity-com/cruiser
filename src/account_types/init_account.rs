@@ -38,7 +38,7 @@ use crate::{AccountInfo, ToSolanaAccountInfo};
 // }
 
 /// The arguments for initializing an account
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InitArgs<'a, AI, C> {
     /// The system program to initalize the account
     pub system_program: &'a SystemProgram<AI>,

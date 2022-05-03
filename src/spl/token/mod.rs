@@ -25,7 +25,7 @@ use std::ops::{Deref, DerefMut};
 // }
 
 /// Account owned by the token program
-#[derive(AccountArgument, Debug)]
+#[derive(AccountArgument, Debug, Clone)]
 #[account_argument(account_info = AI, generics = [where AI: AccountInfo])]
 pub struct TokenProgramAccount<AI>(#[validate(owner = &spl_token::ID)] pub AI);
 impl<AI> Deref for TokenProgramAccount<AI> {
