@@ -26,6 +26,8 @@ pub trait AccountInfo:
     Clone
     + AccountArgument<AccountInfo = Self>
     + FromAccounts
+    + FromAccounts<Self>
+    + FromAccounts<Option<Self>>
     + ValidateArgument
     + MultiIndexable
     + MultiIndexable<AllAny>

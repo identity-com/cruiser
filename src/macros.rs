@@ -53,6 +53,38 @@ macro_rules! impl_account_info {
                 (1, Some(1))
             }
         }
+        impl$(<$gen>)? FromAccounts<Self> for $account_info {
+            fn from_accounts(
+                _program_id: &Pubkey,
+                _infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
+                arg: Self,
+            ) -> CruiserResult<Self> {
+                Ok(arg)
+            }
+
+            fn accounts_usage_hint(_arg: &Self) -> (usize, Option<usize>) {
+                (0, Some(0))
+            }
+        }
+        impl$(<$gen>)? FromAccounts<Option<Self>> for $account_info {
+            fn from_accounts(
+                program_id: &Pubkey,
+                infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
+                arg: Option<Self>,
+            ) -> CruiserResult<Self> {
+                match arg {
+                    Some(arg) => Self::from_accounts(program_id, infos, arg),
+                    None => Self::from_accounts(program_id, infos, ()),
+                }
+            }
+
+            fn accounts_usage_hint(arg: &Option<Self>) -> (usize, Option<usize>) {
+                match arg {
+                    Some(arg) => Self::accounts_usage_hint(arg),
+                    None => Self::accounts_usage_hint(&()),
+                }
+            }
+        }
         impl$(<$gen>)? ValidateArgument for $account_info {
             fn validate(&mut self, _program_id: &Pubkey, _arg: ()) -> CruiserResult<()> {
                 Ok(())

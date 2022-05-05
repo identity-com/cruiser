@@ -29,13 +29,13 @@ pub struct InitEscrowAccounts<AI> {
     initializer_token_account: TokenAccount<AI>,
     #[from(data = EscrowAccount::default())]
     #[validate(writable, data = (InitArgs{
-    funder: & self.initializer,
-    funder_seeds: None,
-    rent: None,
-    space: EscrowAccount::ON_CHAIN_SIZE + 8,
-    system_program: & self.system_program,
-    account_seeds: None,
-    cpi: CPIChecked,
+        funder: Some(&self.initializer),
+        funder_seeds: None,
+        rent: None,
+        space: EscrowAccount::ON_CHAIN_SIZE + 8,
+        system_program: &self.system_program,
+        account_seeds: None,
+        cpi: CPIChecked,
     },))]
     escrow_account: RentExempt<InitOrZeroedAccount<AI, EscrowAccounts, EscrowAccount>>,
     token_program: TokenProgram<AI>,
