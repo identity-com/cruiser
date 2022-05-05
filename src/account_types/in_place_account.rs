@@ -8,6 +8,7 @@ use crate::compressed_numbers::CompressedNumber;
 use crate::in_place::InPlaceCreate;
 use crate::pda_seeds::PDASeedSet;
 use crate::program::ProgramKey;
+use crate::util::assert::assert_is_owner;
 use crate::util::short_iter::ShortIter;
 use crate::util::{MappableRef, MappableRefMut, TryMappableRef, TryMappableRefMut};
 use crate::{AccountInfo, CPIMethod, CruiserResult, GenericError, ToSolanaAccountInfo};
@@ -75,6 +76,27 @@ where
         self.0.validate(program_id, arg)?;
         self.1.validate(program_id, arg)?;
 
+        assert_is_owner(&self.0, program_id, ())?;
+
+        self.validate(program_id, NoOwner)
+    }
+}
+
+/// Does not check owner for in-place access
+#[derive(Debug, Clone, Copy)]
+pub struct NoOwner;
+
+impl<AI, AL, D> ValidateArgument<NoOwner> for InPlaceAccount<AI, AL, D>
+where
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+{
+    fn validate(&mut self, program_id: &Pubkey, _arg: NoOwner) -> CruiserResult {
+        self.0.validate(program_id, ())?;
+        self.1.validate(program_id, ())?;
+
+        assert_is_owner(&self.0, program_id, ())?;
+
         let discriminant = AL::DiscriminantCompressed::deserialize(&mut &*self.0.data())?;
         if discriminant == AL::compressed_discriminant() {
             Ok(())
@@ -101,7 +123,7 @@ pub struct Create<'a, AI, T, CPI> {
     /// The space to allocate for the account.
     pub space: usize,
     /// The funder of the account.
-    pub funder: &'a AI,
+    pub funder: Option<&'a AI>,
     /// The seeds for the funder. Optional.
     pub funder_seeds: Option<&'a PDASeedSet<'a>>,
     /// The seeds for the account. Optional.
@@ -140,7 +162,9 @@ where
             arg.system_program.create_account(
                 arg.cpi,
                 &CreateAccount {
-                    funder: arg.funder,
+                    funder: arg.funder.ok_or_else(|| GenericError::Custom {
+                        error: "No funder".to_string(),
+                    })?,
                     account: &self.0,
                     lamports: rent,
                     space: 0,

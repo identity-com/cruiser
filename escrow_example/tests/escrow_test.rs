@@ -1,6 +1,5 @@
 use cruiser::client::token::{create_mint, create_token_account, mint_to};
 use cruiser::client::{ConfirmationResult, TransactionBuilder};
-use cruiser::rand::{thread_rng, Rng};
 use cruiser::solana_client::nonblocking::rpc_client::RpcClient;
 use cruiser::solana_client::rpc_config::{RpcSendTransactionConfig, RpcTransactionConfig};
 use cruiser::solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
@@ -39,9 +38,6 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
     let program_id = Keypair::new().pubkey();
     println!("Program ID: `{}`", program_id);
 
-    let rpc_port: u16 = thread_rng().gen_range(8081, 9000);
-    let faucet_port = rpc_port + 1000;
-
     let mut local_validator = Command::new("solana-test-validator");
     local_validator
         .arg("-r")
@@ -53,11 +49,7 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
         .arg("--deactivate-feature")
         .arg("75m6ysz33AfLA5DDEzWM1obBrnPQRSsdVQ2nRmc8Vuu1") // support account data reallocation
         .arg("--ledger")
-        .arg(Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("test_ledger_{}", rpc_port)))
-        .arg("--rpc-port")
-        .arg(rpc_port.to_string())
-        .arg("--faucet-port")
-        .arg(faucet_port.to_string());
+        .arg(Path::new(env!("CARGO_TARGET_TMPDIR")).join("test_ledger_8899"));
     println!("Running {:?}", local_validator);
     let local_validator = Arc::new(Mutex::new(local_validator.spawn()?));
 
@@ -84,7 +76,7 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
                         );
                     }
                     if client
-                        .get(format!("http://localhost:{}/health", rpc_port))
+                        .get("http://localhost:8899/health")
                         .send()
                         .await
                         .map_or(false, |res| res.status().is_success())
@@ -101,7 +93,7 @@ async fn main_flow() -> Result<(), Box<dyn Error>> {
             })?;
 
             let rpc = RpcClient::new_with_commitment(
-                format!("http://localhost:{}", rpc_port),
+                "http://localhost:8899".to_string(),
                 CommitmentConfig::confirmed(),
             );
 
