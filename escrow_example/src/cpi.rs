@@ -1,13 +1,7 @@
 use crate::instructions::exchange::Exchange;
 use crate::instructions::init_escrow::InitEscrow;
 use crate::EscrowInstructions;
-use cruiser::account_argument::ToSolanaAccountMeta;
-use cruiser::borsh::BorshSerialize;
-use cruiser::instruction_list::{
-    InstructionListCPI, InstructionListCPIStatic, InstructionListItem,
-};
-use cruiser::util::MaybeOwned;
-use cruiser::{CruiserResult, Pubkey, SolanaInstruction};
+use cruiser::prelude::*;
 
 pub struct InitEscrowCPI<'a, AI> {
     accounts: [MaybeOwned<'a, AI>; 6],

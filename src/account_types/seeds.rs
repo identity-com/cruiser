@@ -196,8 +196,8 @@ impl BumpSeed for u8 {
 }
 /// Finds a bump seed rather than using a given one. Can be very compute intensive for specific seeds.
 #[derive(Copy, Clone, Debug)]
-pub struct Find;
-impl BumpSeed for Find {
+pub struct FindBump;
+impl BumpSeed for FindBump {
     fn verify_address<S>(
         self,
         seeder: &S,

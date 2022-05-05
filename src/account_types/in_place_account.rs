@@ -74,20 +74,20 @@ where
     fn validate(&mut self, program_id: &Pubkey, arg: ()) -> CruiserResult {
         assert_is_owner(&self.0, program_id, arg)?;
 
-        self.validate(program_id, NoOwner)
+        self.validate(program_id, NoOwnerInPlace)
     }
 }
 
 /// Does not check owner for in-place access
 #[derive(Debug, Clone, Copy)]
-pub struct NoOwner;
+pub struct NoOwnerInPlace;
 
-impl<AI, AL, D> ValidateArgument<NoOwner> for InPlaceAccount<AI, AL, D>
+impl<AI, AL, D> ValidateArgument<NoOwnerInPlace> for InPlaceAccount<AI, AL, D>
 where
     AI: AccountInfo,
     AL: AccountListItem<D>,
 {
-    fn validate(&mut self, program_id: &Pubkey, _arg: NoOwner) -> CruiserResult {
+    fn validate(&mut self, program_id: &Pubkey, _arg: NoOwnerInPlace) -> CruiserResult {
         self.0.validate(program_id, ())?;
         self.1.validate(program_id, ())?;
 
@@ -107,7 +107,7 @@ where
 
 /// Allows [`InPlaceAccount`] to init a zeroed or system program account.
 #[derive(Debug)]
-pub struct Create<'a, AI, T, CPI> {
+pub struct CreateInPlace<'a, AI, T, CPI> {
     /// The creation data. See [`InPlaceCreate`] for more details.
     pub data: T,
     /// The system program.
@@ -126,7 +126,7 @@ pub struct Create<'a, AI, T, CPI> {
     pub cpi: CPI,
 }
 
-impl<'a, 'b, AI, AL, D, C, CPI> ValidateArgument<Create<'a, AI, C, CPI>>
+impl<'a, 'b, AI, AL, D, C, CPI> ValidateArgument<CreateInPlace<'a, AI, C, CPI>>
     for InPlaceAccount<AI, AL, D>
 where
     AI: ToSolanaAccountInfo<'b>,
@@ -134,7 +134,11 @@ where
     D: InPlaceCreate<C>,
     CPI: CPIMethod,
 {
-    fn validate(&mut self, program_id: &Pubkey, arg: Create<'a, AI, C, CPI>) -> CruiserResult {
+    fn validate(
+        &mut self,
+        program_id: &Pubkey,
+        arg: CreateInPlace<'a, AI, C, CPI>,
+    ) -> CruiserResult {
         self.0.validate(program_id, ())?;
         self.1.validate(program_id, ())?;
 

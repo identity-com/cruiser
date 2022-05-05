@@ -1,14 +1,5 @@
 use crate::{EscrowAccount, EscrowAccounts};
-use cruiser::account_argument::AccountArgument;
-use cruiser::account_types::init_account::InitArgs;
-use cruiser::account_types::init_or_zeroed_account::InitOrZeroedAccount;
-use cruiser::account_types::rent_exempt::RentExempt;
-use cruiser::account_types::system_program::SystemProgram;
-use cruiser::borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::instruction::Instruction;
-use cruiser::on_chain_size::OnChainSize;
-use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
-use cruiser::{borsh, AccountInfo, CPIChecked, ToSolanaAccountInfo};
+use cruiser::prelude::*;
 
 pub struct InitEscrow;
 
@@ -24,7 +15,7 @@ impl<AI> Instruction<AI> for InitEscrow {
 pub struct InitEscrowAccounts<AI> {
     #[validate(signer)]
     initializer: AI,
-    #[validate(writable, data = Owner(self.initializer.key()))]
+    #[validate(writable, data = TokenAccountOwner(self.initializer.key()))]
     temp_token_account: TokenAccount<AI>,
     initializer_token_account: TokenAccount<AI>,
     #[from(data = EscrowAccount::default())]

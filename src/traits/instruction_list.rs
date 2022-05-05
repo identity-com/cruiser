@@ -71,22 +71,15 @@ pub trait InstructionListCPIStatic<const N: usize>: InstructionListCPI {
 
 /// Extension to [`InstructionListCPI`].
 /// Less efficient than [`InstructionListCPIStatic`] but can have dynamically sized account length.
-pub trait InstructionListCPIDynamic: for<'a> InstructionListCPIDynamicAccess<'a> {}
-impl<T> InstructionListCPIDynamic for T where T: for<'a> InstructionListCPIDynamicAccess<'a> {}
-
-/// Extension to [`InstructionListCPI`].
-/// Less efficient than [`InstructionListCPIStatic`] but can have dynamically sized account length.
-/// Use [`InstructionListCPIDynamic`].
-pub trait InstructionListCPIDynamicAccess<'a>: InstructionListCPI
-where
-    Self::AccountInfo: 'a,
-{
+pub trait InstructionListCPIDynamic: InstructionListCPI {
     /// The iterator returned by [`InstructionListCPIDynamicAccess::to_accounts_dynamic`].
-    type Iter: Iterator<Item = &'a Self::AccountInfo>;
+    type Iter<'a>: Iterator<Item = &'a Self::AccountInfo>
+    where
+        Self: 'a;
 
     /// Gets the accounts for this call.
     #[must_use]
-    fn to_accounts_dynamic(&'a self) -> Self::Iter;
+    fn to_accounts_dynamic(&self) -> Self::Iter<'_>;
 }
 
 /// Instruction list is an interface. Still Experimental.

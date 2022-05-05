@@ -94,13 +94,13 @@ where
 
 /// Validates that the given key is the owner of the [`TokenAccount`]
 #[derive(Debug, Copy, Clone)]
-pub struct Owner<'a>(pub &'a Pubkey);
+pub struct TokenAccountOwner<'a>(pub &'a Pubkey);
 
-impl<AI> ValidateArgument<Owner<'_>> for TokenAccount<AI>
+impl<AI> ValidateArgument<TokenAccountOwner<'_>> for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
-    fn validate(&mut self, program_id: &Pubkey, arg: Owner) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: TokenAccountOwner) -> CruiserResult<()> {
         self.validate(program_id, ())?;
         if &self.data.owner == arg.0 {
             Ok(())
@@ -116,13 +116,13 @@ where
 
 /// Validates that the given key is the mint of the [`TokenAccount`]
 #[derive(Debug, Copy, Clone)]
-pub struct Mint<'a>(pub &'a Pubkey);
+pub struct TokenAccountMint<'a>(pub &'a Pubkey);
 
-impl<AI> ValidateArgument<Mint<'_>> for TokenAccount<AI>
+impl<AI> ValidateArgument<TokenAccountMint<'_>> for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
-    fn validate(&mut self, program_id: &Pubkey, arg: Mint) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: TokenAccountMint) -> CruiserResult<()> {
         self.validate(program_id, ())?;
         if &self.data.mint == arg.0 {
             Ok(())
@@ -138,16 +138,20 @@ where
 
 /// Validates that the account has a given owner and mint
 #[derive(Debug, Copy, Clone)]
-pub struct OwnerAndMint<'a> {
+pub struct TokenAccountOwnerAndMint<'a> {
     owner: &'a Pubkey,
     mint: &'a Pubkey,
 }
 
-impl<AI> ValidateArgument<OwnerAndMint<'_>> for TokenAccount<AI>
+impl<AI> ValidateArgument<TokenAccountOwnerAndMint<'_>> for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
-    fn validate(&mut self, program_id: &Pubkey, arg: OwnerAndMint) -> CruiserResult<()> {
+    fn validate(
+        &mut self,
+        program_id: &Pubkey,
+        arg: TokenAccountOwnerAndMint,
+    ) -> CruiserResult<()> {
         self.validate(program_id, ())?;
         if &self.data.owner != arg.owner {
             Err(GenericError::InvalidAccount {
