@@ -56,7 +56,7 @@ macro_rules! impl_account_info {
         impl$(<$gen>)? FromAccounts<Self> for $account_info {
             fn from_accounts(
                 _program_id: &Pubkey,
-                infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
+                _infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
                 arg: Self,
             ) -> CruiserResult<Self> {
                 Ok(arg)

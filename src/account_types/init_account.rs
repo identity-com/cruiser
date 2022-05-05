@@ -5,7 +5,6 @@ use std::ops::{Deref, DerefMut};
 
 use crate::cpi::CPIMethod;
 use borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::util::short_iter::ShortIter;
 use solana_program::pubkey::Pubkey;
 use solana_program::rent::Rent;
 use solana_program::sysvar::Sysvar;
@@ -121,13 +120,7 @@ where
         }
         .minimum_balance(AL::compressed_discriminant().num_bytes() as usize + arg.space);
 
-        let mut seeds = ShortIter::<_, 2>::new();
-        if let Some(funder_seeds) = arg.funder_seeds {
-            seeds.push(funder_seeds);
-        }
-        if let Some(account_seeds) = arg.account_seeds {
-            seeds.push(account_seeds);
-        }
+        let seeds = arg.funder_seeds.into_iter().chain(arg.account_seeds);
 
         arg.system_program.create_account(
             arg.cpi,

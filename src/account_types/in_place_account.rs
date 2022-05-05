@@ -9,7 +9,6 @@ use crate::in_place::InPlaceCreate;
 use crate::pda_seeds::PDASeedSet;
 use crate::program::ProgramKey;
 use crate::util::assert::assert_is_owner;
-use crate::util::short_iter::ShortIter;
 use crate::util::{MappableRef, MappableRefMut, TryMappableRef, TryMappableRefMut};
 use crate::{AccountInfo, CPIMethod, CruiserResult, GenericError, ToSolanaAccountInfo};
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -73,10 +72,7 @@ where
     AL: AccountListItem<D>,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: ()) -> CruiserResult {
-        self.0.validate(program_id, arg)?;
-        self.1.validate(program_id, arg)?;
-
-        assert_is_owner(&self.0, program_id, ())?;
+        assert_is_owner(&self.0, program_id, arg)?;
 
         self.validate(program_id, NoOwner)
     }
@@ -94,8 +90,6 @@ where
     fn validate(&mut self, program_id: &Pubkey, _arg: NoOwner) -> CruiserResult {
         self.0.validate(program_id, ())?;
         self.1.validate(program_id, ())?;
-
-        assert_is_owner(&self.0, program_id, ())?;
 
         let discriminant = AL::DiscriminantCompressed::deserialize(&mut &*self.0.data())?;
         if discriminant == AL::compressed_discriminant() {
@@ -150,13 +144,7 @@ where
         }
         .minimum_balance(AL::compressed_discriminant().num_bytes() + arg.space);
 
-        let mut seeds = ShortIter::<_, 2>::new();
-        if let Some(funder_seeds) = arg.funder_seeds {
-            seeds.push(funder_seeds);
-        }
-        if let Some(account_seeds) = arg.account_seeds {
-            seeds.push(account_seeds);
-        }
+        let seeds = arg.funder_seeds.into_iter().chain(arg.account_seeds);
 
         if *self.0.owner() == SystemProgram::<()>::KEY {
             arg.system_program.create_account(
