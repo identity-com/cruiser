@@ -39,13 +39,13 @@ use crate::{AccountInfo, ToSolanaAccountInfo};
 
 /// The arguments for initializing an account
 #[derive(Debug, Clone)]
-pub struct InitArgs<'a, AI, C> {
+pub struct InitArgs<'a, AI, C, F> {
     /// The system program to initalize the account
     pub system_program: &'a SystemProgram<AI>,
     /// The space for the account being created
     pub space: usize,
     /// The funder for the newly created account, must be owned by the system program
-    pub funder: &'a AI,
+    pub funder: F,
     /// The seeds for the funder if PDA
     pub funder_seeds: Option<&'a PDASeedSet<'a>>,
     /// The seeds for the account if PDA
@@ -103,14 +103,18 @@ where
         &mut self.account
     }
 }
-impl<'a, 'b, AI, AL, D, C> ValidateArgument<InitArgs<'a, AI, C>> for InitAccount<AI, AL, D>
+impl<'a, 'b, AI, AL, D, C> ValidateArgument<InitArgs<'a, AI, C, &'a AI>> for InitAccount<AI, AL, D>
 where
     AI: ToSolanaAccountInfo<'b>,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
     C: CPIMethod,
 {
-    fn validate(&mut self, program_id: &Pubkey, arg: InitArgs<'a, AI, C>) -> CruiserResult<()> {
+    fn validate(
+        &mut self,
+        program_id: &Pubkey,
+        arg: InitArgs<'a, AI, C, &'a AI>,
+    ) -> CruiserResult<()> {
         let rent = match arg.rent {
             None => Rent::get()?,
             Some(rent) => rent,
