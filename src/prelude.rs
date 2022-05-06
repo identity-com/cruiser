@@ -21,6 +21,7 @@ pub use crate::{
     },
     borsh::{self, BorshDeserialize, BorshSerialize},
     compressed_numbers::CompressedNumber,
+    entrypoint, entrypoint_list,
     error::{CruiserError, Error},
     impls::option::{IfSome, IfSomeArg, OptionMatch},
     instruction::{Instruction, InstructionProcessor, ReturnValue},
