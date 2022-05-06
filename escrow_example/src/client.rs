@@ -1,13 +1,6 @@
 use crate::cpi::InitEscrowCPI;
 use crate::Pubkey;
-use cruiser::account_types::system_program::SystemProgram;
-use cruiser::client::token::create_token_account;
-use cruiser::client::HashedSigner;
-use cruiser::instruction_list::InstructionListCPI;
-use cruiser::program::ProgramKey;
-use cruiser::solana_sdk::signature::{Keypair, Signer};
-use cruiser::spl::token::TokenProgram;
-use cruiser::{SolanaAccountMeta, SolanaInstruction};
+use cruiser::prelude::*;
 use std::future::Future;
 use std::iter::once;
 
@@ -33,7 +26,7 @@ where
     let initializer_token_account_key = initializer_token_account.pubkey();
     let escrow_account = Keypair::new();
 
-    let out = create_token_account(
+    let out = token::create_token_account(
         funder,
         initializer_token_account,
         receive_mint,

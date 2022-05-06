@@ -8,12 +8,7 @@ pub mod client;
 pub mod cpi;
 pub mod instructions;
 
-use cruiser::account_list::AccountList;
-use cruiser::borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::instruction_list::InstructionList;
-use cruiser::on_chain_size::OnChainSize;
-use cruiser::pda_seeds::{PDASeed, PDASeeder};
-use cruiser::{borsh, Pubkey};
+use cruiser::prelude::*;
 
 #[cfg(feature = "entrypoint")]
 cruiser::entrypoint_list!(EscrowInstructions, EscrowInstructions);

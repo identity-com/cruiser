@@ -76,6 +76,7 @@ pub mod entrypoint;
 pub mod impls;
 pub mod indexer;
 pub mod pda_seeds;
+pub mod prelude;
 #[cfg(feature = "spl-token")]
 pub mod spl;
 pub mod types;
