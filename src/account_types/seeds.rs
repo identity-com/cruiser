@@ -168,7 +168,7 @@ where
     }
 }
 
-/// A bump seed finder, implementations for [`u8`] and [`Find`]
+/// A bump seed finder, implementations for [`u8`] and [`FindBump`]
 pub trait BumpSeed {
     /// Verifies a given address and returns the bump seed
     fn verify_address<S>(

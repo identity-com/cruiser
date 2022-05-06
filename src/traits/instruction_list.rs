@@ -72,7 +72,7 @@ pub trait InstructionListCPIStatic<const N: usize>: InstructionListCPI {
 /// Extension to [`InstructionListCPI`].
 /// Less efficient than [`InstructionListCPIStatic`] but can have dynamically sized account length.
 pub trait InstructionListCPIDynamic: InstructionListCPI {
-    /// The iterator returned by [`InstructionListCPIDynamicAccess::to_accounts_dynamic`].
+    /// The iterator returned by [`InstructionListCPIDynamic::to_accounts_dynamic`].
     type Iter<'a>: Iterator<Item = &'a Self::AccountInfo>
     where
         Self: 'a;
