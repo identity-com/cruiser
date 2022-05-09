@@ -53,11 +53,11 @@ where
         infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
         arg: bool,
     ) -> CruiserResult<Self> {
-        Self::from_accounts(program_id, infos, (arg, ()))
+        Self::from_accounts(program_id, infos, if arg { Some(()) } else { None })
     }
 
     fn accounts_usage_hint(arg: &bool) -> (usize, Option<usize>) {
-        Self::accounts_usage_hint(&(*arg, ()))
+        Self::accounts_usage_hint(if *arg { &Some(()) } else { &None })
     }
 }
 
@@ -85,27 +85,25 @@ where
     }
 }
 
-impl<T, Arg> FromAccounts<(bool, Arg)> for Option<T>
+impl<T, Arg> FromAccounts<Option<Arg>> for Option<T>
 where
     T: FromAccounts<Arg>,
 {
     fn from_accounts(
         program_id: &Pubkey,
         infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
-        arg: (bool, Arg),
+        arg: Option<Arg>,
     ) -> CruiserResult<Self> {
-        if arg.0 {
-            Ok(Some(T::from_accounts(program_id, infos, arg.1)?))
-        } else {
-            Ok(None)
+        match arg {
+            Some(inner_arg) => Ok(Some(T::from_accounts(program_id, infos, inner_arg)?)),
+            None => Ok(None),
         }
     }
 
-    fn accounts_usage_hint(arg: &(bool, Arg)) -> (usize, Option<usize>) {
-        if arg.0 {
-            T::accounts_usage_hint(&arg.1)
-        } else {
-            (0, Some(0))
+    fn accounts_usage_hint(arg: &Option<Arg>) -> (usize, Option<usize>) {
+        match arg {
+            None => (0, Some(0)),
+            Some(arg) => T::accounts_usage_hint(arg),
         }
     }
 }
