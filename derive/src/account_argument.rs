@@ -161,9 +161,9 @@ struct ValidateFieldAttribute {
     id: Option<Ident>,
     data: Option<Expr>,
     #[argument(custom)]
-    signer: Vec<Indexes>,
+    signer: Vec<Indexes<UnitDefault>>,
     #[argument(custom)]
-    writable: Vec<Indexes>,
+    writable: Vec<Indexes<UnitDefault>>,
     #[argument(custom)]
     owner: Vec<IndexesValue<Expr, UnitDefault>>,
     #[argument(custom)]
@@ -1200,7 +1200,7 @@ mod kw {
 }
 
 #[derive(Clone, Debug)]
-pub enum Indexes<D: DefaultIndex = AllDefault> {
+pub enum Indexes<D: DefaultIndex> {
     All(kw::all),
     NotAll(kw::not_all),
     Any(kw::any),

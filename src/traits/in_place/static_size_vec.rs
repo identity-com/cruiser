@@ -1,7 +1,5 @@
-use crate::in_place::{
-    InPlace, InPlaceCreate, InPlaceGet, InPlaceRead, InPlaceSet, InPlaceWrite, InitToZero,
-};
-use crate::on_chain_size::{OnChainSize, OnChainStaticSize};
+use crate::in_place::{InPlace, InPlaceCreate, InPlaceRead, InPlaceWrite, InitToZero};
+use crate::on_chain_size::OnChainSize;
 use crate::util::Advance;
 use crate::{CruiserResult, GenericError};
 use std::marker::PhantomData;
@@ -9,14 +7,12 @@ use std::marker::PhantomData;
 /// A vector with a static max size
 #[derive(Debug)]
 pub struct StaticSizeVec<T, L, const N: usize>(Vec<T>, PhantomData<fn() -> (T, L)>);
-impl<T, L, const N: usize> const OnChainSize<()> for StaticSizeVec<T, L, N>
+impl<T, L, const N: usize> const OnChainSize for StaticSizeVec<T, L, N>
 where
-    T: ~const OnChainStaticSize,
-    L: ~const OnChainStaticSize,
+    T: ~const OnChainSize,
+    L: ~const OnChainSize,
 {
-    fn on_chain_max_size(_arg: ()) -> usize {
-        L::on_chain_static_size() + T::on_chain_static_size() * N
-    }
+    const ON_CHAIN_SIZE: usize = L::ON_CHAIN_SIZE + T::ON_CHAIN_SIZE * N;
 }
 /// The [`InPlace::Access`] and [`InPlace::AccessMut`] for [`StaticSizeVec`]
 #[derive(Debug)]
@@ -36,8 +32,8 @@ impl<T, L, D, const N: usize> StaticSizeVecAccess<T, L, D, N> {
         let length = self.length.get_in_place();
         if index < length {
             let mut data = self.data.as_ref();
-            data.advance(index * T::on_chain_static_size());
-            T::read_with_arg(data.try_advance(T::on_chain_static_size())?, arg).map(Some)
+            data.advance(index * T::ON_CHAIN_SIZE);
+            T::read_with_arg(data.try_advance(T::ON_CHAIN_SIZE)?, arg).map(Some)
         } else {
             Ok(None)
         }
@@ -67,8 +63,8 @@ impl<T, L, D, const N: usize> StaticSizeVecAccess<T, L, D, N> {
         let length = self.length.get_in_place();
         if index < length {
             let mut data = self.data.as_mut();
-            data.try_advance(index * T::on_chain_static_size())?;
-            T::write_with_arg(data.try_advance(T::on_chain_static_size())?, arg).map(Some)
+            data.try_advance(index * T::ON_CHAIN_SIZE)?;
+            T::write_with_arg(data.try_advance(T::ON_CHAIN_SIZE)?, arg).map(Some)
         } else {
             Ok(None)
         }
@@ -94,8 +90,8 @@ impl<T, L, D, const N: usize> StaticSizeVecAccess<T, L, D, N> {
         let length = self.length.get_in_place();
         if length < N {
             let mut data = self.data.as_mut();
-            data.try_advance(length * T::on_chain_static_size())?;
-            T::create_with_arg(data.try_advance(T::on_chain_static_size())?, arg)?;
+            data.try_advance(length * T::ON_CHAIN_SIZE)?;
+            T::create_with_arg(data.try_advance(T::ON_CHAIN_SIZE)?, arg)?;
             self.length.set_in_place(length + 1);
             Ok(())
         } else {
@@ -129,7 +125,7 @@ where
     L: InPlaceCreate<'a, A> + OnChainStaticSize + InitToZero,
 {
     fn create_with_arg(mut data: &mut [u8], arg: A) -> CruiserResult {
-        L::create_with_arg(data.try_advance(L::on_chain_static_size())?, arg)?;
+        L::create_with_arg(data.try_advance(L::ON_CHAIN_SIZE)?, arg)?;
         Ok(())
     }
 }
@@ -139,8 +135,8 @@ where
     L: InPlaceRead<'a, R> + OnChainStaticSize + InitToZero,
 {
     fn read_with_arg(mut data: &'a [u8], arg: R) -> CruiserResult<Self::Access> {
-        let length = L::read_with_arg(data.try_advance(L::on_chain_static_size())?, arg)?;
-        let data = data.try_advance(T::on_chain_static_size() * N)?;
+        let length = L::read_with_arg(data.try_advance(L::ON_CHAIN_SIZE)?, arg)?;
+        let data = data.try_advance(T::ON_CHAIN_SIZE * N)?;
         Ok(StaticSizeVecAccess {
             length,
             data,
@@ -154,8 +150,8 @@ where
     L: InPlaceWrite<'a, W> + OnChainStaticSize + InitToZero,
 {
     fn write_with_arg(mut data: &'a mut [u8], arg: W) -> CruiserResult<Self::AccessMut> {
-        let length = L::write_with_arg(data.try_advance(L::on_chain_static_size())?, arg)?;
-        let data = data.try_advance(T::on_chain_static_size() * N)?;
+        let length = L::write_with_arg(data.try_advance(L::ON_CHAIN_SIZE)?, arg)?;
+        let data = data.try_advance(T::ON_CHAIN_SIZE * N)?;
         Ok(StaticSizeVecAccess {
             length,
             data,

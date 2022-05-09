@@ -2,9 +2,9 @@
 
 mod array;
 mod prim;
+mod properties;
 mod pubkey;
 // mod static_size_vec;
-mod properties;
 mod unit;
 
 pub use array::*;
