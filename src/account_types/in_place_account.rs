@@ -159,7 +159,7 @@ where
                     })?,
                     account: &self.0,
                     lamports: rent,
-                    space: 0,
+                    space: arg.space as u64,
                     owner: program_id,
                 },
                 seeds,
