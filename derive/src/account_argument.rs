@@ -1036,8 +1036,9 @@ impl NamedField {
         infos: &TokenStream,
     ) -> (TokenStream, TokenStream) {
         let ident = &self.ident;
+        let ty = &self.ty;
         let expr = self.field.from_accounts(id, program_id, infos);
-        (quote! { let mut #ident = #expr; }, quote! { #ident })
+        (quote! { let mut #ident: #ty = #expr; }, quote! { #ident })
     }
 
     fn validate_argument(

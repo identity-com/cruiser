@@ -42,9 +42,8 @@ use crate::{CruiserResult, ToSolanaAccountInfo};
 // }
 
 /// A combination of [`InitAccount`] and [`ZeroedAccount`] accepting either based on owner.
-// TODO: impl Debug for this
-#[allow(missing_debug_implementations)]
 // TODO: use AccountArgument trait for impl when enums supported
+#[derive(Debug)]
 pub enum InitOrZeroedAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,

@@ -46,7 +46,8 @@ where
                 amount,
             )
             .unwrap()
-            .instruction(&program_id),
+            .instruction(&SolanaAccountMeta::new_readonly(program_id, false))
+            .instruction,
         )),
         out.1.into_iter().chain(once(escrow_account.into())),
     ))

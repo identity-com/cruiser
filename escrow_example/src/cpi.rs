@@ -5,8 +5,9 @@ use cruiser::prelude::*;
 
 pub struct InitEscrowCPI<'a, AI> {
     accounts: [MaybeOwned<'a, AI>; 6],
-    data: Option<Vec<u8>>,
+    data: Vec<u8>,
 }
+
 impl<'a, AI> InitEscrowCPI<'a, AI> {
     pub fn new(
         initializer: impl Into<MaybeOwned<'a, AI>>,
@@ -30,11 +31,12 @@ impl<'a, AI> InitEscrowCPI<'a, AI> {
                 token_program.into(),
                 system_program.into(),
             ],
-            data: Some(data),
+            data,
         })
     }
 }
-impl<'a, AI> InstructionListCPI for InitEscrowCPI<'a, AI>
+
+impl<'a, AI> CPIClientStatic<'a, 7> for InitEscrowCPI<'a, AI>
 where
     AI: ToSolanaAccountMeta,
 {
@@ -42,41 +44,42 @@ where
     type Instruction = InitEscrow;
     type AccountInfo = AI;
 
-    fn instruction(&mut self, program_id: &Pubkey) -> SolanaInstruction {
-        SolanaInstruction {
-            program_id: *program_id,
+    fn instruction(
+        self,
+        program_account: &'a AI,
+    ) -> InstructionAndAccounts<[MaybeOwned<'a, Self::AccountInfo>; 7]> {
+        let instruction = SolanaInstruction {
+            program_id: *program_account.meta_key(),
             accounts: self
                 .accounts
                 .iter()
                 .map(MaybeOwned::as_ref)
                 .map(AI::to_solana_account_meta)
                 .collect(),
-            data: self.data.take().unwrap(),
+            data: self.data,
+        };
+        let mut accounts = self.accounts.into_iter();
+        InstructionAndAccounts {
+            instruction,
+            // TODO: Replace this with a const push operation when willing to go to const generics
+            accounts: [
+                accounts.next().unwrap(),
+                accounts.next().unwrap(),
+                accounts.next().unwrap(),
+                accounts.next().unwrap(),
+                accounts.next().unwrap(),
+                accounts.next().unwrap(),
+                program_account.into(),
+            ],
         }
-    }
-}
-impl<'a, AI> InstructionListCPIStatic<7> for InitEscrowCPI<'a, AI>
-where
-    AI: ToSolanaAccountMeta,
-{
-    fn to_accounts_static<'b>(&'b self, program_account: &'b AI) -> [&'b AI; 7] {
-        // TODO: Replace this with a const push operation when willing to go to const generics
-        [
-            self.accounts[0].as_ref(),
-            self.accounts[1].as_ref(),
-            self.accounts[2].as_ref(),
-            self.accounts[3].as_ref(),
-            self.accounts[4].as_ref(),
-            self.accounts[5].as_ref(),
-            program_account,
-        ]
     }
 }
 
 pub struct ExchangeCPI<'a, AI> {
     accounts: [MaybeOwned<'a, AI>; 9],
-    data: Option<Vec<u8>>,
+    data: Vec<u8>,
 }
+
 impl<'a, AI> ExchangeCPI<'a, AI> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -107,48 +110,48 @@ impl<'a, AI> ExchangeCPI<'a, AI> {
                 token_program.into(),
                 pda_account.into(),
             ],
-            data: Some(data),
+            data,
         })
     }
 }
-impl<'a, AI> InstructionListCPI for ExchangeCPI<'a, AI>
+impl<'a, AI> CPIClientStatic<'a, 10> for ExchangeCPI<'a, AI>
 where
     AI: ToSolanaAccountMeta,
 {
     type InstructionList = EscrowInstructions;
-    type Instruction = Exchange;
+    type Instruction = InitEscrow;
     type AccountInfo = AI;
 
-    fn instruction(&mut self, program_id: &Pubkey) -> SolanaInstruction {
-        SolanaInstruction {
-            program_id: *program_id,
+    fn instruction(
+        self,
+        program_account: &'a AI,
+    ) -> InstructionAndAccounts<[MaybeOwned<'a, Self::AccountInfo>; 10]> {
+        let instruction = SolanaInstruction {
+            program_id: *program_account.meta_key(),
             accounts: self
                 .accounts
                 .iter()
                 .map(MaybeOwned::as_ref)
                 .map(AI::to_solana_account_meta)
                 .collect(),
-            data: self.data.take().unwrap(),
+            data: self.data,
+        };
+        let mut accounts = self.accounts.into_iter();
+        InstructionAndAccounts {
+            instruction,
+            // TODO: Replace this with a const push operation when willing to go to const generics
+            accounts: [
+                accounts.next().unwrap(), // 0
+                accounts.next().unwrap(), // 1
+                accounts.next().unwrap(), // 2
+                accounts.next().unwrap(), // 3
+                accounts.next().unwrap(), // 4
+                accounts.next().unwrap(), // 5
+                accounts.next().unwrap(), // 6
+                accounts.next().unwrap(), // 7
+                accounts.next().unwrap(), // 8
+                program_account.into(),
+            ],
         }
-    }
-}
-impl<'a, AI> InstructionListCPIStatic<10> for ExchangeCPI<'a, AI>
-where
-    AI: ToSolanaAccountMeta,
-{
-    fn to_accounts_static<'b>(&'b self, program_account: &'b AI) -> [&'b AI; 10] {
-        // TODO: Replace this with a const push operation when willing to go to const generics
-        [
-            self.accounts[0].as_ref(),
-            self.accounts[1].as_ref(),
-            self.accounts[2].as_ref(),
-            self.accounts[3].as_ref(),
-            self.accounts[4].as_ref(),
-            self.accounts[5].as_ref(),
-            self.accounts[6].as_ref(),
-            self.accounts[7].as_ref(),
-            self.accounts[8].as_ref(),
-            program_account,
-        ]
     }
 }

@@ -2,18 +2,16 @@
 
 use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable};
 use crate::account_types::PhantomAccount;
+use crate::cpi::{CPIClientDynamic, CPIClientStatic, CPIMethod, InstructionAndAccounts};
 use crate::instruction::ReturnValue;
-use crate::instruction_list::{
-    InstructionListCPIDynamic, InstructionListCPIStatic, InstructionListItem,
-};
+use crate::instruction_list::InstructionListItem;
 use crate::pda_seeds::PDASeedSet;
 use crate::program::{CruiserProgram, Program, ProgramKey};
-use crate::util::get_return_data_buffered;
-use crate::{AccountInfo, CPIMethod, CruiserResult, ToSolanaAccountInfo};
+use crate::util::{get_return_data_buffered, MaybeOwned};
+use crate::{AccountInfo, CruiserResult, ToSolanaAccountInfo};
+use array_init::array_init;
 use cruiser::instruction::Instruction;
-use solana_program::program::MAX_RETURN_DATA;
 use solana_program::pubkey::Pubkey;
-use std::iter::once;
 
 // verify_account_arg_impl! {
 //     mod cruiser_program_account_check<AI>{
@@ -38,53 +36,68 @@ where
     P: CruiserProgram,
 {
     /// Calls one of this program's functions that has statically sized account length
-    pub fn invoke<'b, 'c: 'b, I, const N: usize>(
-        &self,
+    pub fn invoke<'b, 'c: 'b, 'd, I, const N: usize>(
+        &'d self,
         cpi: impl CPIMethod,
-        instruction: &mut I,
+        instruction: I,
         seeds: impl IntoIterator<Item = &'b PDASeedSet<'c>>,
     ) -> CruiserResult<<I::Instruction as Instruction<AI>>::ReturnType>
     where
-        P::InstructionList: InstructionListItem<I>,
-        I: InstructionListCPIStatic<N, InstructionList = P::InstructionList, AccountInfo = AI>,
+        P::InstructionList: InstructionListItem<I::Instruction>,
+        I: CPIClientStatic<'d, N, InstructionList = P::InstructionList, AccountInfo = AI>,
     {
+        let InstructionAndAccounts {
+            instruction,
+            accounts,
+        } = instruction.instruction(&self.0);
         PDASeedSet::invoke_signed_multiple(
             cpi,
-            &instruction.instruction(&Self::KEY),
-            &instruction.to_accounts_static(&self.0),
+            &instruction,
+            &array_init::<_, _, N>(|index| accounts[index].as_ref()),
             seeds,
         )?;
         Self::ret()
     }
 
     /// Calls one of this program's functions that has dynamically sized account length
-    pub fn invoke_variable_sized<'b, 'c: 'b, I>(
-        &self,
+    pub fn invoke_variable_sized<'b, 'c: 'b, 'd, I>(
+        &'d self,
         cpi: impl CPIMethod,
-        instruction: &mut I,
+        instruction: I,
         seeds: impl IntoIterator<Item = &'b PDASeedSet<'c>>,
     ) -> CruiserResult<<I::Instruction as Instruction<AI>>::ReturnType>
     where
-        P::InstructionList: InstructionListItem<I>,
-        I: InstructionListCPIDynamic<InstructionList = P::InstructionList, AccountInfo = AI>,
+        P::InstructionList: InstructionListItem<I::Instruction>,
+        I: CPIClientDynamic<'d, InstructionList = P::InstructionList, AccountInfo = AI>,
     {
+        let InstructionAndAccounts {
+            instruction,
+            accounts,
+        } = instruction.instruction(&self.0);
         PDASeedSet::invoke_signed_variable_size_multiple(
             cpi,
-            &instruction.instruction(&Self::KEY),
-            instruction.to_accounts_dynamic().chain(once(&self.0)),
+            &instruction,
+            accounts.iter().map(MaybeOwned::as_ref),
             seeds,
         )?;
         Self::ret()
     }
 
     fn ret<R: ReturnValue>() -> CruiserResult<R> {
-        let mut buffer = Box::new([0; MAX_RETURN_DATA]);
-        let mut return_program = Pubkey::new_from_array([0; 32]);
-        let size = get_return_data_buffered(&mut buffer, &mut return_program)?;
-        if return_program == Self::KEY {
-            R::from_returned(Some((buffer, size)), &return_program)
+        let max_size = R::max_size();
+        if max_size > 0 {
+            let mut buffer = vec![0; max_size];
+            let mut return_program = Pubkey::new_from_array([0; 32]);
+            let size = get_return_data_buffered(&mut buffer, &mut return_program)?;
+            if return_program == Self::KEY {
+                R::from_returned(Some(&mut buffer[0..size]), Some(&return_program))
+            } else {
+                #[allow(unused_qualifications)]
+                R::from_returned(Option::<&mut [u8]>::None, Some(&return_program))
+            }
         } else {
-            R::from_returned(None, &return_program)
+            #[allow(unused_qualifications)]
+            R::from_returned(Option::<&mut [u8]>::None, None)
         }
     }
 }
