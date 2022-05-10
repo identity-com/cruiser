@@ -1,0 +1,18 @@
+{
+  "exclude": [
+    "node_modules"
+  ],
+  "include": [
+    "src/**/*.ts"
+  ],
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "rootDir": "./src",
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "allowJs": false,
+    "strict": true
+  }
+}

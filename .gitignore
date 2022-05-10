@@ -16,3 +16,6 @@ Cargo.lock
 
 **/*/test_ledger
 .coderrect
+**/*/node_modules
+**/*/dist
+**/*/yarn-error.log
