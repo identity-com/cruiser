@@ -5,6 +5,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::cpi::CPIMethod;
 use borsh::{BorshDeserialize, BorshSerialize};
+use cruiser::prelude::SystemProgram;
 use solana_program::pubkey::Pubkey;
 
 use crate::account_argument::{
@@ -138,24 +139,28 @@ where
     }
 }
 
-impl<'a, 'b, AI, AL, D, C> ValidateArgument<InitArgs<'a, AI, C, Option<&'a AI>>>
+impl<'a, 'b, AI, AL, D, C, S>
+    ValidateArgument<InitArgs<'a, C, Option<&'a AI>, S, Option<&'a SystemProgram<AI>>>>
     for InitOrZeroedAccount<AI, AL, D>
 where
     AI: ToSolanaAccountInfo<'b>,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
     C: CPIMethod,
+    InitAccount<AI, AL, D>: ValidateArgument<InitArgs<'a, C, &'a AI, S, &'a SystemProgram<AI>>>,
 {
     fn validate(
         &mut self,
         program_id: &Pubkey,
-        arg: InitArgs<'a, AI, C, Option<&'a AI>>,
+        arg: InitArgs<'a, C, Option<&'a AI>, S, Option<&'a SystemProgram<AI>>>,
     ) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.validate(
                 program_id,
                 InitArgs {
-                    system_program: arg.system_program,
+                    system_program: arg.system_program.ok_or_else(|| GenericError::Custom {
+                        error: "System program is not set".to_string(),
+                    })?,
                     space: arg.space,
                     funder: arg.funder.ok_or_else(|| GenericError::Custom {
                         error: "funder is required".to_string(),
@@ -171,24 +176,33 @@ where
     }
 }
 
-impl<'a, 'b, AI, AL, D, C> ValidateArgument<(InitArgs<'a, AI, C, Option<&'a AI>>, CheckAll)>
-    for InitOrZeroedAccount<AI, AL, D>
+impl<'a, 'b, AI, AL, D, C, S>
+    ValidateArgument<(
+        InitArgs<'a, C, Option<&'a AI>, S, Option<&'a SystemProgram<AI>>>,
+        CheckAll,
+    )> for InitOrZeroedAccount<AI, AL, D>
 where
     AI: ToSolanaAccountInfo<'b>,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
     C: CPIMethod,
+    InitAccount<AI, AL, D>: ValidateArgument<InitArgs<'a, C, &'a AI, S, &'a SystemProgram<AI>>>,
 {
     fn validate(
         &mut self,
         program_id: &Pubkey,
-        arg: (InitArgs<'a, AI, C, Option<&'a AI>>, CheckAll),
+        arg: (
+            InitArgs<'a, C, Option<&'a AI>, S, Option<&'a SystemProgram<AI>>>,
+            CheckAll,
+        ),
     ) -> CruiserResult<()> {
         match self {
             InitOrZeroedAccount::Init(init) => init.validate(
                 program_id,
                 InitArgs {
-                    system_program: arg.0.system_program,
+                    system_program: arg.0.system_program.ok_or_else(|| GenericError::Custom {
+                        error: "System program is not set".to_string(),
+                    })?,
                     space: arg.0.space,
                     funder: arg.0.funder.ok_or_else(|| GenericError::Custom {
                         error: "funder is required".to_string(),

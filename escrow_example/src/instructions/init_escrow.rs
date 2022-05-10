@@ -23,14 +23,14 @@ pub struct InitEscrowAccounts<AI> {
         funder: Some(&self.initializer),
         funder_seeds: None,
         rent: None,
-        space: EscrowAccount::ON_CHAIN_SIZE + 8,
-        system_program: &self.system_program,
+        space: InitStaticSized,
+        system_program: self.system_program.as_ref(),
         account_seeds: None,
         cpi: CPIChecked,
     },))]
     escrow_account: RentExempt<InitOrZeroedAccount<AI, EscrowAccounts, EscrowAccount>>,
     token_program: TokenProgram<AI>,
-    system_program: SystemProgram<AI>,
+    system_program: Option<SystemProgram<AI>>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
