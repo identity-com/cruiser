@@ -17,7 +17,7 @@ use solana_sdk::transaction::{Transaction, TransactionError};
 use solana_transaction_status::TransactionConfirmationStatus;
 use std::cmp::Ordering;
 use std::collections::HashSet;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::hash::Hasher;
 use std::iter::once;
 use std::ops::Deref;
@@ -34,6 +34,7 @@ pub struct TransactionBuilder<'a> {
     /// The payer for this transaction
     pub payer: Pubkey,
 }
+
 impl<'a> TransactionBuilder<'a> {
     /// Creates a new [`TransactionBuilder`] with a payer
     #[must_use]
@@ -191,6 +192,7 @@ pub enum ConfirmationResult {
 trait ToConfirmationStatus {
     fn to_confirmation_status(&self) -> TransactionConfirmationStatus;
 }
+
 impl ToConfirmationStatus for CommitmentConfig {
     fn to_confirmation_status(&self) -> TransactionConfirmationStatus {
         #[allow(clippy::wildcard_in_or_patterns)]
@@ -201,8 +203,10 @@ impl ToConfirmationStatus for CommitmentConfig {
         }
     }
 }
+
 #[derive(Clone)]
 struct OrderedConfirmationStatus(TransactionConfirmationStatus);
+
 impl From<OrderedConfirmationStatus> for u8 {
     fn from(from: OrderedConfirmationStatus) -> Self {
         match from {
@@ -212,6 +216,7 @@ impl From<OrderedConfirmationStatus> for u8 {
         }
     }
 }
+
 impl PartialEq<CommitmentConfig> for OrderedConfirmationStatus {
     fn eq(&self, other: &CommitmentConfig) -> bool {
         u8::from(self.clone()).eq(&u8::from(OrderedConfirmationStatus(
@@ -219,6 +224,7 @@ impl PartialEq<CommitmentConfig> for OrderedConfirmationStatus {
         )))
     }
 }
+
 impl PartialOrd<CommitmentConfig> for OrderedConfirmationStatus {
     fn partial_cmp(&self, other: &CommitmentConfig) -> Option<Ordering> {
         u8::from(self.clone()).partial_cmp(&u8::from(OrderedConfirmationStatus(
@@ -228,40 +234,41 @@ impl PartialOrd<CommitmentConfig> for OrderedConfirmationStatus {
 }
 
 /// A [`Signer`] with hash based on the pubkey.
+#[derive(Clone, Debug)]
 pub struct HashedSigner<'a>(SignerCow<'a>);
-impl<'a> Debug for HashedSigner<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("HashedSigner")
-            .field(&self.0.pubkey())
-            .finish()
-    }
-}
+
 impl<'a> PartialEq for HashedSigner<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.0.pubkey().eq(&other.0.pubkey())
     }
 }
+
 impl<'a> Eq for HashedSigner<'a> {}
+
 impl<'a> std::hash::Hash for HashedSigner<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.pubkey().hash(state);
     }
 }
-impl<'a> From<&'a dyn Signer> for HashedSigner<'a> {
-    fn from(from: &'a dyn Signer) -> Self {
+
+impl<'a> From<&'a (dyn CloneSigner<'a> + 'a)> for HashedSigner<'a> {
+    fn from(from: &'a (dyn CloneSigner<'a> + 'a)) -> Self {
         Self(SignerCow::Borrowed(from))
     }
 }
-impl<'a> From<Box<dyn Signer>> for HashedSigner<'a> {
-    fn from(from: Box<dyn Signer>) -> Self {
+
+impl<'a> From<Box<(dyn CloneSigner<'a> + 'a)>> for HashedSigner<'a> {
+    fn from(from: Box<(dyn CloneSigner<'a> + 'a)>) -> Self {
         Self(SignerCow::Owned(from))
     }
 }
+
 impl<'a> From<Keypair> for HashedSigner<'a> {
     fn from(from: Keypair) -> Self {
         Self(SignerCow::Owned(Box::new(from)))
     }
 }
+
 impl<'a> From<&'a Keypair> for HashedSigner<'a> {
     fn from(from: &'a Keypair) -> Self {
         Self(SignerCow::Borrowed(from))
@@ -295,17 +302,37 @@ impl<'a> Signer for HashedSigner<'a> {
     }
 }
 
-enum SignerCow<'a> {
-    Borrowed(&'a dyn Signer),
-    Owned(Box<dyn Signer + 'a>),
+/// A signer that can be cloned.
+pub trait CloneSigner<'a>: Signer + Debug {
+    /// Clones the signer.
+    fn clone_signer(&self) -> Box<dyn CloneSigner<'a> + 'a>;
 }
+
+impl<'a> CloneSigner<'a> for Keypair {
+    fn clone_signer(&self) -> Box<dyn CloneSigner<'a> + 'a> {
+        Box::new(Keypair::from_bytes(&self.to_bytes()).unwrap())
+    }
+}
+
+#[derive(Debug)]
+enum SignerCow<'a> {
+    Borrowed(&'a (dyn CloneSigner<'a> + 'a)),
+    Owned(Box<dyn CloneSigner<'a> + 'a>),
+}
+
 impl<'a> Deref for SignerCow<'a> {
-    type Target = dyn Signer + 'a;
+    type Target = dyn CloneSigner<'a> + 'a;
 
     fn deref(&self) -> &Self::Target {
         match self {
             SignerCow::Borrowed(signer) => *signer,
             SignerCow::Owned(signer) => &**signer,
         }
+    }
+}
+
+impl<'a> Clone for SignerCow<'a> {
+    fn clone(&self) -> Self {
+        SignerCow::Owned(self.clone_signer())
     }
 }
