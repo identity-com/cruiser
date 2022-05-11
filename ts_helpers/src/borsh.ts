@@ -91,3 +91,15 @@ export function serializeInstruction<D extends Serialize, T extends Serialize>(
   instruction.write(buffer, offset);
   return buffer;
 }
+
+export function serializeArray<T extends Serialize, S extends Serialize>(
+  array: T[],
+  size: Cons<S> & (new (arg: number) => S),
+  buffer: Buffer,
+  offset: { offset: number }
+) {
+  new size(array.length).write(buffer, offset);
+  for (const element of array) {
+    element.write(buffer, offset);
+  }
+}

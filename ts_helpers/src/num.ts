@@ -223,7 +223,7 @@ export class u16 implements Serialize, Equals<u16>, Equals<number> {
 
   write(buffer: Buffer, offset: { offset: number }): void {
     buffer.writeUInt16LE(this.value, offset.offset);
-    offset.offset += 1;
+    offset.offset += 2;
   }
 
   serializedSize(): number {
@@ -232,12 +232,12 @@ export class u16 implements Serialize, Equals<u16>, Equals<number> {
 
   static read(buffer: Buffer, offset: { offset: number }): u16 {
     const value = buffer.readUInt16LE(offset.offset);
-    offset.offset += 1;
+    offset.offset += 2;
     return new u16(value);
   }
 
   static staticSize(): number {
-    return 1;
+    return 2;
   }
 
   equals(other: u16 | number): boolean {
@@ -263,8 +263,8 @@ export class u32 implements Serialize, Equals<u32>, Equals<number> {
   }
 
   write(buffer: Buffer, offset: { offset: number }): void {
-    buffer.writeUint32LE(this.value, offset.offset);
-    offset.offset += 1;
+    buffer.writeUInt32LE(this.value, offset.offset);
+    offset.offset += 4;
   }
 
   serializedSize(): number {
@@ -272,13 +272,13 @@ export class u32 implements Serialize, Equals<u32>, Equals<number> {
   }
 
   static read(buffer: Buffer, offset: { offset: number }): u32 {
-    const value = buffer.readUint32LE(offset.offset);
-    offset.offset += 1;
+    const value = buffer.readUInt32LE(offset.offset);
+    offset.offset += 4;
     return new u32(value);
   }
 
   static staticSize(): number {
-    return 1;
+    return 4;
   }
 
   equals(other: u32 | number): boolean {
@@ -304,8 +304,8 @@ export class u64 implements Serialize, Equals<u64>, Equals<bigint> {
   }
 
   write(buffer: Buffer, offset: { offset: number }): void {
-    buffer.writeBigUint64LE(this.value, offset.offset);
-    offset.offset += 1;
+    buffer.writeBigUInt64LE(this.value, offset.offset);
+    offset.offset += 8;
   }
 
   serializedSize(): number {
@@ -314,12 +314,12 @@ export class u64 implements Serialize, Equals<u64>, Equals<bigint> {
 
   static read(buffer: Buffer, offset: { offset: number }): u64 {
     const value = buffer.readBigUInt64LE(offset.offset);
-    offset.offset += 1;
+    offset.offset += 8;
     return new u64(value);
   }
 
   static staticSize(): number {
-    return 1;
+    return 8;
   }
 
   equals(other: u64 | bigint): boolean {
