@@ -19,8 +19,17 @@ debug_account_argument = []
 debug_instruction_list = []
 debug_account_list = []
 debug_in_place = []
+debug_on_chain_size = []
 easy_proc_test = []
-debug = ["debug_account", "debug_error", "debug_account_argument", "debug_instruction_list", "debug_account_list", "debug_in_place"]
+debug = [
+    "debug_account",
+    "debug_error",
+    "debug_account_argument",
+    "debug_instruction_list",
+    "debug_account_list",
+    "debug_in_place",
+    "debug_on_chain_size",
+]
 
 in_place = []
 

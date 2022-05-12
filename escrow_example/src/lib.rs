@@ -27,16 +27,12 @@ pub enum EscrowAccounts {
     EscrowAccount(EscrowAccount),
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Default)]
+#[derive(BorshSerialize, BorshDeserialize, OnChainSize, Default)]
 pub struct EscrowAccount {
     pub initializer: Pubkey,
     pub temp_token_account: Pubkey,
     pub initializer_token_to_receive: Pubkey,
     pub expected_amount: u64,
-}
-
-impl const OnChainSize for EscrowAccount {
-    const ON_CHAIN_SIZE: usize = Pubkey::ON_CHAIN_SIZE * 3 + u64::ON_CHAIN_SIZE;
 }
 
 #[derive(Debug)]

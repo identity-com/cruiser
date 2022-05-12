@@ -33,6 +33,20 @@ mod chain_exact_size;
 pub mod short_vec;
 mod with_data;
 
+/// Gets the maximum value from an array of [`usize`]s
+#[must_use]
+pub const fn usize_array_max<const N: usize>(vals: [usize; N]) -> usize {
+    let mut max = usize::MIN;
+    let mut index = 0;
+    while index < N {
+        if vals[index] > max {
+            max = vals[index];
+        }
+        index += 1;
+    }
+    max
+}
+
 /// Mapping function for a [`Deref`].
 /// Default implemented for all `T` that implement [`Deref`].
 pub trait MappableRef: Deref {

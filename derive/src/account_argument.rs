@@ -199,7 +199,7 @@ impl Default for ValidateFieldAttribute {
 }
 
 #[derive(Clone, Debug)]
-struct AdditionalGenerics {
+pub struct AdditionalGenerics {
     bracket: token::Bracket,
     generics: Generics,
     where_clause: Option<WhereClause>,
@@ -454,13 +454,18 @@ impl AccountArgumentDerive {
 
 /// (`impl_gen`, `ty_gen`, `where_clause`)
 #[must_use]
-fn combine_generics<'a>(
+pub fn combine_generics<'a>(
     generics: &Generics,
     other_generics: impl IntoIterator<Item = Option<&'a AdditionalGenerics>>,
 ) -> (TokenStream, TokenStream, TokenStream) {
-    let lifetime_params = generics.lifetimes();
-    let type_params = generics.type_params();
-    let const_params = generics.const_params().map(|param| &param.ident);
+    let lifetime_params = generics.lifetimes().collect::<Vec<_>>();
+    let type_params = generics.type_params().collect::<Vec<_>>();
+    let const_params = generics
+        .const_params()
+        .map(|param| &param.ident)
+        .collect::<Vec<_>>();
+    let has_params =
+        !lifetime_params.is_empty() || !type_params.is_empty() || !const_params.is_empty();
     let mut generics = generics.clone();
     for other_generics in other_generics.into_iter().flatten() {
         generics
@@ -482,7 +487,11 @@ fn combine_generics<'a>(
     let (impl_gen, _, where_clause) = generics.split_for_impl();
     (
         quote! { #impl_gen },
-        quote! { <#(#lifetime_params,)* #(#type_params,)* #(#const_params,)*> },
+        if has_params {
+            quote! { <#(#lifetime_params,)* #(#type_params,)* #(#const_params,)*> }
+        } else {
+            quote! {}
+        },
         quote! { #where_clause },
     )
 }
