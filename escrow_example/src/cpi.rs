@@ -46,8 +46,9 @@ where
 
     fn instruction(
         self,
-        program_account: &'a AI,
+        program_account: impl Into<MaybeOwned<'a, Self::AccountInfo>>,
     ) -> InstructionAndAccounts<[MaybeOwned<'a, Self::AccountInfo>; 7]> {
+        let program_account = program_account.into();
         let instruction = SolanaInstruction {
             program_id: *program_account.meta_key(),
             accounts: self
@@ -69,7 +70,7 @@ where
                 accounts.next().unwrap(),
                 accounts.next().unwrap(),
                 accounts.next().unwrap(),
-                program_account.into(),
+                program_account,
             ],
         }
     }
@@ -124,8 +125,9 @@ where
 
     fn instruction(
         self,
-        program_account: &'a AI,
+        program_account: impl Into<MaybeOwned<'a, Self::AccountInfo>>,
     ) -> InstructionAndAccounts<[MaybeOwned<'a, Self::AccountInfo>; 10]> {
+        let program_account = program_account.into();
         let instruction = SolanaInstruction {
             program_id: *program_account.meta_key(),
             accounts: self
@@ -150,7 +152,7 @@ where
                 accounts.next().unwrap(), // 6
                 accounts.next().unwrap(), // 7
                 accounts.next().unwrap(), // 8
-                program_account.into(),
+                program_account,
             ],
         }
     }

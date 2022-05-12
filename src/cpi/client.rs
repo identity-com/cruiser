@@ -23,7 +23,7 @@ pub trait CPIClientStatic<'a, const N: usize>: Sized {
     #[must_use]
     fn instruction(
         self,
-        program_account: &'a Self::AccountInfo,
+        program_account: impl Into<MaybeOwned<'a, Self::AccountInfo>>,
     ) -> InstructionAndAccounts<[MaybeOwned<'a, Self::AccountInfo>; N]>;
 
     /// Invokes this cpi call on the given program.

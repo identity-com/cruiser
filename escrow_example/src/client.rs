@@ -1,5 +1,6 @@
 use crate::cpi::InitEscrowCPI;
 use crate::Pubkey;
+use cruiser::client::InstructionSet;
 use cruiser::prelude::*;
 use std::future::Future;
 use std::iter::once;
@@ -12,13 +13,7 @@ pub async fn init_escrow<'a, E, F>(
     send_account: Pubkey,
     receive_mint: Pubkey,
     rent: impl FnOnce(usize) -> F,
-) -> Result<
-    (
-        impl IntoIterator<Item = SolanaInstruction>,
-        impl IntoIterator<Item = HashedSigner<'a>>,
-    ),
-    E,
->
+) -> Result<InstructionSet<'a>, E>
 where
     F: Future<Output = Result<u64, E>>,
 {
@@ -26,7 +21,7 @@ where
     let initializer_token_account_key = initializer_token_account.pubkey();
     let escrow_account = Keypair::new();
 
-    let out = token::create_token_account(
+    let mut out = token::create_token_account(
         funder,
         initializer_token_account,
         receive_mint,
@@ -34,8 +29,8 @@ where
         rent,
     )
     .await?;
-    Ok((
-        out.0.into_iter().chain(once(
+    out.add_set(InstructionSet {
+        instructions: vec![
             InitEscrowCPI::new(
                 SolanaAccountMeta::new_readonly(initializer, true),
                 SolanaAccountMeta::new(send_account, false),
@@ -48,7 +43,8 @@ where
             .unwrap()
             .instruction(&SolanaAccountMeta::new_readonly(program_id, false))
             .instruction,
-        )),
-        out.1.into_iter().chain(once(escrow_account.into())),
-    ))
+        ],
+        signers: once(escrow_account.into()).collect(),
+    });
+    Ok(out)
 }

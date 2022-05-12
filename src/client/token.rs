@@ -1,10 +1,9 @@
 //! Client functions for the [`spl-token`] program.
 
-use crate::client::HashedSigner;
+use crate::client::{HashedSigner, InstructionSet};
 use crate::on_chain_size::OnChainSize;
 use crate::program::ProgramKey;
 use crate::spl::token::{MintAccount, TokenAccount, TokenProgram};
-use cruiser::SolanaInstruction;
 use solana_program::pubkey::Pubkey;
 use solana_program::system_instruction::create_account;
 use solana_sdk::signature::Signer;
@@ -19,13 +18,7 @@ pub async fn create_token_account<'a, F, E>(
     mint: Pubkey,
     owner: Pubkey,
     rent: impl FnOnce(usize) -> F,
-) -> Result<
-    (
-        impl IntoIterator<Item = SolanaInstruction>,
-        impl IntoIterator<Item = HashedSigner<'a>>,
-    ),
-    E,
->
+) -> Result<InstructionSet<'a>, E>
 where
     F: Future<Output = Result<u64, E>>,
 {
@@ -34,8 +27,8 @@ where
     let funder = funder.into();
     let account = account.into();
     let rent = rent(SPACE).await?;
-    Ok((
-        [
+    Ok(InstructionSet {
+        instructions: vec![
             create_account(
                 &funder.pubkey(),
                 &account.pubkey(),
@@ -51,8 +44,8 @@ where
             )
             .unwrap(),
         ],
-        [funder, account],
-    ))
+        signers: [funder, account].into_iter().collect(),
+    })
 }
 
 /// Creates a new mint
@@ -64,13 +57,7 @@ pub async fn create_mint<'a, F, E>(
     freeze_authority: Option<Pubkey>,
     decimals: u8,
     rent: impl FnOnce(usize) -> F,
-) -> Result<
-    (
-        impl IntoIterator<Item = SolanaInstruction>,
-        impl IntoIterator<Item = HashedSigner<'a>>,
-    ),
-    E,
->
+) -> Result<InstructionSet<'a>, E>
 where
     F: Future<Output = Result<u64, E>>,
 {
@@ -79,8 +66,8 @@ where
     let funder = funder.into();
     let account = account.into();
     let rent = rent(SPACE).await?;
-    Ok((
-        [
+    Ok(InstructionSet {
+        instructions: vec![
             create_account(
                 &funder.pubkey(),
                 &account.pubkey(),
@@ -97,8 +84,8 @@ where
             )
             .unwrap(),
         ],
-        [funder, account],
-    ))
+        signers: [funder, account].into_iter().collect(),
+    })
 }
 
 /// Mints tokens to an account
@@ -108,13 +95,10 @@ pub fn mint_to<'a>(
     token_account_to: Pubkey,
     mint_authority: impl Into<HashedSigner<'a>>,
     amount: u64,
-) -> (
-    impl IntoIterator<Item = SolanaInstruction>,
-    impl IntoIterator<Item = HashedSigner<'a>>,
-) {
+) -> InstructionSet<'a> {
     let mint_authority = mint_authority.into();
-    (
-        [instruction::mint_to(
+    InstructionSet {
+        instructions: vec![instruction::mint_to(
             &TokenProgram::<()>::KEY,
             &mint,
             &token_account_to,
@@ -123,8 +107,8 @@ pub fn mint_to<'a>(
             amount,
         )
         .unwrap()],
-        [mint_authority],
-    )
+        signers: [mint_authority].into_iter().collect(),
+    }
 }
 
 /// Transfers tokens between accounts
@@ -134,13 +118,10 @@ pub fn transfer<'a>(
     destination_account: Pubkey,
     authority: impl Into<HashedSigner<'a>>,
     amount: u64,
-) -> (
-    impl IntoIterator<Item = SolanaInstruction>,
-    impl IntoIterator<Item = HashedSigner<'a>>,
-) {
+) -> InstructionSet<'a> {
     let authority = authority.into();
-    (
-        [instruction::transfer(
+    InstructionSet {
+        instructions: vec![instruction::transfer(
             &TokenProgram::<()>::KEY,
             &source_account,
             &destination_account,
@@ -149,6 +130,6 @@ pub fn transfer<'a>(
             amount,
         )
         .unwrap()],
-        [authority],
-    )
+        signers: [authority].into_iter().collect(),
+    }
 }

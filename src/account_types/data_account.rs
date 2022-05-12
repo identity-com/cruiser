@@ -28,6 +28,7 @@ use crate::{AccountInfo, CruiserResult};
 // }
 
 /// An account owned by the current program.
+/// If not writable should use [`ReadOnlyDataAccount`] instead.
 ///
 /// - `AL`: The [`AccountList`](crate::account_list::AccountList) that is valid for `A`
 /// - `A` The account data, `AL` must implement [`AccountListItem<A>`](AccountListItem)

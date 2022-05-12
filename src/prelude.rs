@@ -12,6 +12,7 @@ pub use crate::{
         discriminant_account::DiscriminantAccount,
         init_account::{InitAccount, InitArgs, InitSizeWithArg, InitStaticSized},
         init_or_zeroed_account::InitOrZeroedAccount,
+        read_only_data_account::ReadOnlyDataAccount,
         rent_exempt::RentExempt,
         rest::Rest,
         seeds::{BumpSeed, FindBump, Seeds},
@@ -52,8 +53,19 @@ pub use std::ops::{Deref, DerefMut};
 
 #[cfg(feature = "client")]
 pub use crate::{
-    client::{system_program, HashedSigner},
-    solana_sdk::signature::{Keypair, Signer},
+    client::{
+        system_program, CloneSigner, ConfirmationResult, HashedSigner, InstructionSet,
+        TransactionBuilder,
+    },
+    solana_client::{
+        nonblocking::rpc_client::RpcClient,
+        rpc_config::{RpcSendTransactionConfig, RpcTransactionConfig},
+    },
+    solana_sdk::{
+        commitment_config::{CommitmentConfig, CommitmentLevel},
+        native_token::LAMPORTS_PER_SOL,
+        signature::{Keypair, Signer},
+    },
 };
 
 #[cfg(feature = "in_place")]

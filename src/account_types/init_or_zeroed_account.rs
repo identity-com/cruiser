@@ -54,7 +54,24 @@ where
     /// Is a [`ZeroedAccount`]
     Zeroed(ZeroedAccount<AI, AL, D>),
 }
+impl<AI, AL, D> InitOrZeroedAccount<AI, AL, D>
+where
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
+{
+    /// Returns true if this is a [`ZeroedAccount`]
+    pub const fn is_zeroed(&self) -> bool {
+        match self {
+            Self::Init(_) => false,
+            Self::Zeroed(_) => true,
+        }
+    }
 
+    /// Returns true if this is an [`InitAccount`]
+    pub const fn is_init(&self) -> bool {
+        !self.is_zeroed()
+    }
+}
 impl<AI, AL, D> Deref for InitOrZeroedAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,

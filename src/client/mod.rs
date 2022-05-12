@@ -24,13 +24,28 @@ use std::ops::Deref;
 use std::time::Duration;
 use tokio::time::sleep;
 
+/// A set of instructions from client functions
+#[derive(Debug)]
+pub struct InstructionSet<'a> {
+    /// The instructions for the function
+    pub instructions: Vec<SolanaInstruction>,
+    /// The signers for the instructions
+    pub signers: HashSet<HashedSigner<'a>>,
+}
+impl<'a> InstructionSet<'a> {
+    /// Adds another [`InstructionSet`] to this one
+    pub fn add_set(&mut self, other: InstructionSet<'a>) -> &mut Self {
+        self.instructions.extend_from_slice(&other.instructions);
+        self.signers.extend(other.signers.into_iter());
+        self
+    }
+}
+
 /// Transaction building helper
 #[derive(Debug)]
 pub struct TransactionBuilder<'a> {
-    /// The instructions for this transaction
-    pub instructions: Vec<SolanaInstruction>,
-    /// The signers for this transaction
-    pub signers: HashSet<HashedSigner<'a>>,
+    /// The instructions for the transaction
+    pub instruction_set: InstructionSet<'a>,
     /// The payer for this transaction
     pub payer: Pubkey,
 }
@@ -43,16 +58,19 @@ impl<'a> TransactionBuilder<'a> {
         HashedSigner<'a>: From<S>,
     {
         let payer = HashedSigner::from(payer);
+        let payer_key = payer.pubkey();
         Self {
-            instructions: Vec::new(),
-            payer: payer.pubkey(),
-            signers: once(payer).collect(),
+            instruction_set: InstructionSet {
+                instructions: vec![],
+                signers: once(payer).collect(),
+            },
+            payer: payer_key,
         }
     }
 
     /// Adds an instruction to this [`TransactionBuilder`]
     pub fn instruction(&mut self, instruction: SolanaInstruction) -> &mut Self {
-        self.instructions.push(instruction);
+        self.instruction_set.instructions.push(instruction);
         self
     }
     /// Adds many instructions to this [`TransactionBuilder`]
@@ -60,7 +78,7 @@ impl<'a> TransactionBuilder<'a> {
         &mut self,
         instructions: impl IntoIterator<Item = SolanaInstruction>,
     ) -> &mut Self {
-        self.instructions.extend(instructions);
+        self.instruction_set.instructions.extend(instructions);
         self
     }
 
@@ -69,7 +87,7 @@ impl<'a> TransactionBuilder<'a> {
     where
         HashedSigner<'a>: From<S>,
     {
-        self.signers.insert(signer.into());
+        self.instruction_set.signers.insert(signer.into());
         self
     }
     /// Adds many signers to this [`TransactionBuilder`]. Can add the same signer twice, will only sign once.
@@ -77,33 +95,26 @@ impl<'a> TransactionBuilder<'a> {
     where
         HashedSigner<'a>: From<S>,
     {
-        self.signers
+        self.instruction_set
+            .signers
             .extend(signers.into_iter().map(HashedSigner::from));
         self
     }
 
     /// Adds instructions and signers to this [`TransactionBuilder`].
     /// Designed to be used with client functions.
-    pub fn signed_instructions<S>(
-        &mut self,
-        instructions: (
-            impl IntoIterator<Item = SolanaInstruction>,
-            impl IntoIterator<Item = S>,
-        ),
-    ) -> &mut Self
-    where
-        HashedSigner<'a>: From<S>,
-    {
-        self.instructions(instructions.0).signers(instructions.1)
+    pub fn signed_instructions(&mut self, instruction_set: InstructionSet<'a>) -> &mut Self {
+        self.instruction_set.add_set(instruction_set);
+        self
     }
 
     /// Turns this into a transaction
     #[must_use]
     pub fn to_transaction(&self, recent_blockhash: Hash) -> Transaction {
         Transaction::new_signed_with_payer(
-            &self.instructions,
+            &self.instruction_set.instructions,
             Some(&self.payer),
-            &self.signers.iter().collect::<Vec<_>>(),
+            &self.instruction_set.signers.iter().collect::<Vec<_>>(),
             recent_blockhash,
         )
     }
