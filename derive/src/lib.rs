@@ -29,6 +29,7 @@ use crate::get_properties::GetProperties;
 #[allow(unused_imports)]
 use crate::in_place::InPlaceDerive;
 use crate::instruction_list::InstructionListDerive;
+use crate::on_chain_size::OnChainSizeDerive;
 use crate::verify_account_arg_impl::VerifyAccountArgs;
 
 mod account_argument;
@@ -40,6 +41,7 @@ mod get_properties;
 mod in_place;
 mod instruction_list;
 mod log_level;
+mod on_chain_size;
 mod verify_account_arg_impl;
 
 #[cfg(feature = "in_place")]
@@ -309,6 +311,20 @@ pub fn derive_in_place(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn verify_account_arg_impl(tokens: TokenStream) -> TokenStream {
     let stream = parse_macro_input!(tokens as VerifyAccountArgs).into_token_stream();
+    stream.into()
+}
+
+/// Derive macro for the [`OnChainSize`] trait.
+/// This will sum structs, use 1 + max for enums, and max unions.
+#[proc_macro_error]
+#[proc_macro_derive(OnChainSize, attributes(on_chain_size))]
+pub fn derive_on_chain_size(input: TokenStream) -> TokenStream {
+    let stream = parse_macro_input!(input as OnChainSizeDerive).into_token_stream();
+    #[cfg(feature = "debug_on_chain_size")]
+    {
+        println!("{}", stream);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
     stream.into()
 }
 

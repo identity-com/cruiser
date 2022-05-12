@@ -5,6 +5,8 @@ use std::mem::size_of;
 
 use solana_program::pubkey::Pubkey;
 
+pub use cruiser_derive::OnChainSize;
+
 /// This value has as static size on-chain
 pub trait OnChainSize {
     /// The size on-chain
