@@ -37,9 +37,6 @@ pub struct ExchangeData {
 #[cfg(feature = "processor")]
 mod processor {
     use super::*;
-    use cruiser::account_argument::Single;
-    use cruiser::instruction::InstructionProcessor;
-    use cruiser::{msg, CPIChecked, CruiserResult, GenericError, Pubkey, ToSolanaAccountInfo};
     use std::iter::empty;
 
     impl<'a, AI> InstructionProcessor<AI, Exchange> for Exchange

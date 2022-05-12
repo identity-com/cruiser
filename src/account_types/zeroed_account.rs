@@ -111,8 +111,12 @@ where
 {
     fn validate(&mut self, program_id: &Pubkey, _arg: ()) -> CruiserResult<()> {
         assert_is_owner(&self.account, program_id, ())?;
-        if self.account.info.data()[..AL::DiscriminantCompressed::max_bytes()]
+        if self
+            .account
+            .info
+            .data()
             .iter()
+            .take(AL::DiscriminantCompressed::max_bytes())
             .any(|val| *val != 0)
         {
             Err(GenericError::NonZeroedData {

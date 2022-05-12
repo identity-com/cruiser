@@ -5,8 +5,7 @@ pub use cruiser_derive::InstructionList;
 use crate::account_argument::AccountInfoIterator;
 use crate::account_list::AccountList;
 use crate::compressed_numbers::CompressedNumber;
-use crate::instruction::Instruction;
-use crate::{CruiserResult, SolanaInstruction};
+use crate::CruiserResult;
 use solana_program::pubkey::Pubkey;
 
 /// A list of possible instructions for a program.
@@ -42,44 +41,6 @@ pub trait InstructionListProcessor<AI, IL: InstructionList> {
         accounts: &mut impl AccountInfoIterator<Item = AI>,
         data: &[u8],
     ) -> CruiserResult<()>;
-}
-
-/// The basic client function, should have a version of this for each thing you want to be able to cpi.
-/// Also should implement either [`InstructionListCPIStatic`] or [`InstructionListCPIDynamic`].
-pub trait InstructionListCPI {
-    /// The instruction list for this
-    type InstructionList: InstructionListItem<Self::Instruction>;
-    /// The instruction for this
-    type Instruction: Instruction<Self::AccountInfo>;
-    /// The account info this deals with
-    type AccountInfo;
-
-    /// Gets this as a solana instruction
-    #[must_use]
-    fn instruction(&mut self, program_id: &Pubkey) -> SolanaInstruction;
-}
-
-/// Extension to [`InstructionListCPI`]. More efficient than [`InstructionListCPIDynamic`] but requires statically known account length.
-pub trait InstructionListCPIStatic<const N: usize>: InstructionListCPI {
-    /// Gets the accounts for this call.
-    #[must_use]
-    fn to_accounts_static<'a>(
-        &'a self,
-        program_account: &'a Self::AccountInfo,
-    ) -> [&'a Self::AccountInfo; N];
-}
-
-/// Extension to [`InstructionListCPI`].
-/// Less efficient than [`InstructionListCPIStatic`] but can have dynamically sized account length.
-pub trait InstructionListCPIDynamic: InstructionListCPI {
-    /// The iterator returned by [`InstructionListCPIDynamic::to_accounts_dynamic`].
-    type Iter<'a>: Iterator<Item = &'a Self::AccountInfo>
-    where
-        Self: 'a;
-
-    /// Gets the accounts for this call.
-    #[must_use]
-    fn to_accounts_dynamic(&self) -> Self::Iter<'_>;
 }
 
 /// Instruction list is an interface. Still Experimental.

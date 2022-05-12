@@ -17,23 +17,39 @@ use solana_sdk::transaction::{Transaction, TransactionError};
 use solana_transaction_status::TransactionConfirmationStatus;
 use std::cmp::Ordering;
 use std::collections::HashSet;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::hash::Hasher;
 use std::iter::once;
 use std::ops::Deref;
 use std::time::Duration;
 use tokio::time::sleep;
 
+/// A set of instructions from client functions
+#[derive(Debug)]
+pub struct InstructionSet<'a> {
+    /// The instructions for the function
+    pub instructions: Vec<SolanaInstruction>,
+    /// The signers for the instructions
+    pub signers: HashSet<HashedSigner<'a>>,
+}
+impl<'a> InstructionSet<'a> {
+    /// Adds another [`InstructionSet`] to this one
+    pub fn add_set(&mut self, other: InstructionSet<'a>) -> &mut Self {
+        self.instructions.extend_from_slice(&other.instructions);
+        self.signers.extend(other.signers.into_iter());
+        self
+    }
+}
+
 /// Transaction building helper
 #[derive(Debug)]
 pub struct TransactionBuilder<'a> {
-    /// The instructions for this transaction
-    pub instructions: Vec<SolanaInstruction>,
-    /// The signers for this transaction
-    pub signers: HashSet<HashedSigner<'a>>,
+    /// The instructions for the transaction
+    pub instruction_set: InstructionSet<'a>,
     /// The payer for this transaction
     pub payer: Pubkey,
 }
+
 impl<'a> TransactionBuilder<'a> {
     /// Creates a new [`TransactionBuilder`] with a payer
     #[must_use]
@@ -42,16 +58,19 @@ impl<'a> TransactionBuilder<'a> {
         HashedSigner<'a>: From<S>,
     {
         let payer = HashedSigner::from(payer);
+        let payer_key = payer.pubkey();
         Self {
-            instructions: Vec::new(),
-            payer: payer.pubkey(),
-            signers: once(payer).collect(),
+            instruction_set: InstructionSet {
+                instructions: vec![],
+                signers: once(payer).collect(),
+            },
+            payer: payer_key,
         }
     }
 
     /// Adds an instruction to this [`TransactionBuilder`]
     pub fn instruction(&mut self, instruction: SolanaInstruction) -> &mut Self {
-        self.instructions.push(instruction);
+        self.instruction_set.instructions.push(instruction);
         self
     }
     /// Adds many instructions to this [`TransactionBuilder`]
@@ -59,7 +78,7 @@ impl<'a> TransactionBuilder<'a> {
         &mut self,
         instructions: impl IntoIterator<Item = SolanaInstruction>,
     ) -> &mut Self {
-        self.instructions.extend(instructions);
+        self.instruction_set.instructions.extend(instructions);
         self
     }
 
@@ -68,7 +87,7 @@ impl<'a> TransactionBuilder<'a> {
     where
         HashedSigner<'a>: From<S>,
     {
-        self.signers.insert(signer.into());
+        self.instruction_set.signers.insert(signer.into());
         self
     }
     /// Adds many signers to this [`TransactionBuilder`]. Can add the same signer twice, will only sign once.
@@ -76,33 +95,26 @@ impl<'a> TransactionBuilder<'a> {
     where
         HashedSigner<'a>: From<S>,
     {
-        self.signers
+        self.instruction_set
+            .signers
             .extend(signers.into_iter().map(HashedSigner::from));
         self
     }
 
     /// Adds instructions and signers to this [`TransactionBuilder`].
     /// Designed to be used with client functions.
-    pub fn signed_instructions<S>(
-        &mut self,
-        instructions: (
-            impl IntoIterator<Item = SolanaInstruction>,
-            impl IntoIterator<Item = S>,
-        ),
-    ) -> &mut Self
-    where
-        HashedSigner<'a>: From<S>,
-    {
-        self.instructions(instructions.0).signers(instructions.1)
+    pub fn signed_instructions(&mut self, instruction_set: InstructionSet<'a>) -> &mut Self {
+        self.instruction_set.add_set(instruction_set);
+        self
     }
 
     /// Turns this into a transaction
     #[must_use]
     pub fn to_transaction(&self, recent_blockhash: Hash) -> Transaction {
         Transaction::new_signed_with_payer(
-            &self.instructions,
+            &self.instruction_set.instructions,
             Some(&self.payer),
-            &self.signers.iter().collect::<Vec<_>>(),
+            &self.instruction_set.signers.iter().collect::<Vec<_>>(),
             recent_blockhash,
         )
     }
@@ -191,6 +203,7 @@ pub enum ConfirmationResult {
 trait ToConfirmationStatus {
     fn to_confirmation_status(&self) -> TransactionConfirmationStatus;
 }
+
 impl ToConfirmationStatus for CommitmentConfig {
     fn to_confirmation_status(&self) -> TransactionConfirmationStatus {
         #[allow(clippy::wildcard_in_or_patterns)]
@@ -201,8 +214,10 @@ impl ToConfirmationStatus for CommitmentConfig {
         }
     }
 }
+
 #[derive(Clone)]
 struct OrderedConfirmationStatus(TransactionConfirmationStatus);
+
 impl From<OrderedConfirmationStatus> for u8 {
     fn from(from: OrderedConfirmationStatus) -> Self {
         match from {
@@ -212,6 +227,7 @@ impl From<OrderedConfirmationStatus> for u8 {
         }
     }
 }
+
 impl PartialEq<CommitmentConfig> for OrderedConfirmationStatus {
     fn eq(&self, other: &CommitmentConfig) -> bool {
         u8::from(self.clone()).eq(&u8::from(OrderedConfirmationStatus(
@@ -219,6 +235,7 @@ impl PartialEq<CommitmentConfig> for OrderedConfirmationStatus {
         )))
     }
 }
+
 impl PartialOrd<CommitmentConfig> for OrderedConfirmationStatus {
     fn partial_cmp(&self, other: &CommitmentConfig) -> Option<Ordering> {
         u8::from(self.clone()).partial_cmp(&u8::from(OrderedConfirmationStatus(
@@ -228,40 +245,41 @@ impl PartialOrd<CommitmentConfig> for OrderedConfirmationStatus {
 }
 
 /// A [`Signer`] with hash based on the pubkey.
+#[derive(Clone, Debug)]
 pub struct HashedSigner<'a>(SignerCow<'a>);
-impl<'a> Debug for HashedSigner<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("HashedSigner")
-            .field(&self.0.pubkey())
-            .finish()
-    }
-}
+
 impl<'a> PartialEq for HashedSigner<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.0.pubkey().eq(&other.0.pubkey())
     }
 }
+
 impl<'a> Eq for HashedSigner<'a> {}
+
 impl<'a> std::hash::Hash for HashedSigner<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.pubkey().hash(state);
     }
 }
-impl<'a> From<&'a dyn Signer> for HashedSigner<'a> {
-    fn from(from: &'a dyn Signer) -> Self {
+
+impl<'a> From<&'a (dyn CloneSigner<'a> + 'a)> for HashedSigner<'a> {
+    fn from(from: &'a (dyn CloneSigner<'a> + 'a)) -> Self {
         Self(SignerCow::Borrowed(from))
     }
 }
-impl<'a> From<Box<dyn Signer>> for HashedSigner<'a> {
-    fn from(from: Box<dyn Signer>) -> Self {
+
+impl<'a> From<Box<(dyn CloneSigner<'a> + 'a)>> for HashedSigner<'a> {
+    fn from(from: Box<(dyn CloneSigner<'a> + 'a)>) -> Self {
         Self(SignerCow::Owned(from))
     }
 }
+
 impl<'a> From<Keypair> for HashedSigner<'a> {
     fn from(from: Keypair) -> Self {
         Self(SignerCow::Owned(Box::new(from)))
     }
 }
+
 impl<'a> From<&'a Keypair> for HashedSigner<'a> {
     fn from(from: &'a Keypair) -> Self {
         Self(SignerCow::Borrowed(from))
@@ -295,17 +313,37 @@ impl<'a> Signer for HashedSigner<'a> {
     }
 }
 
-enum SignerCow<'a> {
-    Borrowed(&'a dyn Signer),
-    Owned(Box<dyn Signer + 'a>),
+/// A signer that can be cloned.
+pub trait CloneSigner<'a>: Signer + Debug {
+    /// Clones the signer.
+    fn clone_signer(&self) -> Box<dyn CloneSigner<'a> + 'a>;
 }
+
+impl<'a> CloneSigner<'a> for Keypair {
+    fn clone_signer(&self) -> Box<dyn CloneSigner<'a> + 'a> {
+        Box::new(Keypair::from_bytes(&self.to_bytes()).unwrap())
+    }
+}
+
+#[derive(Debug)]
+enum SignerCow<'a> {
+    Borrowed(&'a (dyn CloneSigner<'a> + 'a)),
+    Owned(Box<dyn CloneSigner<'a> + 'a>),
+}
+
 impl<'a> Deref for SignerCow<'a> {
-    type Target = dyn Signer + 'a;
+    type Target = dyn CloneSigner<'a> + 'a;
 
     fn deref(&self) -> &Self::Target {
         match self {
             SignerCow::Borrowed(signer) => *signer,
             SignerCow::Owned(signer) => &**signer,
         }
+    }
+}
+
+impl<'a> Clone for SignerCow<'a> {
+    fn clone(&self) -> Self {
+        SignerCow::Owned(self.clone_signer())
     }
 }

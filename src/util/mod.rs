@@ -603,7 +603,9 @@ where
         <I::Accounts as FromAccounts<_>>::from_accounts(program_id, accounts, from_data)?;
     ValidateArgument::validate(&mut accounts, program_id, validate_data)?;
     let ret = P::process(program_id, instruction_data, &mut accounts)?;
-    ret.return_self(set_return_data)?;
+    if I::ReturnType::max_size() > 0 {
+        ret.return_self(set_return_data)?;
+    }
     <I::Accounts as AccountArgument>::write_back(accounts, program_id)?;
     Ok(())
 }
@@ -615,7 +617,7 @@ extern "C" {
 /// Gets return data from a cpi call. Returns the size of data returned, 0 means no return was found.
 /// Copied from [`get_return_data`](solana_program::program::get_return_data).
 pub fn get_return_data_buffered(
-    buffer: &mut [u8; MAX_RETURN_DATA],
+    buffer: &mut [u8],
     program_id: &mut Pubkey,
 ) -> CruiserResult<usize> {
     // Copied from solana src

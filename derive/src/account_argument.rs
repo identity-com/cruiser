@@ -30,6 +30,7 @@ pub struct AccountArgumentAttribute {
     #[allow(dead_code)]
     #[argument(default = syn::parse_str("u64").unwrap())]
     enum_discriminant_type: Type,
+    write_back: Option<Expr>,
     #[argument(presence)]
     no_from: bool,
     #[argument(presence)]
@@ -410,7 +411,19 @@ impl AccountArgumentDerive {
             once(self.account_argument_attribute.generics.as_ref()),
         );
 
-        let write_back = self.derive_type.write_back();
+        let write_back = match &self.account_argument_attribute.write_back {
+            None => {
+                let write_back = self.derive_type.write_back();
+                quote! {
+                    #write_back
+                    Ok(())
+                }
+            }
+            Some(write_back) => quote! {
+                let write_back: fn(#ident #ty_gen, &#crate_name::Pubkey) -> #crate_name::CruiserResult = #write_back;
+                write_back(self, program_id)
+            },
+        };
         let add_keys = self.derive_type.add_keys();
         let account_info = &self.account_argument_attribute.account_info;
 
@@ -425,7 +438,6 @@ impl AccountArgumentDerive {
                     program_id: &#crate_name::Pubkey,
                 ) -> #crate_name::CruiserResult<()>{
                     #write_back
-                    Ok(())
                 }
 
                 fn add_keys(
@@ -446,7 +458,9 @@ fn combine_generics<'a>(
     generics: &Generics,
     other_generics: impl IntoIterator<Item = Option<&'a AdditionalGenerics>>,
 ) -> (TokenStream, TokenStream, TokenStream) {
+    let lifetime_params = generics.lifetimes();
     let type_params = generics.type_params();
+    let const_params = generics.const_params().map(|param| &param.ident);
     let mut generics = generics.clone();
     for other_generics in other_generics.into_iter().flatten() {
         generics
@@ -468,7 +482,7 @@ fn combine_generics<'a>(
     let (impl_gen, _, where_clause) = generics.split_for_impl();
     (
         quote! { #impl_gen },
-        quote! { <#(#type_params,)*> },
+        quote! { <#(#lifetime_params,)* #(#type_params,)* #(#const_params,)*> },
         quote! { #where_clause },
     )
 }
@@ -1036,8 +1050,9 @@ impl NamedField {
         infos: &TokenStream,
     ) -> (TokenStream, TokenStream) {
         let ident = &self.ident;
+        let ty = &self.ty;
         let expr = self.field.from_accounts(id, program_id, infos);
-        (quote! { let mut #ident = #expr; }, quote! { #ident })
+        (quote! { let mut #ident: #ty = #expr; }, quote! { #ident })
     }
 
     fn validate_argument(

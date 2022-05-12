@@ -1,21 +1,6 @@
 //! An account that lets you access data in-place.
 
-use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable, ValidateArgument};
-use crate::account_list::AccountListItem;
-use crate::account_types::system_program::{CreateAccount, SystemProgram};
-use crate::account_types::PhantomAccount;
-use crate::compressed_numbers::CompressedNumber;
-use crate::in_place::InPlaceCreate;
-use crate::pda_seeds::PDASeedSet;
-use crate::program::ProgramKey;
-use crate::util::assert::assert_is_owner;
-use crate::util::{MappableRef, MappableRefMut, TryMappableRef, TryMappableRefMut};
-use crate::{AccountInfo, CPIMethod, CruiserResult, GenericError, ToSolanaAccountInfo};
-use borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::in_place::{InPlaceRead, InPlaceWrite};
-use solana_program::pubkey::Pubkey;
-use solana_program::rent::Rent;
-use solana_program::sysvar::Sysvar;
+use crate::prelude::*;
 
 /// An account that lets you access data in-place. If created will use init or zeroed logic.
 #[derive(AccountArgument, Debug)]
@@ -165,7 +150,9 @@ where
                 seeds,
             )?;
         } else if &*self.0.owner() == program_id {
-            if (*self.0.data())
+            if self
+                .0
+                .data()
                 .iter()
                 .take(AL::DiscriminantCompressed::max_bytes())
                 .any(|b| *b != 0)

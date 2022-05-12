@@ -72,6 +72,7 @@ pub mod account_types;
 #[cfg(feature = "client")]
 pub mod client;
 pub mod compressed_numbers;
+pub mod cpi;
 pub mod entrypoint;
 pub mod impls;
 pub mod indexer;
@@ -83,13 +84,11 @@ pub mod types;
 pub mod util;
 
 mod account_info;
-mod cpi;
 mod generic_error;
 mod traits;
 
 pub use account_info::*;
 pub use borsh;
-pub use cpi::*;
 pub use cruiser_derive::verify_account_arg_impl;
 pub use generic_error::*;
 pub use indexer::AllAny;
