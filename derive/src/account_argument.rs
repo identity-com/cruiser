@@ -8,9 +8,10 @@ use proc_macro_error::abort;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::{
     bracketed, parenthesized, token, Attribute, Data, DataEnum, DeriveInput, Expr, Field, Fields,
-    Generics, Ident, Index, Token, Type, WhereClause,
+    Generics, Ident, Index, LitStr, Token, Type, WhereClause,
 };
 
 use easy_proc::{find_attr, parse_attribute_list, ArgumentList};
@@ -36,6 +37,7 @@ pub struct AccountArgumentAttribute {
     #[argument(presence)]
     no_validate: bool,
 }
+
 impl AccountArgumentAttribute {
     const IDENT: &'static str = "account_argument";
 }
@@ -45,8 +47,11 @@ pub struct FromAttribute {
     #[argument(attr_ident)]
     attr_ident: Ident,
     id: Option<Ident>,
+    #[argument(presence)]
+    no_single_tupple: bool,
     #[argument(default)]
     data: NamedTupple,
+    custom: Vec<Expr>,
     generics: Option<AdditionalGenerics>,
     // TODO: Use this for enum derivation
     #[allow(dead_code)]
@@ -56,13 +61,15 @@ pub struct FromAttribute {
     #[argument(default)]
     log_level: LogLevel,
 }
+
 impl FromAttribute {
     const IDENT: &'static str = "from";
 
     fn to_type(&self, accessor: &TokenStream) -> Vec<(TokenStream, Vec<TokenStream>)> {
-        self.data.to_type(accessor)
+        self.data.to_type(accessor, self.no_single_tupple)
     }
 }
+
 impl IdAttr for FromAttribute {
     fn id(&self) -> Option<&Ident> {
         self.id.as_ref()
@@ -72,12 +79,15 @@ impl IdAttr for FromAttribute {
         &self.attr_ident
     }
 }
+
 impl Default for FromAttribute {
     fn default() -> Self {
         Self {
             attr_ident: Ident::new("__does_not_exist__", Span::call_site()),
             id: None,
+            no_single_tupple: false,
             data: NamedTupple::default(),
+            custom: vec![],
             generics: None,
             enum_discriminant: None,
             log_level: LogLevel::default(),
@@ -90,21 +100,26 @@ pub struct ValidateAttribute {
     #[argument(attr_ident)]
     attr_ident: Ident,
     id: Option<Ident>,
+    #[argument(presence)]
+    no_single_tupple: bool,
     #[argument(default)]
     data: NamedTupple,
     generics: Option<AdditionalGenerics>,
+    custom: Vec<Expr>,
     // TODO: add logging
     #[allow(dead_code)]
     #[argument(default)]
     log_level: LogLevel,
 }
+
 impl ValidateAttribute {
     const IDENT: &'static str = "validate";
 
     fn to_type(&self, accessor: &TokenStream) -> Vec<(TokenStream, Vec<TokenStream>)> {
-        self.data.to_type(accessor)
+        self.data.to_type(accessor, self.no_single_tupple)
     }
 }
+
 impl IdAttr for ValidateAttribute {
     fn id(&self) -> Option<&Ident> {
         self.id.as_ref()
@@ -114,13 +129,16 @@ impl IdAttr for ValidateAttribute {
         &self.attr_ident
     }
 }
+
 impl Default for ValidateAttribute {
     fn default() -> Self {
         Self {
             attr_ident: Ident::new("__does_not_exist__", Span::call_site()),
             id: None,
+            no_single_tupple: false,
             data: NamedTupple::default(),
             generics: None,
+            custom: vec![],
             log_level: LogLevel::default(),
         }
     }
@@ -133,9 +151,11 @@ struct FromFieldAttribute {
     id: Option<Ident>,
     data: Option<Expr>,
 }
+
 impl FromFieldAttribute {
     const IDENT: &'static str = "from";
 }
+
 impl IdAttr for FromFieldAttribute {
     fn id(&self) -> Option<&Ident> {
         self.id.as_ref()
@@ -145,6 +165,7 @@ impl IdAttr for FromFieldAttribute {
         &self.attr_ident
     }
 }
+
 impl Default for FromFieldAttribute {
     fn default() -> Self {
         Self {
@@ -171,9 +192,11 @@ struct ValidateFieldAttribute {
     key: Option<IndexesValue<Expr, UnitDefault>>,
     custom: Vec<Expr>,
 }
+
 impl ValidateFieldAttribute {
     const IDENT: &'static str = "validate";
 }
+
 impl IdAttr for ValidateFieldAttribute {
     fn id(&self) -> Option<&Ident> {
         self.id.as_ref()
@@ -183,6 +206,7 @@ impl IdAttr for ValidateFieldAttribute {
         &self.attr_ident
     }
 }
+
 impl Default for ValidateFieldAttribute {
     fn default() -> Self {
         Self {
@@ -204,6 +228,7 @@ pub struct AdditionalGenerics {
     generics: Generics,
     where_clause: Option<WhereClause>,
 }
+
 impl Parse for AdditionalGenerics {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let content;
@@ -217,6 +242,7 @@ impl Parse for AdditionalGenerics {
         })
     }
 }
+
 impl ToTokens for AdditionalGenerics {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         self.bracket.surround(tokens, |tokens| {
@@ -255,24 +281,30 @@ trait IdAttr: ArgumentList {
 pub struct NamedTupple {
     list: Punctuated<(Ident, Token![:], Type), Token![,]>,
 }
+
 impl NamedTupple {
-    fn to_type(&self, accessor: &TokenStream) -> Vec<(TokenStream, Vec<TokenStream>)> {
+    fn to_type(
+        &self,
+        accessor: &TokenStream,
+        no_single_tupple: bool,
+    ) -> Vec<(TokenStream, Vec<TokenStream>)> {
         match self.list.len() {
             0 => vec![(quote! { () }, vec![])],
             1 => {
                 let item = &self.list[0];
                 let ident = &item.0;
                 let ty = &item.2;
-                vec![
-                    (
-                        ty.into_token_stream(),
-                        vec![quote! { let #ident = #accessor; }],
-                    ),
-                    (
+                let mut out = vec![(
+                    ty.into_token_stream(),
+                    vec![quote! { let #ident = #accessor; }],
+                )];
+                if !no_single_tupple {
+                    out.push((
                         quote! { (#ty,) },
                         vec![quote! { let #ident = #accessor.0; }],
-                    ),
-                ]
+                    ));
+                }
+                out
             }
             x => {
                 let mut types = Vec::with_capacity(x);
@@ -291,6 +323,7 @@ impl NamedTupple {
         }
     }
 }
+
 impl Parse for NamedTupple {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let content;
@@ -311,6 +344,7 @@ pub struct AccountArgumentDerive {
     from_attributes: HashMap<String, FromAttribute>,
     validate_attributes: HashMap<String, ValidateAttribute>,
 }
+
 impl Parse for AccountArgumentDerive {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let from_attribute_ident = format_ident!("{}", FromAttribute::IDENT);
@@ -360,6 +394,7 @@ impl Parse for AccountArgumentDerive {
         })
     }
 }
+
 impl AccountArgumentDerive {
     pub fn into_token_stream(self) -> TokenStream {
         let account_argument = self.account_argument();
@@ -500,6 +535,7 @@ enum AccountArgumentDeriveType {
     Enum(AccountArgumentDeriveEnum),
     Struct(AccountArgumentDeriveStruct),
 }
+
 impl AccountArgumentDeriveType {
     fn from_data(
         data: Data,
@@ -570,6 +606,24 @@ impl AccountArgumentDeriveType {
         let program_id = quote! { program_id };
         let infos = quote! { __infos };
         let mut out = Vec::with_capacity(ty_accessors.len());
+        let custom_validates = attr
+            .custom
+            .iter()
+            .map(|custom| {
+                let error_message = LitStr::new(
+                    &format!("Custom validation failed: {}", quote! { #custom }),
+                    custom.span(),
+                );
+
+                quote! {
+                    if !(#custom) {
+                        return Err(#crate_name::GenericError::Custom{
+                            error: #error_message.to_string(),
+                        }.into());
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
         for (ty, accessors) in ty_accessors {
             let inner = match self {
                 AccountArgumentDeriveType::Enum(_) => todo!(),
@@ -587,6 +641,7 @@ impl AccountArgumentDeriveType {
                         __arg: #ty,
                     ) -> #crate_name::CruiserResult<Self>{
                         #(#accessors)*
+                        #(#custom_validates)*
                         #inner
                     }
 
@@ -618,6 +673,24 @@ impl AccountArgumentDeriveType {
         let ty_accessors = attr.to_type(&quote! { __arg });
         let program_id = quote! { program_id };
         let mut out = Vec::with_capacity(ty_accessors.len());
+        let custom_validates = attr
+            .custom
+            .iter()
+            .map(|custom| {
+                let error_message = LitStr::new(
+                    &format!("Custom validation failed: {}", quote! { #custom }),
+                    custom.span(),
+                );
+
+                quote! {
+                    if !(#custom) {
+                        return Err(#crate_name::GenericError::Custom{
+                            error: #error_message.to_string(),
+                        }.into());
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
         for (ty, accessors) in ty_accessors {
             let inner = match self {
                 AccountArgumentDeriveType::Enum(_) => todo!(),
@@ -631,6 +704,7 @@ impl AccountArgumentDeriveType {
                 impl #impl_gen #crate_name::account_argument::ValidateArgument<#ty> for #ident #ty_gen #where_clause{
                     fn validate(&mut self, program_id: &#crate_name::Pubkey, __arg: #ty) -> #crate_name::CruiserResult<()>{
                         #(#accessors)*
+                        #(#custom_validates)*
                         #inner
                         ::std::result::Result::Ok(())
                     }
@@ -645,6 +719,7 @@ impl AccountArgumentDeriveType {
 
 #[derive(Debug)]
 struct AccountArgumentDeriveEnum(Vec<AccountArgumentEnumVariant>);
+
 impl AccountArgumentDeriveEnum {
     fn from_enum(
         value: DataEnum,
@@ -697,6 +772,7 @@ struct AccountArgumentEnumVariant {
     #[allow(dead_code)]
     discriminant: Option<Expr>,
 }
+
 impl AccountArgumentEnumVariant {
     fn do_fields(
         &self,
@@ -781,6 +857,7 @@ enum AccountArgumentDeriveStruct {
     Unnamed(Vec<UnnamedField>),
     Unit,
 }
+
 impl AccountArgumentDeriveStruct {
     fn from_fields(
         value: Fields,
@@ -1039,6 +1116,7 @@ struct NamedField {
     ident: Ident,
     field: UnnamedField,
 }
+
 impl NamedField {
     fn write_back(&self, self_access: &TokenStream) -> TokenStream {
         let ident = &self.ident;
@@ -1075,6 +1153,7 @@ impl NamedField {
             .validate_argument(id, program_id, &quote! { #accessor #ident })
     }
 }
+
 impl Deref for NamedField {
     type Target = UnnamedField;
 
@@ -1082,6 +1161,7 @@ impl Deref for NamedField {
         &self.field
     }
 }
+
 impl DerefMut for NamedField {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.field
@@ -1094,6 +1174,7 @@ struct UnnamedField {
     validate_attrs: HashMap<String, ValidateFieldAttribute>,
     ty: Type,
 }
+
 impl UnnamedField {
     fn write_back(&self, accessor: &TokenStream) -> TokenStream {
         let crate_name = get_crate_name();
@@ -1156,10 +1237,14 @@ impl UnnamedField {
             quote! { #crate_name::util::assert::assert_is_key(&#accessor, #key, #indexer)?; }
         });
         let custom = attr.custom.into_iter().map(|custom| {
+            let error_message = LitStr::new(
+                &format!("Custom validation failed: {}", quote! { #custom }),
+                custom.span(),
+            );
             quote! {
                 if !(#custom) {
                     return Err(#crate_name::GenericError::Custom{
-                        error: "Custom validation failed".to_string(),
+                        error: #error_message.to_string(),
                     }.into());
                 }
             }
@@ -1179,15 +1264,19 @@ impl UnnamedField {
 pub trait DefaultIndex: Sized {
     fn default_index() -> Indexes<Self>;
 }
+
 #[derive(Debug, Clone)]
 pub struct AllDefault;
+
 impl DefaultIndex for AllDefault {
     fn default_index() -> Indexes<Self> {
         Indexes::All(kw::all::default())
     }
 }
+
 #[derive(Debug, Clone)]
 pub struct UnitDefault;
+
 impl DefaultIndex for UnitDefault {
     fn default_index() -> Indexes<Self> {
         Indexes::Expr(syn::parse_str("()").unwrap(), PhantomData)
@@ -1199,6 +1288,7 @@ pub struct IndexesValue<T, D: DefaultIndex = AllDefault> {
     indexes: Indexes<D>,
     value: T,
 }
+
 impl<T, D> Parse for IndexesValue<T, D>
 where
     T: Parse,
@@ -1231,6 +1321,7 @@ pub enum Indexes<D: DefaultIndex> {
     NotAny(kw::not_any),
     Expr(Box<Expr>, PhantomData<fn() -> D>),
 }
+
 impl<D: DefaultIndex> Indexes<D> {
     fn to_tokens(&self) -> TokenStream {
         let crate_name = get_crate_name();
@@ -1243,6 +1334,7 @@ impl<D: DefaultIndex> Indexes<D> {
         }
     }
 }
+
 impl<D: DefaultIndex> Parse for Indexes<D> {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
