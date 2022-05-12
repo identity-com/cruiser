@@ -6,10 +6,7 @@ use std::ops::{Deref, DerefMut};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 
-use crate::account_argument::{AccountArgument, MultiIndexable, SingleIndexable};
-use crate::account_list::AccountListItem;
-use crate::account_types::discriminant_account::DiscriminantAccount;
-use crate::{AccountInfo, CruiserResult};
+use crate::prelude::*;
 
 // verify_account_arg_impl! {
 //     mod data_account_check<AI>{

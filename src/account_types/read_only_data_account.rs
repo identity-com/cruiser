@@ -4,8 +4,8 @@ use crate::prelude::AccountListItem;
 use cruiser::prelude::*;
 use std::fmt::{Debug, Formatter};
 
-/// An account owned by the current program ([`ValidateArgumet<()>`](ValidateArgumet))
-/// or another program ([`ValidateArgumet<&Pubkey>`](ValidateArgumet)).
+/// An account owned by the current program ([`ValidateArgument<()>`](ValidateArgument))
+/// or another program ([`ValidateArgument<&Pubkey>`](ValidateArgument)).
 /// Can only be read from.
 ///
 /// - `AL`: The [`AccountList`] that is valid for `A`
@@ -39,8 +39,8 @@ where
     }
 }
 impl<AI, AL, D> Deref for ReadOnlyDataAccount<AI, AL, D>
-    where
-        AL: AccountListItem<D>,
+where
+    AL: AccountListItem<D>,
 {
     type Target = DiscriminantAccount<AI, AL, D>;
 
@@ -49,11 +49,11 @@ impl<AI, AL, D> Deref for ReadOnlyDataAccount<AI, AL, D>
     }
 }
 impl<AI, AL, D, T> MultiIndexable<T> for ReadOnlyDataAccount<AI, AL, D>
-    where
-        AI: AccountInfo,
-        AL: AccountListItem<D>,
-        D: BorshSerialize + BorshDeserialize,
-        DiscriminantAccount<AI, AL, D>: MultiIndexable<T>,
+where
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
+    DiscriminantAccount<AI, AL, D>: MultiIndexable<T>,
 {
     fn index_is_signer(&self, indexer: T) -> CruiserResult<bool> {
         self.account.index_is_signer(indexer)
@@ -68,11 +68,11 @@ impl<AI, AL, D, T> MultiIndexable<T> for ReadOnlyDataAccount<AI, AL, D>
     }
 }
 impl<AI, AL, D, T> SingleIndexable<T> for ReadOnlyDataAccount<AI, AL, D>
-    where
-        AI: AccountInfo,
-        AL: AccountListItem<D>,
-        D: BorshSerialize + BorshDeserialize,
-        DiscriminantAccount<AI, AL, D>: SingleIndexable<T, AccountInfo = AI>,
+where
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
+    DiscriminantAccount<AI, AL, D>: SingleIndexable<T, AccountInfo = AI>,
 {
     fn index_info(&self, indexer: T) -> CruiserResult<&AI> {
         self.account.index_info(indexer)
