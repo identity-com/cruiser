@@ -33,6 +33,88 @@ mod chain_exact_size;
 pub mod short_vec;
 mod with_data;
 
+/// Saturating assignment functions.
+pub trait SaturatingAssign {
+    /// Adds `rhs` to self saturating at bounds.
+    fn saturating_add_assign(&mut self, rhs: Self);
+    /// Subs `rhs` from self saturating at bounds.
+    fn saturating_sub_assign(&mut self, rhs: Self);
+    /// Multiplies self by `rhs` saturating at bounds.
+    fn saturating_mul_assign(&mut self, rhs: Self);
+    /// Divides self by `rhs` saturating at bounds.
+    fn saturating_div_assign(&mut self, rhs: Self);
+}
+macro_rules! impl_assign {
+    ($ty:ty) => {
+        impl SaturatingAssign for $ty {
+            fn saturating_add_assign(&mut self, rhs: Self) {
+                *self = self.saturating_add(rhs);
+            }
+
+            fn saturating_sub_assign(&mut self, rhs: Self) {
+                *self = self.saturating_sub(rhs);
+            }
+
+            fn saturating_mul_assign(&mut self, rhs: Self) {
+                *self = self.saturating_mul(rhs);
+            }
+
+            fn saturating_div_assign(&mut self, rhs: Self) {
+                *self = self.saturating_div(rhs);
+            }
+        }
+    };
+}
+impl_assign!(u8);
+impl_assign!(u16);
+impl_assign!(u32);
+impl_assign!(u64);
+impl_assign!(u128);
+impl_assign!(i8);
+impl_assign!(i16);
+impl_assign!(i32);
+impl_assign!(i64);
+impl_assign!(i128);
+
+/// Transparent wrapper that only implements [`Deref`].
+/// Intended to block [`DerefMut`] for a specific field.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub struct ReadOnly<T>(T);
+impl<T> ReadOnly<T> {
+    /// Creates a new read-only wrapper.
+    pub const fn new(val: T) -> Self {
+        Self(val)
+    }
+
+    /// Gets the value out of the read-only wrapper.
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+
+    /// Gets a reference to the value in the read-only wrapper.
+    pub const fn to_inner_ref(&self) -> &T {
+        &self.0
+    }
+}
+impl<T> const From<T> for ReadOnly<T> {
+    fn from(val: T) -> Self {
+        Self::new(val)
+    }
+}
+impl<T> const Deref for ReadOnly<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T> const AsRef<T> for ReadOnly<T> {
+    fn as_ref(&self) -> &T {
+        &self.0
+    }
+}
+
 /// Gets the maximum value from an array of [`usize`]s
 #[must_use]
 pub const fn usize_array_max<const N: usize>(vals: [usize; N]) -> usize {
