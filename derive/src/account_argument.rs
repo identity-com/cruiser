@@ -1254,12 +1254,12 @@ impl UnnamedField {
         });
 
         quote! {
-            #crate_name::account_argument::ValidateArgument::<_>::validate(&mut #accessor, #program_id, #validate)?;
             #(#signer)*
             #(#writable)*
             #(#owner)*
             #(#key)*
             #(#custom)*
+            #crate_name::account_argument::ValidateArgument::<_>::validate(&mut #accessor, #program_id, #validate)?;
         }
     }
 }

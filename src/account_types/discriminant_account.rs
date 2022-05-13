@@ -113,7 +113,16 @@ where
         arg: (),
     ) -> CruiserResult<Self> {
         let info = AI::from_accounts(program_id, infos, arg)?;
-        let data = D::deserialize(&mut &info.data()[AL::compressed_discriminant().num_bytes()..])?;
+        let num_discriminant_bytes = AL::compressed_discriminant().num_bytes();
+        if num_discriminant_bytes > info.data().len() {
+            return Err(GenericError::NotEnoughDataInAccount {
+                account: *info.key(),
+                needed: num_discriminant_bytes,
+                size: info.data().len(),
+            }
+            .into());
+        }
+        let data = D::deserialize(&mut &info.data()[num_discriminant_bytes..])?;
         Ok(Self {
             info,
             phantom_al: PhantomAccount::default(),
