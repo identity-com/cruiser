@@ -38,8 +38,8 @@ pub use crate::{
     program::{CruiserProgram, Program, ProgramKey},
     util::{
         assert::{assert_is_key, assert_is_owner, assert_is_signer, assert_is_writable},
-        Advance, AdvanceArray, MappableRef, MappableRefMut, MaybeOwned, TryMappableRef,
-        TryMappableRefMut,
+        Advance, AdvanceArray, MappableRef, MappableRefMut, MaybeOwned, SaturatingAssign,
+        TryMappableRef, TryMappableRefMut,
     },
     AccountInfo, CruiserAccountInfo, CruiserResult, GenericError, Pubkey, SolanaAccountMeta,
     SolanaInstruction, ToSolanaAccountInfo, UnixTimestamp,

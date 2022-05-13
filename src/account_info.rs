@@ -9,7 +9,7 @@ use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
     ValidateArgument,
 };
-use crate::util::{MappableRef, MappableRefMut, TryMappableRef, TryMappableRefMut};
+use crate::util::{MappableRef, MappableRefMut, ReadOnly, TryMappableRef, TryMappableRefMut};
 use crate::{CruiserResult, GenericError, SolanaAccountInfo};
 use solana_program::clock::Epoch;
 use solana_program::entrypoint::{BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE};
@@ -178,8 +178,8 @@ pub struct CruiserAccountInfo {
     /// - Data can only be changed by the owning program
     /// - Data will be wiped if there is no rent
     pub data: Rc<RefCell<&'static mut [u8]>>,
-    /// The original data size. Can  only see in it's own call meaning the parent CPI size won't be passed down.
-    pub original_data_len: &'static usize,
+    /// The original data size. Can only see in it's own call meaning the parent CPI size won't be passed down.
+    pub original_data_len: ReadOnly<usize>,
     /// The owning program of the account, defaults to the system program for new accounts
     ///
     /// # Change Limitations
@@ -225,7 +225,7 @@ impl CruiserAccountInfo {
                     input.add(offset),
                     data_len,
                 )));
-                let original_data_len = &*Box::leak(Box::new(data_len));
+                let original_data_len = data_len.into();
                 offset += data_len + MAX_PERMITTED_DATA_INCREASE;
                 offset += (offset as *const u8).align_offset(BPF_ALIGN_OF_U128);
 
@@ -731,7 +731,7 @@ pub mod account_info_test {
             is_signer: rng.gen(),
             is_writable: rng.gen(),
             lamports: Rc::new(RefCell::new(Box::leak(Box::new(rng.gen())))),
-            original_data_len: Box::leak(Box::new(data.len())),
+            original_data_len: data.len().into(),
             data: Rc::new(RefCell::new(Box::leak(data.into_boxed_slice()))),
             owner: Box::leak(Box::new(RefCell::new(Box::leak(Box::new(Pubkey::new(
                 &rng.gen::<[u8; 32]>(),
