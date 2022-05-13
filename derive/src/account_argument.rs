@@ -616,7 +616,8 @@ impl AccountArgumentDeriveType {
                 );
 
                 quote! {
-                    if !(#custom) {
+                    let __custom_result: bool = #custom;
+                    if !__custom_result {
                         return Err(#crate_name::GenericError::Custom{
                             error: #error_message.to_string(),
                         }.into());
@@ -683,7 +684,8 @@ impl AccountArgumentDeriveType {
                 );
 
                 quote! {
-                    if !(#custom) {
+                    let __custom_result: bool = #custom;
+                    if !__custom_result {
                         return Err(#crate_name::GenericError::Custom{
                             error: #error_message.to_string(),
                         }.into());
@@ -1242,7 +1244,8 @@ impl UnnamedField {
                 custom.span(),
             );
             quote! {
-                if !(#custom) {
+                let __custom_result: bool = #custom;
+                if !__custom_result {
                     return Err(#crate_name::GenericError::Custom{
                         error: #error_message.to_string(),
                     }.into());
