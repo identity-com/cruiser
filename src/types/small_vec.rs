@@ -79,37 +79,6 @@ macro_rules! small_vec {
                 Ok(Self(out))
             }
         }
-        impl<T> AccountArgument for $ident<T>
-        where
-            T: AccountArgument,
-        {
-            type AccountInfo = T::AccountInfo;
-
-            fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
-                for val in self.0 {
-                    val.write_back(program_id)?;
-                }
-                Ok(())
-            }
-
-            fn add_keys(
-                &self,
-                mut add: impl FnMut(Pubkey) -> CruiserResult<()>,
-            ) -> CruiserResult<()> {
-                for val in &self.0 {
-                    val.add_keys(&mut add)?;
-                }
-                Ok(())
-            }
-        }
-        impl<T> IntoIterator for $ident<T> {
-            type Item = <Vec<T> as IntoIterator>::Item;
-            type IntoIter = <Vec<T> as IntoIterator>::IntoIter;
-
-            fn into_iter(self) -> Self::IntoIter {
-                self.0.into_iter()
-            }
-        }
         impl<'a, T> IntoIterator for &'a $ident<T> {
             type Item = <&'a Vec<T> as IntoIterator>::Item;
             type IntoIter = <&'a Vec<T> as IntoIterator>::IntoIter;
