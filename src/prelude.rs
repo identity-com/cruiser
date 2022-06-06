@@ -36,6 +36,7 @@ pub use crate::{
     on_chain_size::{OnChainSize, OnChainSizeWithArg},
     pda_seeds::{PDAGenerator, PDASeed, PDASeedSet, PDASeeder},
     program::{CruiserProgram, Program, ProgramKey},
+    types::small_vec::{Vec16, Vec8},
     util::{
         assert::{assert_is_key, assert_is_owner, assert_is_signer, assert_is_writable},
         Advance, AdvanceArray, MappableRef, MappableRefMut, MaybeOwned, SaturatingAssign,
@@ -85,6 +86,3 @@ pub use crate::spl::token::{
 
 #[cfg(all(feature = "spl-token", feature = "client"))]
 pub use crate::client::token;
-
-#[cfg(feature = "small_vec")]
-pub use crate::types::small_vec::{Vec16, Vec8};
