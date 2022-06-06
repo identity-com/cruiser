@@ -6,9 +6,8 @@ use std::ops::{Deref, Index, IndexMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::account_argument::AccountArgument;
 use crate::util::bytes_ext::{ReadExt, WriteExt};
-use crate::{CruiserResult, GenericError, Pubkey};
+use crate::GenericError;
 
 macro_rules! small_vec {
     ($ident:ident, $ty:ty, $write:ident, $read:ident, $docs:expr) => {
