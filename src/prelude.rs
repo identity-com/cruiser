@@ -12,6 +12,7 @@ pub use crate::{
         discriminant_account::DiscriminantAccount,
         init_account::{InitAccount, InitArgs, InitSizeWithArg, InitStaticSized},
         init_or_zeroed_account::InitOrZeroedAccount,
+        pod_account::{PodAccount, PodData},
         read_only_data_account::ReadOnlyDataAccount,
         rent_exempt::RentExempt,
         rest::Rest,

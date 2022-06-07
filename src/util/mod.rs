@@ -155,7 +155,7 @@ pub trait TryMappableRef: Deref {
         Self: 'a;
 
     /// Tries to map the reference.
-    fn try_map_ref<'a, R, E>(
+    fn try_map_ref<'a, R: ?Sized, E>(
         self,
         f: impl FnOnce(&Self::Target) -> Result<&R, E>,
     ) -> Result<Self::Output<'a, R>, E>
@@ -173,7 +173,10 @@ pub trait MappableRefMut: DerefMut {
         Self: 'a;
 
     /// Maps the mutable reference.
-    fn map_ref_mut<'a, R>(self, f: impl FnOnce(&mut Self::Target) -> &mut R) -> Self::Output<'a, R>
+    fn map_ref_mut<'a, R: ?Sized>(
+        self,
+        f: impl FnOnce(&mut Self::Target) -> &mut R,
+    ) -> Self::Output<'a, R>
     where
         Self: 'a;
 }
@@ -189,7 +192,7 @@ pub trait TryMappableRefMut: DerefMut {
         Self: 'a;
 
     /// Tries to map the mutable reference.
-    fn try_map_ref_mut<'a, R, E>(
+    fn try_map_ref_mut<'a, R: ?Sized, E>(
         self,
         f: impl FnOnce(&mut Self::Target) -> Result<&mut R, E>,
     ) -> Result<Self::Output<'a, R>, E>
@@ -219,7 +222,7 @@ impl<T: ?Sized> TryMappableRef for &'_ T {
         Self: 'a,
     = &'a R;
 
-    fn try_map_ref<'a, R, E>(
+    fn try_map_ref<'a, R: ?Sized, E>(
         self,
         f: impl FnOnce(&Self::Target) -> Result<&R, E>,
     ) -> Result<Self::Output<'a, R>, E>
@@ -252,7 +255,7 @@ impl<T: ?Sized> TryMappableRef for &'_ mut T {
         Self: 'a,
     = &'a R;
 
-    fn try_map_ref<'a, R, E>(
+    fn try_map_ref<'a, R: ?Sized, E>(
         self,
         f: impl FnOnce(&Self::Target) -> Result<&R, E>,
     ) -> Result<Self::Output<'a, R>, E>
@@ -270,7 +273,10 @@ impl<T: ?Sized> MappableRefMut for &'_ mut T {
         Self: 'a,
     = &'a mut R;
 
-    fn map_ref_mut<'a, R>(self, f: impl FnOnce(&mut Self::Target) -> &mut R) -> Self::Output<'a, R>
+    fn map_ref_mut<'a, R: ?Sized>(
+        self,
+        f: impl FnOnce(&mut Self::Target) -> &mut R,
+    ) -> Self::Output<'a, R>
     where
         Self: 'a,
     {
@@ -285,7 +291,7 @@ impl<T: ?Sized> TryMappableRefMut for &'_ mut T {
         Self: 'a,
     = &'a mut R;
 
-    fn try_map_ref_mut<'a, R, E>(
+    fn try_map_ref_mut<'a, R: ?Sized, E>(
         self,
         f: impl FnOnce(&mut Self::Target) -> Result<&mut R, E>,
     ) -> Result<Self::Output<'a, R>, E>
@@ -318,7 +324,7 @@ impl<T: ?Sized> TryMappableRef for Ref<'_, T> {
         Self: 'a,
     = RefMap<Self, &'a R>;
 
-    fn try_map_ref<'a, R, E>(
+    fn try_map_ref<'a, R: ?Sized, E>(
         self,
         f: impl FnOnce(&Self::Target) -> Result<&R, E>,
     ) -> Result<Self::Output<'a, R>, E>
@@ -354,7 +360,7 @@ impl<T: ?Sized> TryMappableRef for RefMut<'_, T> {
         Self: 'a,
     = RefMap<Self, &'a R>;
 
-    fn try_map_ref<'a, R, E>(
+    fn try_map_ref<'a, R: ?Sized, E>(
         self,
         f: impl FnOnce(&Self::Target) -> Result<&R, E>,
     ) -> Result<Self::Output<'a, R>, E>
@@ -372,7 +378,10 @@ impl<T: ?Sized> MappableRefMut for RefMut<'_, T> {
         Self: 'a,
     = RefMut<'a, R>;
 
-    fn map_ref_mut<'a, R>(self, f: impl FnOnce(&mut Self::Target) -> &mut R) -> Self::Output<'a, R>
+    fn map_ref_mut<'a, R: ?Sized>(
+        self,
+        f: impl FnOnce(&mut Self::Target) -> &mut R,
+    ) -> Self::Output<'a, R>
     where
         Self: 'a,
     {
@@ -387,7 +396,7 @@ impl<T: ?Sized> TryMappableRefMut for RefMut<'_, T> {
         Self: 'a,
     = RefMap<Self, &'a mut R>;
 
-    fn try_map_ref_mut<'a, R, E>(
+    fn try_map_ref_mut<'a, R: ?Sized, E>(
         self,
         f: impl FnOnce(&mut Self::Target) -> Result<&mut R, E>,
     ) -> Result<Self::Output<'a, R>, E>
