@@ -12,7 +12,7 @@ pub use crate::{
         discriminant_account::DiscriminantAccount,
         init_account::{InitAccount, InitArgs, InitSizeWithArg, InitStaticSized},
         init_or_zeroed_account::InitOrZeroedAccount,
-        pod_account::{PodAccount, PodData},
+        pod_account::{PodAccount, PodData, PodFromZeroed, PodInit},
         read_only_data_account::ReadOnlyDataAccount,
         rent_exempt::RentExempt,
         rest::Rest,
@@ -23,6 +23,7 @@ pub use crate::{
         PhantomAccount,
     },
     borsh::{self, BorshDeserialize, BorshSerialize},
+    bytemuck::{self, Pod},
     compressed_numbers::CompressedNumber,
     cpi::{
         CPIChecked, CPIClientDynamic, CPIClientStatic, CPIMethod, CPIUnchecked,

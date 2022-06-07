@@ -89,6 +89,7 @@ mod traits;
 
 pub use account_info::*;
 pub use borsh;
+pub use bytemuck;
 pub use cruiser_derive::verify_account_arg_impl;
 pub use generic_error::*;
 pub use indexer::AllAny;
