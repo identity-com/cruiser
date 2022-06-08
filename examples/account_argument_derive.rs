@@ -22,10 +22,12 @@ use solana_program::pubkey::Pubkey;
 //     }
 // }
 
-#[derive(AccountList, BorshSerialize, BorshDeserialize)]
+#[derive(AccountList, BorshSerialize, BorshDeserialize, Copy, Clone)]
 pub enum TestAccountList {
-    CoolAccount(CoolAccount),
-    I8(i8),
+    #[account(data = CoolAccount)]
+    CoolAccount,
+    #[account(data = i8)]
+    I8,
 }
 
 #[derive(AccountArgument)]

@@ -5,7 +5,7 @@ use cruiser::instruction_list::InstructionList;
 use cruiser::CruiserResult;
 use solana_program::pubkey::Pubkey;
 
-#[derive(AccountList)]
+#[derive(AccountList, Copy, Clone)]
 pub enum TestAccountList {}
 
 #[derive(Copy, Clone, InstructionList)]

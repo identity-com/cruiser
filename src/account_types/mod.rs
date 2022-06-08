@@ -9,6 +9,7 @@ pub mod in_place_account;
 pub mod init_account;
 pub mod init_or_zeroed_account;
 pub mod pod_account;
+pub mod pod_list;
 pub mod read_only_data_account;
 pub mod rent_exempt;
 pub mod rest;

@@ -11,10 +11,10 @@ pub mod instructions;
 use cruiser::prelude::*;
 
 #[cfg(feature = "entrypoint")]
-cruiser::entrypoint_list!(EscrowInstructions, EscrowInstructions);
+entrypoint_list!(EscrowInstructions, EscrowInstructions);
 
 #[derive(InstructionList, Copy, Clone)]
-#[instruction_list(account_list = EscrowAccounts, account_info = [< 'a, AI > AI where AI: cruiser::ToSolanaAccountInfo < 'a >])]
+#[instruction_list(account_list = EscrowAccounts, account_info = [<'a, AI> AI where AI: cruiser::ToSolanaAccountInfo < 'a >])]
 pub enum EscrowInstructions {
     #[instruction(instruction_type = instructions::init_escrow::InitEscrow)]
     InitEscrow,
@@ -22,9 +22,10 @@ pub enum EscrowInstructions {
     Exchange,
 }
 
-#[derive(AccountList)]
+#[derive(AccountList, Copy, Clone)]
 pub enum EscrowAccounts {
-    EscrowAccount(EscrowAccount),
+    #[account(data = EscrowAccount)]
+    EscrowAccount,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, OnChainSize, Default)]

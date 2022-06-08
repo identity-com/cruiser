@@ -194,7 +194,7 @@ pub fn derive_instruction_list(ts: TokenStream) -> TokenStream {
 ///
 /// TODO: Write docs for this
 #[proc_macro_error]
-#[proc_macro_derive(AccountList, attributes(account_list))]
+#[proc_macro_derive(AccountList, attributes(account_list, account))]
 pub fn derive_account_list(ts: TokenStream) -> TokenStream {
     let stream = parse_macro_input!(ts as AccountListDerive).into_token_stream();
     #[cfg(feature = "debug_account_list")]

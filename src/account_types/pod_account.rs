@@ -1,6 +1,8 @@
 //! An account that allows the usage of any [`Pod`] type.
 
 use crate::prelude::*;
+use crate::util::validate_discriminant;
+use cruiser::util::assert_is_zeroed;
 use std::mem::{align_of, size_of};
 use std::ptr::{slice_from_raw_parts, slice_from_raw_parts_mut};
 
@@ -8,8 +10,10 @@ use std::ptr::{slice_from_raw_parts, slice_from_raw_parts_mut};
 #[derive(Debug)]
 #[repr(C)]
 pub struct PodData<D> {
-    data: D,
-    remaining: [u8],
+    /// The data
+    pub data: D,
+    /// The remaining bytes
+    pub remaining: [u8],
 }
 
 /// An account that allows the usage of any [`Pod`] type.
@@ -19,7 +23,9 @@ pub struct PodData<D> {
     no_validate,
     generics = [where AI: AccountInfo, AL: AccountListItem<D>, D: Pod],
 )]
+#[from(data = (from_arg: A), generics = [<A> where AI: FromAccounts<A>], no_single_tupple)]
 pub struct PodAccount<AI, AL, D> {
+    #[from(data = from_arg)]
     info: AI,
     phantom_d: PhantomAccount<AI, D>,
     phantom_al: PhantomAccount<AI, AL>,
@@ -31,8 +37,15 @@ where
     D: Pod,
 {
     /// Gets the offset to the start of the data.
+    ///
+    /// [`u128`]'s alignment on bpf is [`u64`]'s align rather than the normal double that.
+    /// This means that if you use a [`u128`] you need to pack it to the alignment of a [`u64`] to maintain parity.
     #[must_use]
     pub fn data_offset() -> usize {
+        assert!(
+            align_of::<D>() <= align_of::<u64>(),
+            "Data has too large of alignment"
+        );
         let x = 1u64;
         unsafe {
             std::ptr::addr_of!(x)
@@ -76,19 +89,24 @@ where
     fn validate(&mut self, program_id: &Pubkey, arg: ()) -> CruiserResult<()> {
         self.info.validate(program_id, arg)?;
         assert_is_owner(&self.info, program_id, ())?;
-        let data = self.info.data();
-        let mut buffer: &[u8] = &*data;
-        let discriminant = AL::DiscriminantCompressed::deserialize(&mut buffer)?;
-        if discriminant == AL::compressed_discriminant() {
-            Ok(())
-        } else {
-            Err(GenericError::MismatchedDiscriminant {
-                account: *self.info.key(),
-                received: discriminant.into_number().get(),
-                expected: AL::compressed_discriminant().into_number(),
-            }
-            .into())
-        }
+        validate_discriminant::<AL, D>(&mut &*self.info.data())?;
+        Ok(())
+    }
+}
+/// Checks that the account is owned by the given program id.
+#[derive(Debug, Clone)]
+pub struct PodOwner<'a>(pub &'a Pubkey);
+impl<'a, AI, AL, D> ValidateArgument<PodOwner<'a>> for PodAccount<AI, AL, D>
+where
+    AI: AccountInfo,
+    AL: AccountListItem<D>,
+    D: Pod,
+{
+    fn validate(&mut self, program_id: &Pubkey, arg: PodOwner<'a>) -> CruiserResult<()> {
+        self.info.validate(program_id, ())?;
+        assert_is_owner(&self.info, arg.0, ())?;
+        validate_discriminant::<AL, D>(&mut &*self.info.data())?;
+        Ok(())
     }
 }
 /// Checks the account was zeroed and sets the discriminant
@@ -103,19 +121,9 @@ where
     fn validate(&mut self, program_id: &Pubkey, _arg: PodFromZeroed) -> CruiserResult<()> {
         assert_is_owner(&self.info, program_id, ())?;
         let mut data = self.info.data_mut();
-        let mut buffer: &mut [u8] = &mut *data;
-        if buffer
-            .iter()
-            .take(AL::DiscriminantCompressed::max_bytes())
-            .any(|val| *val != 0)
-        {
-            return Err(GenericError::NonZeroedData {
-                account: *self.info.key(),
-            }
-            .into());
-        }
+        assert_is_zeroed::<AL>(&*data, self.info.key(), false)?;
 
-        AL::compressed_discriminant().serialize(&mut buffer)?;
+        AL::compressed_discriminant().serialize(&mut &mut *data)?;
         Ok(())
     }
 }

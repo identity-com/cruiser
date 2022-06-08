@@ -9,14 +9,11 @@ use crate::CruiserResult;
 use solana_program::pubkey::Pubkey;
 
 /// A list of possible instructions for a program.
-pub trait InstructionList: Copy {
+pub trait InstructionList: Sized {
     /// The compression for the discriminant
     type DiscriminantCompressed: CompressedNumber<u64>;
     /// The accounts for this list of instructions
     type AccountList: AccountList;
-
-    /// Creates the instruction from a discriminant
-    fn from_discriminant(discriminant: u64) -> Option<Self>;
 }
 /// Allows an instruction list to support an instruction type
 ///
