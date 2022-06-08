@@ -1,8 +1,7 @@
 //! Helper utility functions
 
+use crate::prelude::*;
 use borsh::BorshDeserialize;
-use cruiser::account_argument::AccountInfoIterator;
-use cruiser::instruction::Instruction;
 use num_traits::One;
 use solana_program::program::{set_return_data, MAX_RETURN_DATA};
 use solana_program::pubkey::Pubkey;
@@ -19,10 +18,6 @@ use std::ops::{Add, Bound, Deref, DerefMut, RangeBounds};
 use std::pin::Pin;
 use std::ptr::{addr_of, addr_of_mut, slice_from_raw_parts, slice_from_raw_parts_mut};
 
-use crate::account_argument::{AccountArgument, FromAccounts, ValidateArgument};
-use crate::instruction::{InstructionProcessor, ReturnValue};
-use crate::{CruiserResult, GenericError};
-
 use crate::util::inner_ptr::InnerPtr;
 pub use chain_exact_size::*;
 pub use with_data::*;
@@ -32,6 +27,45 @@ pub(crate) mod bytes_ext;
 mod chain_exact_size;
 pub mod short_vec;
 mod with_data;
+
+/// Asserts a set of data is valid for a zeroed account.
+/// If `check_all` is set then all bytes are checked, this can be very expensive.
+pub fn assert_is_zeroed<AL>(data: &[u8], account: &Pubkey, check_all: bool) -> CruiserResult
+where
+    AL: AccountList,
+{
+    if data
+        .iter()
+        .take(if check_all {
+            usize::MAX
+        } else {
+            AL::DiscriminantCompressed::max_bytes()
+        })
+        .any(|val| *val != 0)
+    {
+        Err(GenericError::NonZeroedData { account: *account }.into())
+    } else {
+        Ok(())
+    }
+}
+
+/// Verifies the discriminant for a set of data
+pub fn validate_discriminant<AL, D: ?Sized>(data: &mut &[u8]) -> CruiserResult
+where
+    AL: AccountListItem<D>,
+{
+    let discriminant = AL::DiscriminantCompressed::deserialize(data)?;
+    if discriminant == AL::compressed_discriminant() {
+        Ok(())
+    } else {
+        Err(GenericError::MismatchedDiscriminant {
+            account: Pubkey::default(),
+            received: discriminant.into_number().get(),
+            expected: AL::compressed_discriminant().into_number(),
+        }
+        .into())
+    }
+}
 
 /// Saturating assignment functions.
 pub trait SaturatingAssign {

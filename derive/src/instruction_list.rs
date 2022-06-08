@@ -192,17 +192,17 @@ impl InstructionListDerive {
                 type DiscriminantCompressed = #discriminant_type;
                 type AccountList = #account_list;
 
-                fn from_discriminant(discriminant: u64) -> Option<Self>{
-                    if false{
-                        ::std::unreachable!();
-                    }
-                    #(else if discriminant == #variant_discriminant{
-                        Some(Self::#variant_ident)
-                    })*
-                    else{
-                        None
-                    }
-                }
+                // fn from_discriminant(discriminant: u64) -> Option<Self>{
+                //     if false{
+                //         ::std::unreachable!();
+                //     }
+                //     #(else if discriminant == #variant_discriminant{
+                //         Some(Self::#variant_ident)
+                //     })*
+                //     else{
+                //         None
+                //     }
+                // }
             }
 
             #(#list_items)*
