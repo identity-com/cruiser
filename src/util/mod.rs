@@ -615,42 +615,6 @@ impl<A, R1: ?Sized> MappableRef for RefMap<A, &'_ R1> {
     }
 }
 
-/// Chunks an array into equal chunks.
-#[cfg(all(feature = "unstable", VERSION_GREATER_THAN_59))]
-pub fn chunk_array<T, const N: usize, const LEN: usize>(array: &[T; N]) -> [&[T; LEN]; N / LEN]
-where
-    [(); N / LEN]:,
-    [(); 0 - (N % LEN)]:,
-{
-    let ptr = array.as_ptr();
-    let mut out = MaybeUninit::uninit_array();
-    unsafe {
-        for (index, item) in out.iter_mut().enumerate() {
-            *item = MaybeUninit::new(&*ptr.add(index * LEN).cast::<[T; LEN]>());
-        }
-        MaybeUninit::array_assume_init(out)
-    }
-}
-
-/// Chunks an array into equal mutable chunks.
-#[cfg(all(feature = "unstable", VERSION_GREATER_THAN_59))]
-pub fn chunck_array_mut<T, const N: usize, const LEN: usize>(
-    array: &mut [T; N],
-) -> [&mut [T; LEN]; N / LEN]
-where
-    [(); N / LEN]:,
-    [(); 0 - (N % LEN)]:,
-{
-    let ptr = array.as_mut_ptr();
-    let mut out = MaybeUninit::uninit_array();
-    unsafe {
-        for (index, item) in out.iter_mut().enumerate() {
-            *item = MaybeUninit::new(&mut *ptr.add(index * LEN).cast::<[T; LEN]>());
-        }
-        MaybeUninit::array_assume_init(out)
-    }
-}
-
 /// Asserts that data is at least need in length
 pub fn assert_data_len(data_len: usize, need: usize) -> CruiserResult {
     if data_len < need {

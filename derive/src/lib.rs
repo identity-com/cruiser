@@ -24,10 +24,6 @@ use easy_proc::ArgumentList;
 use crate::account_argument::AccountArgumentDerive;
 use crate::account_list::AccountListDerive;
 use crate::error::ErrorDerive;
-#[cfg(feature = "in_place")]
-use crate::get_properties::GetProperties;
-#[allow(unused_imports)]
-use crate::in_place::InPlaceDerive;
 use crate::instruction_list::InstructionListDerive;
 use crate::on_chain_size::OnChainSizeDerive;
 use crate::verify_account_arg_impl::VerifyAccountArgs;
@@ -35,17 +31,10 @@ use crate::verify_account_arg_impl::VerifyAccountArgs;
 mod account_argument;
 mod account_list;
 mod error;
-#[cfg(feature = "in_place")]
-mod get_properties;
-#[allow(dead_code)]
-mod in_place;
 mod instruction_list;
 mod log_level;
 mod on_chain_size;
 mod verify_account_arg_impl;
-
-#[cfg(feature = "in_place")]
-static NAME_NONCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// If no start specified starts at `1_000_000`
 #[proc_macro_error]
@@ -198,105 +187,6 @@ pub fn derive_instruction_list(ts: TokenStream) -> TokenStream {
 pub fn derive_account_list(ts: TokenStream) -> TokenStream {
     let stream = parse_macro_input!(ts as AccountListDerive).into_token_stream();
     #[cfg(feature = "debug_account_list")]
-    {
-        println!("{}", stream);
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
-    stream.into()
-}
-
-/// Gets a set of properties  for a given in_place item.
-/// ```
-/// #![feature(const_trait_impl)]
-/// #![feature(generic_associated_types)]
-/// #![feature(const_mut_refs)]
-/// // Solana uses rust 1.59, this does not support the new where clause location
-/// #![allow(deprecated_where_clause_location)]
-/// use cruiser::in_place::{
-///     InPlace, get_properties, InPlaceUnitWrite, GetNum,
-/// };
-/// use cruiser::on_chain_size::OnChainSize;
-/// use cruiser::Pubkey;
-///
-/// #[derive(InPlace)]
-/// pub struct TestData {
-///     pub value: u8,
-///     pub cool: [u16; 2],
-///     pub key: Pubkey,
-/// }
-/// impl const OnChainSize for TestData {
-///     const ON_CHAIN_SIZE: usize = u8::ON_CHAIN_SIZE
-///             + <[u16; 2]>::ON_CHAIN_SIZE
-///             + Pubkey::ON_CHAIN_SIZE;
-/// }
-///
-/// let mut data = [0u8; TestData::ON_CHAIN_SIZE];
-/// let mut value = TestData::write(data.as_mut_slice()).expect("could not write");
-/// let (value, key) = get_properties!(&mut value, TestData { value, key }).expect("could not get properties");
-/// assert_eq!(value.get_num(), 0);
-/// assert_eq!(*key, Pubkey::new_from_array([0; 32]));
-/// ```
-#[cfg(feature = "in_place")]
-#[proc_macro_error]
-#[proc_macro]
-pub fn get_properties(tokens: TokenStream) -> TokenStream {
-    let stream = parse_macro_input!(tokens as GetProperties).into_token_stream();
-    // println!("{}", stream);
-    stream.into()
-}
-
-/// Gets a set of properties  for a given in_place item.
-/// ```
-/// #![feature(const_trait_impl)]
-/// #![feature(generic_associated_types)]
-/// #![feature(const_mut_refs)]
-/// // Solana uses rust 1.59, this does not support the new where clause location
-/// #![allow(deprecated_where_clause_location)]
-/// use cruiser::in_place::{
-///     InPlace, get_properties_mut, InPlaceUnitWrite, GetNum, SetNum
-/// };
-/// use cruiser::on_chain_size::OnChainSize;
-/// use cruiser::Pubkey;
-///
-/// #[derive(InPlace)]
-/// pub struct TestData {
-///     pub value: u8,
-///     pub cool: [u16; 2],
-///     pub key: Pubkey,
-/// }
-/// impl const OnChainSize for TestData {
-///     const ON_CHAIN_SIZE: usize = u8::ON_CHAIN_SIZE
-///             + <[u16; 2]>::ON_CHAIN_SIZE
-///             + Pubkey::ON_CHAIN_SIZE;
-/// }
-///
-/// let mut data = [0u8; TestData::ON_CHAIN_SIZE];
-/// let mut value = TestData::write(data.as_mut_slice()).expect("could not write");
-/// let (mut value, mut key) = get_properties_mut!(&mut value, TestData { value, key }).expect("could not get properties");
-/// value.set_num(1);
-/// *key = Pubkey::new_from_array([1; 32]);
-/// assert_eq!(value.get_num(), 1);
-/// assert_eq!(*key, Pubkey::new_from_array([1; 32]));
-/// ```
-#[cfg(feature = "in_place")]
-#[proc_macro_error]
-#[proc_macro]
-pub fn get_properties_mut(tokens: TokenStream) -> TokenStream {
-    let stream = parse_macro_input!(tokens as GetProperties)
-        .set_mutable(true)
-        .into_token_stream();
-    // println!("{}", stream);
-    stream.into()
-}
-
-/// Derive macro for the `InPlace` trait.
-/// This only supports a sub-set of cases that it eventually will.
-#[cfg(feature = "in_place")]
-#[proc_macro_error]
-#[proc_macro_derive(InPlace, attributes(in_place))]
-pub fn derive_in_place(input: TokenStream) -> TokenStream {
-    let stream = parse_macro_input!(input as InPlaceDerive).into_token_stream();
-    #[cfg(feature = "debug_in_place")]
     {
         println!("{}", stream);
         std::thread::sleep(std::time::Duration::from_millis(100));
