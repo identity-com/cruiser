@@ -2,14 +2,9 @@
 #![cfg_attr(target_arch = "bpf", feature(const_fn_trait_bound))]
 #![cfg_attr(not(target_arch = "bpf"), feature(const_slice_index))]
 #![feature(const_trait_impl)]
-#![feature(const_ptr_offset)]
-#![feature(const_slice_from_raw_parts)]
-#![feature(const_refs_to_cell)]
 #![feature(const_mut_refs)]
-#![feature(const_for)]
 #![feature(generic_associated_types)]
-#![feature(maybe_uninit_uninit_array)]
-#![feature(maybe_uninit_array_assume_init)]
+// #![feature(maybe_uninit_array_assume_init)]
 #![feature(associated_type_defaults)]
 #![warn(
     unused_import_braces,

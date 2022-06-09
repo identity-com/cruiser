@@ -72,15 +72,6 @@ pub use crate::{
     },
 };
 
-#[cfg(feature = "in_place")]
-pub use crate::{
-    account_types::in_place_account::{CreateInPlace, InPlaceAccount, NoOwnerInPlace},
-    in_place::{
-        get_properties, get_properties_mut, GetNum, InPlace, InPlaceCreate, InPlaceRead,
-        InPlaceUnit, InPlaceUnitCreate, InPlaceUnitRead, InPlaceUnitWrite, InPlaceWrite, SetNum,
-    },
-};
-
 #[cfg(feature = "spl-token")]
 pub use crate::spl::token::{
     MintAccount, TokenAccount, TokenAccountMint, TokenAccountOwner, TokenAccountOwnerAndMint,

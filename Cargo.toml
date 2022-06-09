@@ -37,7 +37,6 @@ default = []
 client = ["solana-transaction-status", "solana-sdk", "solana-client", "rand", "rand_chacha", "tokio", "tokio/time"]
 experimental = []
 interface = ["experimental"]
-in_place = ["experimental", "cruiser_derive/in_place"]
 unstable = []
 
 [dependencies]
@@ -71,10 +70,6 @@ rustc_version = "0.4.0"
 # These are older as solana sdk relies on rand_core 0.5.1
 rand = "0.7.3"
 rand_chacha = "0.2.2"
-
-[[test]]
-name = "in_place_properties"
-required-features = ["in_place"]
 
 [[example]]
 name = "account_argument_derive"
