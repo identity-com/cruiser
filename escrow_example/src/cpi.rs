@@ -1,15 +1,14 @@
+use crate::instructions::exchange::Exchange;
+use crate::instructions::init_escrow::InitEscrow;
 use crate::EscrowInstructions;
-use cruiser::account_argument::ToSolanaAccountMeta;
-use cruiser::borsh::BorshSerialize;
-use cruiser::instruction_list::{InstructionList, InstructionListCPI, InstructionListCPIStatic};
-use cruiser::util::MaybeOwned;
-use cruiser::{CruiserResult, Pubkey, SolanaInstruction};
+use cruiser::prelude::*;
 
-pub struct InitEscrow<'a, AI> {
+pub struct InitEscrowCPI<'a, AI> {
     accounts: [MaybeOwned<'a, AI>; 6],
-    data: Option<Vec<u8>>,
+    data: Vec<u8>,
 }
-impl<'a, AI> InitEscrow<'a, AI> {
+
+impl<'a, AI> InitEscrowCPI<'a, AI> {
     pub fn new(
         initializer: impl Into<MaybeOwned<'a, AI>>,
         temp_token_account: impl Into<MaybeOwned<'a, AI>>,
@@ -20,8 +19,7 @@ impl<'a, AI> InitEscrow<'a, AI> {
         amount: u64,
     ) -> CruiserResult<Self> {
         let mut data = Vec::with_capacity(8 + 8);
-        EscrowInstructions::InitEscrow
-            .discriminant_compressed()
+        <EscrowInstructions as InstructionListItem<InitEscrow>>::discriminant_compressed()
             .serialize(&mut data)?;
         amount.serialize(&mut data)?;
         Ok(Self {
@@ -33,52 +31,57 @@ impl<'a, AI> InitEscrow<'a, AI> {
                 token_program.into(),
                 system_program.into(),
             ],
-            data: Some(data),
+            data,
         })
     }
 }
-impl<'a, AI> InstructionListCPI<EscrowInstructions> for InitEscrow<'a, AI>
+
+impl<'a, AI> CPIClientStatic<'a, 7> for InitEscrowCPI<'a, AI>
 where
     AI: ToSolanaAccountMeta,
 {
+    type InstructionList = EscrowInstructions;
+    type Instruction = InitEscrow;
     type AccountInfo = AI;
 
-    fn instruction(&mut self, program_id: &Pubkey) -> SolanaInstruction {
-        SolanaInstruction {
-            program_id: *program_id,
+    fn instruction(
+        self,
+        program_account: impl Into<MaybeOwned<'a, Self::AccountInfo>>,
+    ) -> InstructionAndAccounts<[MaybeOwned<'a, Self::AccountInfo>; 7]> {
+        let program_account = program_account.into();
+        let instruction = SolanaInstruction {
+            program_id: *program_account.meta_key(),
             accounts: self
                 .accounts
                 .iter()
                 .map(MaybeOwned::as_ref)
                 .map(AI::to_solana_account_meta)
                 .collect(),
-            data: self.data.take().unwrap(),
+            data: self.data,
+        };
+        let mut accounts = self.accounts.into_iter();
+        InstructionAndAccounts {
+            instruction,
+            // TODO: Replace this with a const push operation when willing to go to const generics
+            accounts: [
+                accounts.next().unwrap(),
+                accounts.next().unwrap(),
+                accounts.next().unwrap(),
+                accounts.next().unwrap(),
+                accounts.next().unwrap(),
+                accounts.next().unwrap(),
+                program_account,
+            ],
         }
     }
 }
-impl<'a, AI> InstructionListCPIStatic<EscrowInstructions, 7> for InitEscrow<'a, AI>
-where
-    AI: ToSolanaAccountMeta,
-{
-    fn to_accounts_static<'b>(&'b self, program_account: &'b AI) -> [&'b AI; 7] {
-        // TODO: Replace this with a const push operation when willing to go to const generics
-        [
-            self.accounts[0].as_ref(),
-            self.accounts[1].as_ref(),
-            self.accounts[2].as_ref(),
-            self.accounts[3].as_ref(),
-            self.accounts[4].as_ref(),
-            self.accounts[5].as_ref(),
-            program_account,
-        ]
-    }
+
+pub struct ExchangeCPI<'a, AI> {
+    accounts: [MaybeOwned<'a, AI>; 9],
+    data: Vec<u8>,
 }
 
-pub struct Exchange<'a, AI> {
-    accounts: [MaybeOwned<'a, AI>; 9],
-    data: Option<Vec<u8>>,
-}
-impl<'a, AI> Exchange<'a, AI> {
+impl<'a, AI> ExchangeCPI<'a, AI> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         taker: impl Into<MaybeOwned<'a, AI>>,
@@ -93,8 +96,7 @@ impl<'a, AI> Exchange<'a, AI> {
         amount: u64,
     ) -> CruiserResult<Self> {
         let mut data = Vec::with_capacity(8 + 8);
-        EscrowInstructions::Exchange
-            .discriminant_compressed()
+        <EscrowInstructions as InstructionListItem<Exchange>>::discriminant_compressed()
             .serialize(&mut data)?;
         amount.serialize(&mut data)?;
         Ok(Self {
@@ -109,46 +111,49 @@ impl<'a, AI> Exchange<'a, AI> {
                 token_program.into(),
                 pda_account.into(),
             ],
-            data: Some(data),
+            data,
         })
     }
 }
-impl<'a, AI> InstructionListCPI<EscrowInstructions> for Exchange<'a, AI>
+impl<'a, AI> CPIClientStatic<'a, 10> for ExchangeCPI<'a, AI>
 where
     AI: ToSolanaAccountMeta,
 {
+    type InstructionList = EscrowInstructions;
+    type Instruction = InitEscrow;
     type AccountInfo = AI;
 
-    fn instruction(&mut self, program_id: &Pubkey) -> SolanaInstruction {
-        SolanaInstruction {
-            program_id: *program_id,
+    fn instruction(
+        self,
+        program_account: impl Into<MaybeOwned<'a, Self::AccountInfo>>,
+    ) -> InstructionAndAccounts<[MaybeOwned<'a, Self::AccountInfo>; 10]> {
+        let program_account = program_account.into();
+        let instruction = SolanaInstruction {
+            program_id: *program_account.meta_key(),
             accounts: self
                 .accounts
                 .iter()
                 .map(MaybeOwned::as_ref)
                 .map(AI::to_solana_account_meta)
                 .collect(),
-            data: self.data.take().unwrap(),
+            data: self.data,
+        };
+        let mut accounts = self.accounts.into_iter();
+        InstructionAndAccounts {
+            instruction,
+            // TODO: Replace this with a const push operation when willing to go to const generics
+            accounts: [
+                accounts.next().unwrap(), // 0
+                accounts.next().unwrap(), // 1
+                accounts.next().unwrap(), // 2
+                accounts.next().unwrap(), // 3
+                accounts.next().unwrap(), // 4
+                accounts.next().unwrap(), // 5
+                accounts.next().unwrap(), // 6
+                accounts.next().unwrap(), // 7
+                accounts.next().unwrap(), // 8
+                program_account,
+            ],
         }
-    }
-}
-impl<'a, AI> InstructionListCPIStatic<EscrowInstructions, 10> for Exchange<'a, AI>
-where
-    AI: ToSolanaAccountMeta,
-{
-    fn to_accounts_static<'b>(&'b self, program_account: &'b AI) -> [&'b AI; 10] {
-        // TODO: Replace this with a const push operation when willing to go to const generics
-        [
-            self.accounts[0].as_ref(),
-            self.accounts[1].as_ref(),
-            self.accounts[2].as_ref(),
-            self.accounts[3].as_ref(),
-            self.accounts[4].as_ref(),
-            self.accounts[5].as_ref(),
-            self.accounts[6].as_ref(),
-            self.accounts[7].as_ref(),
-            self.accounts[8].as_ref(),
-            program_account,
-        ]
     }
 }

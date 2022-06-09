@@ -15,7 +15,7 @@ use std::ops::{Deref, DerefMut};
 //         where
 //             T: AccountArgument<AI>{
 //             from: [
-//                 () where T: FromAccounts<()>;
+//                 () where T: FromAccounts;
 //                 <Arg> (Arg,) where T: FromAccounts<Arg>, Arg: Clone;
 //                 <Arg, F> (F, ()) where T: FromAccounts<Arg>, F: FnMut(usize) -> Arg;
 //             ];
@@ -43,9 +43,9 @@ where
         self.0.add_keys(add)
     }
 }
-impl<T> FromAccounts<()> for Rest<T>
+impl<T> FromAccounts for Rest<T>
 where
-    T: FromAccounts<()>,
+    T: FromAccounts,
 {
     fn from_accounts(
         program_id: &Pubkey,
@@ -160,8 +160,8 @@ impl<T> DerefMut for Rest<T> {
     }
 }
 impl<T> IntoIterator for Rest<T> {
-    type Item = <std::vec::Vec<T> as IntoIterator>::Item;
-    type IntoIter = <std::vec::Vec<T> as IntoIterator>::IntoIter;
+    type Item = <Vec<T> as IntoIterator>::Item;
+    type IntoIter = <Vec<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -171,8 +171,8 @@ impl<'a, T> IntoIterator for &'a Rest<T>
 where
     T: 'a,
 {
-    type Item = <&'a std::vec::Vec<T> as IntoIterator>::Item;
-    type IntoIter = <&'a std::vec::Vec<T> as IntoIterator>::IntoIter;
+    type Item = <&'a Vec<T> as IntoIterator>::Item;
+    type IntoIter = <&'a Vec<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
@@ -182,8 +182,8 @@ impl<'a, T> IntoIterator for &'a mut Rest<T>
 where
     T: 'a,
 {
-    type Item = <&'a mut std::vec::Vec<T> as IntoIterator>::Item;
-    type IntoIter = <&'a mut std::vec::Vec<T> as IntoIterator>::IntoIter;
+    type Item = <&'a mut Vec<T> as IntoIterator>::Item;
+    type IntoIter = <&'a mut Vec<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter_mut()

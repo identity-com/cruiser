@@ -175,31 +175,37 @@ impl InstructionListDerive {
             }
         };
 
-        quote! {
-            #[automatically_derived]
-            impl #main_impl_generics InstructionList for #ident #ty_generics #main_where_clause{
-                type DiscriminantCompressed = #discriminant_type;
-                type AccountList = #account_list;
-
-                fn discriminant(self) -> u64{
-                    match self{
-                        #(Self::#variant_ident => #variant_discriminant,)*
-                    }
-                }
-
-                fn from_discriminant(discriminant: u64) -> Option<Self>{
-                    if false{
-                        ::std::unreachable!();
-                    }
-                    #(else if discriminant == #variant_discriminant{
-                        Some(Self::#variant_ident)
-                    })*
-                    else{
-                        None
+        let list_items = variant_instruction_type.iter().zip(variant_discriminant.iter()).map(|(instruction_type, discriminant)|{
+            quote! {
+                #[automatically_derived]
+                unsafe impl #main_impl_generics #crate_name::instruction_list::InstructionListItem<#instruction_type> for #ident #ty_generics #main_where_clause{
+                    fn discriminant() -> u64{
+                        #discriminant
                     }
                 }
             }
+        }).collect::<Vec<_>>();
 
+        quote! {
+            #[automatically_derived]
+            impl #main_impl_generics #crate_name::instruction_list::InstructionList for #ident #ty_generics #main_where_clause{
+                type DiscriminantCompressed = #discriminant_type;
+                type AccountList = #account_list;
+
+                // fn from_discriminant(discriminant: u64) -> Option<Self>{
+                //     if false{
+                //         ::std::unreachable!();
+                //     }
+                //     #(else if discriminant == #variant_discriminant{
+                //         Some(Self::#variant_ident)
+                //     })*
+                //     else{
+                //         None
+                //     }
+                // }
+            }
+
+            #(#list_items)*
             #processor
         }
     }

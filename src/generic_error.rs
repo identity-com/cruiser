@@ -224,6 +224,21 @@ pub enum GenericError {
         /// Amount of data remaining
         remaining: usize,
     },
+    /// Not enough data in an account
+    #[error_msg(
+        "Not enough data in account (`{}`), needed: `{}`, size: `{}`",
+        account,
+        needed,
+        size
+    )]
+    NotEnoughDataInAccount {
+        /// The account with not enough data
+        account: Pubkey,
+        /// Amount of data needed
+        needed: usize,
+        /// Amount of data remaining
+        size: usize,
+    },
     /// Data was reallocated too large
     #[error_msg(
         "Data was reallocated too large, original_len: `{}`, new_len: `{}`, max_new_len: `{}`",

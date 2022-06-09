@@ -1,10 +1,11 @@
 use crate::account_argument::MultiIndexable;
-use crate::{AccountInfo, AccountInfoAccess, CruiserResult};
+use crate::{AccountInfo, CruiserResult};
 use solana_program::instruction::AccountMeta as SolanaAccountMeta;
+use solana_program::pubkey::Pubkey;
 
 /// An account set that can be indexed to a single account at a time with index `I`.
 /// All functions should be infallible if `I` is [`()`].
-pub trait SingleIndexable<I>: MultiIndexable<I> {
+pub trait SingleIndexable<I = ()>: MultiIndexable<I> {
     /// Gets the account info at index `indexer`
     fn index_info(&self, indexer: I) -> CruiserResult<&Self::AccountInfo>;
     /// Turns the account at index `indexer` to a [`SolanaAccountMeta`]
@@ -23,13 +24,14 @@ pub trait SingleIndexable<I>: MultiIndexable<I> {
 
 /// Infallible single access functions.
 /// Relies on the infallibility of [`()`] for [`SingleIndexable`] and [`MultiIndexable`].
-pub trait Single: SingleIndexable<()> {
+pub trait Single: SingleIndexable {
     /// Gets the account info for this argument.
     fn info(&self) -> &Self::AccountInfo;
 }
+
 impl<T> Single for T
 where
-    T: SingleIndexable<()>,
+    T: SingleIndexable,
 {
     fn info(&self) -> &Self::AccountInfo {
         self.index_info(()).expect("`()` info is not infallible!")
@@ -38,20 +40,33 @@ where
 
 /// Can be turned into a [`SolanaAccountMeta`]
 pub trait ToSolanaAccountMeta {
+    /// Gets the key of the account.
+    fn meta_key(&self) -> &Pubkey;
+
     /// Turns the account to a [`SolanaAccountMeta`]
     fn to_solana_account_meta(&self) -> SolanaAccountMeta;
 }
+
 impl<T> ToSolanaAccountMeta for T
 where
-    T: SingleIndexable<()>,
+    T: SingleIndexable,
     T::AccountInfo: AccountInfo,
 {
+    fn meta_key(&self) -> &Pubkey {
+        self.info().key()
+    }
+
     fn to_solana_account_meta(&self) -> SolanaAccountMeta {
         self.index_to_solana_account_meta(())
             .expect("`()` info is not infallible!")
     }
 }
+
 impl ToSolanaAccountMeta for SolanaAccountMeta {
+    fn meta_key(&self) -> &Pubkey {
+        &self.pubkey
+    }
+
     fn to_solana_account_meta(&self) -> SolanaAccountMeta {
         self.clone()
     }

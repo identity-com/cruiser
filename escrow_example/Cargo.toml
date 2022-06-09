@@ -1,6 +1,6 @@
 [package]
 name = "escrow_example"
-version = "0.2.0"
+version = "0.0.0"
 authors = ["Brett Etter <buzzec@buzzec.net>"]
 edition = "2021"
 description = "An example of how to build a program with `crusier`"
@@ -20,7 +20,7 @@ client = ["cruiser/client", "cpi"]
 cruiser = { path = "..", features = ["spl-token"] }
 
 [dev-dependencies]
-cruiser = { path = "..", features = ["testing"] }
+cruiser = { path = "..", features = ["client"] }
 reqwest = "0.11.10"
 futures = "0.3.21"
 tokio = { version = "1.17.0", features = ["full"] }

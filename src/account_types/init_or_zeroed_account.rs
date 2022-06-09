@@ -3,8 +3,9 @@
 use std::iter::once;
 use std::ops::{Deref, DerefMut};
 
-use crate::cpi::CPI;
+use crate::cpi::CPIMethod;
 use borsh::{BorshDeserialize, BorshSerialize};
+use cruiser::prelude::SystemProgram;
 use solana_program::pubkey::Pubkey;
 
 use crate::account_argument::{
@@ -15,7 +16,7 @@ use crate::account_list::AccountListItem;
 use crate::account_types::discriminant_account::DiscriminantAccount;
 use crate::account_types::init_account::{InitAccount, InitArgs};
 use crate::account_types::zeroed_account::{CheckAll, ZeroedAccount};
-use crate::AccountInfo;
+use crate::{AccountInfo, GenericError};
 use crate::{CruiserResult, ToSolanaAccountInfo};
 
 // verify_account_arg_impl! {
@@ -41,9 +42,8 @@ use crate::{CruiserResult, ToSolanaAccountInfo};
 // }
 
 /// A combination of [`InitAccount`] and [`ZeroedAccount`] accepting either based on owner.
-// TODO: impl Debug for this
-#[allow(missing_debug_implementations)]
 // TODO: use AccountArgument trait for impl when enums supported
+#[derive(Debug)]
 pub enum InitOrZeroedAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,
@@ -53,6 +53,24 @@ where
     Init(InitAccount<AI, AL, D>),
     /// Is a [`ZeroedAccount`]
     Zeroed(ZeroedAccount<AI, AL, D>),
+}
+impl<AI, AL, D> InitOrZeroedAccount<AI, AL, D>
+where
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
+{
+    /// Returns true if this is a [`ZeroedAccount`]
+    pub const fn is_zeroed(&self) -> bool {
+        match self {
+            Self::Init(_) => false,
+            Self::Zeroed(_) => true,
+        }
+    }
+
+    /// Returns true if this is an [`InitAccount`]
+    pub const fn is_init(&self) -> bool {
+        !self.is_zeroed()
+    }
 }
 impl<AI, AL, D> Deref for InitOrZeroedAccount<AI, AL, D>
 where
@@ -68,6 +86,7 @@ where
         }
     }
 }
+
 impl<AI, AL, D> DerefMut for InitOrZeroedAccount<AI, AL, D>
 where
     AL: AccountListItem<D>,
@@ -80,6 +99,7 @@ where
         }
     }
 }
+
 impl<AI, AL, D> AccountArgument for InitOrZeroedAccount<AI, AL, D>
 where
     AI: AccountInfo,
@@ -102,6 +122,7 @@ where
         }
     }
 }
+
 impl<'a, AI, AL, D> FromAccounts<D> for InitOrZeroedAccount<AI, AL, D>
 where
     AI: AccountInfo,
@@ -133,39 +154,86 @@ where
         AI::accounts_usage_hint(&())
     }
 }
-impl<'a, 'b, AI, AL, D, C> ValidateArgument<InitArgs<'a, AI, C>> for InitOrZeroedAccount<AI, AL, D>
-where
-    AI: ToSolanaAccountInfo<'b>,
-    AL: AccountListItem<D>,
-    D: BorshSerialize + BorshDeserialize,
-    C: CPI,
-{
-    fn validate(&mut self, program_id: &Pubkey, arg: InitArgs<'a, AI, C>) -> CruiserResult<()> {
-        match self {
-            InitOrZeroedAccount::Init(init) => init.validate(program_id, arg),
-            InitOrZeroedAccount::Zeroed(zeroed) => zeroed.validate(program_id, ()),
-        }
-    }
-}
-impl<'a, 'b, AI, AL, D, C> ValidateArgument<(InitArgs<'a, AI, C>, CheckAll)>
+
+impl<'a, 'b, AI, AL, D, C, S>
+    ValidateArgument<InitArgs<'a, C, Option<&'a AI>, S, Option<&'a SystemProgram<AI>>>>
     for InitOrZeroedAccount<AI, AL, D>
 where
     AI: ToSolanaAccountInfo<'b>,
     AL: AccountListItem<D>,
     D: BorshSerialize + BorshDeserialize,
-    C: CPI,
+    C: CPIMethod,
+    InitAccount<AI, AL, D>: ValidateArgument<InitArgs<'a, C, &'a AI, S, &'a SystemProgram<AI>>>,
 {
     fn validate(
         &mut self,
         program_id: &Pubkey,
-        arg: (InitArgs<'a, AI, C>, CheckAll),
+        arg: InitArgs<'a, C, Option<&'a AI>, S, Option<&'a SystemProgram<AI>>>,
     ) -> CruiserResult<()> {
         match self {
-            InitOrZeroedAccount::Init(init) => init.validate(program_id, arg.0),
+            InitOrZeroedAccount::Init(init) => init.validate(
+                program_id,
+                InitArgs {
+                    system_program: arg.system_program.ok_or_else(|| GenericError::Custom {
+                        error: "System program is not set".to_string(),
+                    })?,
+                    space: arg.space,
+                    funder: arg.funder.ok_or_else(|| GenericError::Custom {
+                        error: "funder is required".to_string(),
+                    })?,
+                    funder_seeds: arg.funder_seeds,
+                    account_seeds: arg.account_seeds,
+                    rent: arg.rent,
+                    cpi: arg.cpi,
+                },
+            ),
+            InitOrZeroedAccount::Zeroed(zeroed) => zeroed.validate(program_id, ()),
+        }
+    }
+}
+
+impl<'a, 'b, AI, AL, D, C, S>
+    ValidateArgument<(
+        InitArgs<'a, C, Option<&'a AI>, S, Option<&'a SystemProgram<AI>>>,
+        CheckAll,
+    )> for InitOrZeroedAccount<AI, AL, D>
+where
+    AI: ToSolanaAccountInfo<'b>,
+    AL: AccountListItem<D>,
+    D: BorshSerialize + BorshDeserialize,
+    C: CPIMethod,
+    InitAccount<AI, AL, D>: ValidateArgument<InitArgs<'a, C, &'a AI, S, &'a SystemProgram<AI>>>,
+{
+    fn validate(
+        &mut self,
+        program_id: &Pubkey,
+        arg: (
+            InitArgs<'a, C, Option<&'a AI>, S, Option<&'a SystemProgram<AI>>>,
+            CheckAll,
+        ),
+    ) -> CruiserResult<()> {
+        match self {
+            InitOrZeroedAccount::Init(init) => init.validate(
+                program_id,
+                InitArgs {
+                    system_program: arg.0.system_program.ok_or_else(|| GenericError::Custom {
+                        error: "System program is not set".to_string(),
+                    })?,
+                    space: arg.0.space,
+                    funder: arg.0.funder.ok_or_else(|| GenericError::Custom {
+                        error: "funder is required".to_string(),
+                    })?,
+                    funder_seeds: arg.0.funder_seeds,
+                    account_seeds: arg.0.account_seeds,
+                    rent: arg.0.rent,
+                    cpi: arg.0.cpi,
+                },
+            ),
             InitOrZeroedAccount::Zeroed(zeroed) => zeroed.validate(program_id, arg.1),
         }
     }
 }
+
 impl<AI, AL, D, T> MultiIndexable<T> for InitOrZeroedAccount<AI, AL, D>
 where
     AI: AccountInfo + MultiIndexable<T>,
@@ -184,6 +252,7 @@ where
         self.info.index_is_owner(owner, indexer)
     }
 }
+
 impl<AI, AL, D, T> SingleIndexable<T> for InitOrZeroedAccount<AI, AL, D>
 where
     AI: AccountInfo + SingleIndexable<T>,

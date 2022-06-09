@@ -27,16 +27,14 @@ impl ByteCount<u64> {
         }
     }
 }
-unsafe impl CompressedNumber for ByteCount<u64> {
-    type Num = u64;
-
+impl CompressedNumber<u64> for ByteCount<u64> {
     #[inline]
-    fn from_number(number: Self::Num) -> Self {
+    fn from_number(number: u64) -> Self {
         Self::from_u64(number)
     }
 
     #[inline]
-    fn into_number(self) -> Self::Num {
+    fn into_number(self) -> u64 {
         self.into_u64()
     }
 

@@ -1,18 +1,40 @@
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
+#![cfg_attr(target_arch = "bpf", feature(const_fn_trait_bound))]
+#![cfg_attr(not(target_arch = "bpf"), feature(const_slice_index))]
+#![feature(const_trait_impl)]
+#![feature(const_mut_refs)]
+#![feature(generic_associated_types)]
+// #![feature(maybe_uninit_array_assume_init)]
+#![feature(associated_type_defaults)]
 #![warn(
     unused_import_braces,
     unused_imports,
     missing_docs,
     missing_debug_implementations,
-    clippy::pedantic
+    clippy::pedantic,
+    unused_qualifications
 )]
 #![allow(
     clippy::cast_possible_truncation,
     clippy::module_name_repetitions,
     clippy::missing_errors_doc,
     clippy::too_many_lines,
-    clippy::mut_mut
+    clippy::missing_panics_doc,
+    clippy::wildcard_imports,
+    clippy::match_wild_err_arm
 )]
+// Solana is on 1.59 currently, this requires the now deprecated where clause position
+#![cfg_attr(VERSION_GREATER_THAN_59, allow(deprecated_where_clause_location))]
+// For in-place const stuff
+#![cfg_attr(
+    all(feature = "unstable", VERSION_GREATER_THAN_59),
+    allow(incomplete_features)
+)]
+#![cfg_attr(
+    all(feature = "unstable", VERSION_GREATER_THAN_59),
+    feature(generic_const_exprs, specialization)
+)]
+
 //! A generator program that will be able to generate solana program code from a much easier starting place.
 //!
 //! # How it works
@@ -45,25 +67,24 @@ pub mod account_types;
 #[cfg(feature = "client")]
 pub mod client;
 pub mod compressed_numbers;
+pub mod cpi;
 pub mod entrypoint;
+pub mod impls;
 pub mod indexer;
 pub mod pda_seeds;
+pub mod prelude;
 #[cfg(feature = "spl-token")]
 pub mod spl;
-#[cfg(feature = "testing")]
-pub mod testing;
 pub mod types;
 pub mod util;
 
 mod account_info;
-mod cpi;
 mod generic_error;
-mod impls;
 mod traits;
 
 pub use account_info::*;
 pub use borsh;
-pub use cpi::*;
+pub use bytemuck;
 pub use cruiser_derive::verify_account_arg_impl;
 pub use generic_error::*;
 pub use indexer::AllAny;

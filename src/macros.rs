@@ -34,10 +34,10 @@ macro_rules! impl_account_info {
                 &self,
                 mut add: impl FnMut(Pubkey) -> CruiserResult<()>,
             ) -> CruiserResult<()> {
-                add(*$crate::AccountInfoAccess::key(self))
+                add(*$crate::AccountInfo::key(self))
             }
         }
-        impl$(<$gen>)? FromAccounts<()> for $account_info {
+        impl$(<$gen>)? FromAccounts for $account_info {
             fn from_accounts(
                 _program_id: &Pubkey,
                 infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
@@ -53,22 +53,54 @@ macro_rules! impl_account_info {
                 (1, Some(1))
             }
         }
-        impl$(<$gen>)? ValidateArgument<()> for $account_info {
+        impl$(<$gen>)? FromAccounts<Self> for $account_info {
+            fn from_accounts(
+                _program_id: &Pubkey,
+                _infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
+                arg: Self,
+            ) -> CruiserResult<Self> {
+                Ok(arg)
+            }
+
+            fn accounts_usage_hint(_arg: &Self) -> (usize, Option<usize>) {
+                (0, Some(0))
+            }
+        }
+        impl$(<$gen>)? FromAccounts<Option<Self>> for $account_info {
+            fn from_accounts(
+                program_id: &Pubkey,
+                infos: &mut impl AccountInfoIterator<Item = Self::AccountInfo>,
+                arg: Option<Self>,
+            ) -> CruiserResult<Self> {
+                match arg {
+                    Some(arg) => Self::from_accounts(program_id, infos, arg),
+                    None => Self::from_accounts(program_id, infos, ()),
+                }
+            }
+
+            fn accounts_usage_hint(arg: &Option<Self>) -> (usize, Option<usize>) {
+                match arg {
+                    Some(arg) => Self::accounts_usage_hint(arg),
+                    None => Self::accounts_usage_hint(&()),
+                }
+            }
+        }
+        impl$(<$gen>)? ValidateArgument for $account_info {
             fn validate(&mut self, _program_id: &Pubkey, _arg: ()) -> CruiserResult<()> {
                 Ok(())
             }
         }
-        impl$(<$gen>)? MultiIndexable<()> for $account_info {
+        impl$(<$gen>)? MultiIndexable for $account_info {
             fn index_is_signer(&self, _indexer: ()) -> CruiserResult<bool> {
-                Ok($crate::AccountInfoAccess::is_signer(self))
+                Ok($crate::AccountInfo::is_signer(self))
             }
 
             fn index_is_writable(&self, _indexer: ()) -> CruiserResult<bool> {
-                Ok($crate::AccountInfoAccess::is_writable(self))
+                Ok($crate::AccountInfo::is_writable(self))
             }
 
             fn index_is_owner(&self, owner: &Pubkey, _indexer: ()) -> CruiserResult<bool> {
-                Ok(&*$crate::AccountInfoAccess::owner(self) == owner)
+                Ok(&*$crate::AccountInfo::owner(self) == owner)
             }
         }
         impl$(<$gen>)? MultiIndexable<AllAny> for $account_info {
@@ -84,7 +116,7 @@ macro_rules! impl_account_info {
                 Ok(indexer.is_not() ^ self.index_is_owner(owner, ())?)
             }
         }
-        impl$(<$gen>)? SingleIndexable<()> for $account_info {
+        impl$(<$gen>)? SingleIndexable for $account_info {
             fn index_info(&self, _indexer: ()) -> CruiserResult<&$account_info> {
                 Ok(self)
             }

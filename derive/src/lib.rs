@@ -25,14 +25,15 @@ use crate::account_argument::AccountArgumentDerive;
 use crate::account_list::AccountListDerive;
 use crate::error::ErrorDerive;
 use crate::instruction_list::InstructionListDerive;
+use crate::on_chain_size::OnChainSizeDerive;
 use crate::verify_account_arg_impl::VerifyAccountArgs;
 
 mod account_argument;
 mod account_list;
 mod error;
-mod in_place;
 mod instruction_list;
 mod log_level;
+mod on_chain_size;
 mod verify_account_arg_impl;
 
 /// If no start specified starts at `1_000_000`
@@ -182,7 +183,7 @@ pub fn derive_instruction_list(ts: TokenStream) -> TokenStream {
 ///
 /// TODO: Write docs for this
 #[proc_macro_error]
-#[proc_macro_derive(AccountList)]
+#[proc_macro_derive(AccountList, attributes(account_list, account))]
 pub fn derive_account_list(ts: TokenStream) -> TokenStream {
     let stream = parse_macro_input!(ts as AccountListDerive).into_token_stream();
     #[cfg(feature = "debug_account_list")]
@@ -203,10 +204,24 @@ pub fn verify_account_arg_impl(tokens: TokenStream) -> TokenStream {
     stream.into()
 }
 
+/// Derive macro for the [`OnChainSize`] trait.
+/// This will sum structs, use 1 + max for enums, and max unions.
+#[proc_macro_error]
+#[proc_macro_derive(OnChainSize, attributes(on_chain_size))]
+pub fn derive_on_chain_size(input: TokenStream) -> TokenStream {
+    let stream = parse_macro_input!(input as OnChainSizeDerive).into_token_stream();
+    #[cfg(feature = "debug_on_chain_size")]
+    {
+        println!("{}", stream);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    stream.into()
+}
+
 fn get_crate_name() -> proc_macro2::TokenStream {
     let generator_crate = crate_name("cruiser").expect("Could not find `cruiser`");
     match generator_crate {
-        FoundCrate::Itself => quote! { ::cruiser },
+        FoundCrate::Itself => quote! { cruiser },
         FoundCrate::Name(name) => {
             let ident = format_ident!("{}", name);
             quote! { ::#ident }
@@ -230,6 +245,7 @@ pub fn test_easy_proc(args: TokenStream, tokens: TokenStream) -> TokenStream {
 struct TestStruct {
     cool: Cool,
 }
+
 #[cfg(feature = "easy_proc_test")]
 impl TestStruct {
     fn into_token_stream(self) -> TokenStream {
@@ -245,6 +261,7 @@ impl TestStruct {
         }
     }
 }
+
 #[cfg(feature = "easy_proc_test")]
 impl Parse for TestStruct {
     fn parse(input: ParseStream) -> syn::Result<Self> {

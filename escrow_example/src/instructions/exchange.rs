@@ -1,45 +1,33 @@
 use crate::{EscrowAccount, EscrowAccounts, EscrowPDASeeder};
-use cruiser::account_argument::AccountArgument;
-use cruiser::account_types::close_account::CloseAccount;
-use cruiser::account_types::data_account::DataAccount;
-use cruiser::account_types::seeds::{Find, Seeds};
-use cruiser::borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::instruction::Instruction;
-use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
-use cruiser::{borsh, AccountInfo};
+use cruiser::prelude::*;
 
 pub struct Exchange;
-impl<AI> Instruction<AI> for Exchange
-where
-    AI: AccountInfo,
-{
+impl<AI> Instruction<AI> for Exchange {
     type Accounts = ExchangeAccounts<AI>;
     type Data = ExchangeData;
+    type ReturnType = ();
 }
 
 #[derive(AccountArgument)]
-#[account_argument(account_info = AI)]
-pub struct ExchangeAccounts<AI>
-where
-    AI: AccountInfo,
-{
+#[account_argument(account_info = AI, generics = [where AI: AccountInfo])]
+pub struct ExchangeAccounts<AI> {
     #[validate(signer)]
     taker: AI,
-    #[validate(writable, data = Owner(self.taker.key()))]
-    taker_send_token_account: TokenAccount<AI>,
+    #[validate(writable, data = TokenAccountOwner(self.taker.key()))]
+    taker_send_token_account: Box<TokenAccount<AI>>,
     #[validate(writable)]
-    taker_receive_token_account: TokenAccount<AI>,
+    taker_receive_token_account: Box<TokenAccount<AI>>,
     #[validate(writable, key = &self.escrow_account.temp_token_account)]
-    temp_token_account: TokenAccount<AI>,
+    temp_token_account: Box<TokenAccount<AI>>,
     #[validate(writable, key = &self.escrow_account.initializer)]
     initializer: AI,
     #[validate(writable, key = &self.escrow_account.initializer_token_to_receive)]
-    initializer_token_account: TokenAccount<AI>,
+    initializer_token_account: Box<TokenAccount<AI>>,
     #[validate(writable)]
-    escrow_account: CloseAccount<AI, DataAccount<AI, EscrowAccounts, EscrowAccount>>,
-    token_program: TokenProgram<AI>,
-    #[validate(data = (EscrowPDASeeder, Find))]
-    pda_account: Seeds<AI, EscrowPDASeeder>,
+    escrow_account: Box<CloseAccount<AI, DataAccount<AI, EscrowAccounts, EscrowAccount>>>,
+    token_program: Box<TokenProgram<AI>>,
+    #[validate(data = (EscrowPDASeeder, FindBump))]
+    pda_account: Box<Seeds<AI, EscrowPDASeeder>>,
 }
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct ExchangeData {
@@ -49,9 +37,6 @@ pub struct ExchangeData {
 #[cfg(feature = "processor")]
 mod processor {
     use super::*;
-    use cruiser::account_argument::Single;
-    use cruiser::instruction::InstructionProcessor;
-    use cruiser::{msg, CPIChecked, CruiserResult, GenericError, Pubkey, ToSolanaAccountInfo};
     use std::iter::empty;
 
     impl<'a, AI> InstructionProcessor<AI, Exchange> for Exchange

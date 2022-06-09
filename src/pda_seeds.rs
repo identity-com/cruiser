@@ -2,7 +2,7 @@
 use std::fmt::Debug;
 use std::iter::{once, Chain, Map, Once};
 
-use crate::cpi::CPI;
+use crate::cpi::CPIMethod;
 use crate::solana_program::entrypoint::ProgramResult;
 use crate::solana_program::pubkey::PubkeyError;
 use crate::{CruiserResult, GenericError, Pubkey, SolanaInstruction, ToSolanaAccountInfo};
@@ -55,7 +55,7 @@ impl<'a> PDASeedSet<'a> {
     /// Invokes an instruction with these seeds
     pub fn invoke_signed<'b, AI: ToSolanaAccountInfo<'b>, const N: usize>(
         &self,
-        cpi: impl CPI,
+        cpi: impl CPIMethod,
         instruction: &SolanaInstruction,
         account_infos: &[&AI; N],
     ) -> ProgramResult {
@@ -67,7 +67,7 @@ impl<'a> PDASeedSet<'a> {
     /// Invokes an instruction of variable account size with these seeds
     pub fn invoke_signed_variable_size<'b, 'c, AI: 'b + ToSolanaAccountInfo<'c>>(
         &self,
-        cpi: impl CPI,
+        cpi: impl CPIMethod,
         instruction: &SolanaInstruction,
         account_infos: impl IntoIterator<Item = &'b AI>,
     ) -> ProgramResult {
@@ -78,7 +78,7 @@ impl<'a> PDASeedSet<'a> {
 
     /// Invokes an instruction with given seed sets
     pub fn invoke_signed_multiple<'b: 'a, 'c, AI: ToSolanaAccountInfo<'c>, const N: usize>(
-        cpi: impl CPI,
+        cpi: impl CPIMethod,
         instruction: &SolanaInstruction,
         account_infos: &[&AI; N],
         seed_sets: impl IntoIterator<Item = &'a PDASeedSet<'b>>,
@@ -99,7 +99,7 @@ impl<'a> PDASeedSet<'a> {
         'd,
         AI: 'c + ToSolanaAccountInfo<'d>,
     >(
-        cpi: impl CPI,
+        cpi: impl CPIMethod,
         instruction: &SolanaInstruction,
         account_infos: impl IntoIterator<Item = &'c AI>,
         seed_sets: impl IntoIterator<Item = &'a PDASeedSet<'b>>,

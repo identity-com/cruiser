@@ -1,50 +1,43 @@
 use crate::{EscrowAccount, EscrowAccounts};
-use cruiser::account_argument::AccountArgument;
-use cruiser::account_types::init_account::InitArgs;
-use cruiser::account_types::init_or_zeroed_account::InitOrZeroedAccount;
-use cruiser::account_types::rent_exempt::RentExempt;
-use cruiser::account_types::system_program::SystemProgram;
-use cruiser::borsh::{BorshDeserialize, BorshSerialize};
-use cruiser::instruction::Instruction;
-use cruiser::on_chain_size::OnChainStaticSize;
-use cruiser::spl::token::{Owner, TokenAccount, TokenProgram};
-use cruiser::{borsh, AccountInfo, CPIChecked, ToSolanaAccountInfo};
+use cruiser::prelude::*;
 
 pub struct InitEscrow;
-impl<AI> Instruction<AI> for InitEscrow
-where
-    AI: AccountInfo,
-{
+
+impl<AI> Instruction<AI> for InitEscrow {
     type Accounts = InitEscrowAccounts<AI>;
     type Data = InitEscrowData;
+    type ReturnType = ();
 }
+
 #[derive(AccountArgument)]
 #[account_argument(account_info = AI, generics = [where AI: AccountInfo])]
-#[validate(generics = [<'a> where AI: ToSolanaAccountInfo<'a>])]
+#[validate(generics = [< 'a > where AI: ToSolanaAccountInfo < 'a >])]
 pub struct InitEscrowAccounts<AI> {
     #[validate(signer)]
     initializer: AI,
-    #[validate(writable, data = Owner(self.initializer.key()))]
+    #[validate(writable, data = TokenAccountOwner(self.initializer.key()))]
     temp_token_account: TokenAccount<AI>,
     initializer_token_account: TokenAccount<AI>,
     #[from(data = EscrowAccount::default())]
     #[validate(writable, data = (InitArgs{
-        funder: &self.initializer,
+        funder: Some(&self.initializer),
         funder_seeds: None,
         rent: None,
-        space: EscrowAccount::on_chain_static_size() + 8,
-        system_program: &self.system_program,
+        space: InitStaticSized,
+        system_program: self.system_program.as_ref(),
         account_seeds: None,
         cpi: CPIChecked,
     },))]
     escrow_account: RentExempt<InitOrZeroedAccount<AI, EscrowAccounts, EscrowAccount>>,
     token_program: TokenProgram<AI>,
-    system_program: SystemProgram<AI>,
+    system_program: Option<SystemProgram<AI>>,
 }
+
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct InitEscrowData {
     amount: u64,
 }
+
 #[cfg(feature = "processor")]
 mod processor {
     use super::*;

@@ -6,9 +6,8 @@ use std::ops::{Deref, Index, IndexMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::account_argument::AccountArgument;
 use crate::util::bytes_ext::{ReadExt, WriteExt};
-use crate::{CruiserResult, GenericError, Pubkey};
+use crate::GenericError;
 
 macro_rules! small_vec {
     ($ident:ident, $ty:ty, $write:ident, $read:ident, $docs:expr) => {
@@ -77,37 +76,6 @@ macro_rules! small_vec {
                     out.push(T::deserialize(buf)?);
                 }
                 Ok(Self(out))
-            }
-        }
-        impl<T> AccountArgument for $ident<T>
-        where
-            T: AccountArgument,
-        {
-            type AccountInfo = T::AccountInfo;
-
-            fn write_back(self, program_id: &Pubkey) -> CruiserResult<()> {
-                for val in self.0 {
-                    val.write_back(program_id)?;
-                }
-                Ok(())
-            }
-
-            fn add_keys(
-                &self,
-                mut add: impl FnMut(Pubkey) -> CruiserResult<()>,
-            ) -> CruiserResult<()> {
-                for val in &self.0 {
-                    val.add_keys(&mut add)?;
-                }
-                Ok(())
-            }
-        }
-        impl<T> IntoIterator for $ident<T> {
-            type Item = <Vec<T> as IntoIterator>::Item;
-            type IntoIter = <Vec<T> as IntoIterator>::IntoIter;
-
-            fn into_iter(self) -> Self::IntoIter {
-                self.0.into_iter()
             }
         }
         impl<'a, T> IntoIterator for &'a $ident<T> {

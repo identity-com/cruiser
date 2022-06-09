@@ -5,7 +5,7 @@ use cruiser::instruction_list::InstructionList;
 use cruiser::CruiserResult;
 use solana_program::pubkey::Pubkey;
 
-#[derive(AccountList)]
+#[derive(AccountList, Copy, Clone)]
 pub enum TestAccountList {}
 
 #[derive(Copy, Clone, InstructionList)]
@@ -13,18 +13,47 @@ pub enum TestAccountList {}
 pub enum TestList {
     #[instruction(instruction_type = TestInstruction1)]
     TestInstruction1,
-    #[instruction(instruction_type = TestInstruction1)]
+    #[instruction(instruction_type = TestInstruction2)]
     TestInstruction2,
-    #[instruction(instruction_type = TestInstruction1)]
-    TestInstruction3,
 }
 
 pub struct TestInstruction1;
 impl<AI> Instruction<AI> for TestInstruction1 {
     type Data = ();
     type Accounts = PhantomAccount<AI, ()>;
+    type ReturnType = ();
 }
 impl<AI> InstructionProcessor<AI, TestInstruction1> for TestInstruction1 {
+    type FromAccountsData = ();
+    type ValidateData = ();
+    type InstructionData = ();
+
+    fn data_to_instruction_arg(
+        _data: <Self as Instruction<AI>>::Data,
+    ) -> CruiserResult<(
+        Self::FromAccountsData,
+        Self::ValidateData,
+        Self::InstructionData,
+    )> {
+        Ok(Default::default())
+    }
+
+    fn process(
+        _program_id: &Pubkey,
+        _data: <TestInstruction1 as Instruction<AI>>::Data,
+        _accounts: &mut <TestInstruction1 as Instruction<AI>>::Accounts,
+    ) -> CruiserResult<()> {
+        panic!("This is never called")
+    }
+}
+
+pub struct TestInstruction2;
+impl<AI> Instruction<AI> for TestInstruction2 {
+    type Data = ();
+    type Accounts = PhantomAccount<AI, ()>;
+    type ReturnType = ();
+}
+impl<AI> InstructionProcessor<AI, TestInstruction1> for TestInstruction2 {
     type FromAccountsData = ();
     type ValidateData = ();
     type InstructionData = ();

@@ -8,7 +8,7 @@ use solana_program::program::{
 };
 
 /// A way of executing CPI calls
-pub trait CPI: Sized {
+pub trait CPIMethod: Sized {
     /// The raw execution function.
     /// Usually ends up at either [`solana_program::program::invoke_signed`] or [`solana_program::program::invoke_signed_unchecked`]
     fn raw_invoke_signed(
@@ -50,7 +50,7 @@ pub trait CPI: Sized {
     }
 
     /// Invokes another solana program with a variable number of accounts.
-    /// Less efficient than [`CPI::invoke`].
+    /// Less efficient than [`CPIMethod::invoke`].
     fn invoke_variable_size<'a, 'b, AI, I>(
         self,
         instruction: &SolanaInstruction,
@@ -64,7 +64,7 @@ pub trait CPI: Sized {
     }
 
     /// Invokes another solana program with a variable number of accounts, signing with seeds.
-    /// Less efficient than [`CPI::invoke_signed`].
+    /// Less efficient than [`CPIMethod::invoke_signed`].
     fn invoke_signed_variable_size<'a, 'b, AI, I>(
         self,
         instruction: &SolanaInstruction,
@@ -92,7 +92,7 @@ pub trait CPI: Sized {
 /// Uses [`solana_program::program::invoke_signed`]
 #[derive(Copy, Clone, Debug)]
 pub struct CPIChecked;
-impl CPI for CPIChecked {
+impl CPIMethod for CPIChecked {
     #[inline]
     fn raw_invoke_signed(
         self,
@@ -109,7 +109,7 @@ impl CPI for CPIChecked {
 /// Uses [`solana_program::program::invoke_signed_unchecked`]
 #[derive(Copy, Clone, Debug)]
 pub struct CPIUnchecked;
-impl CPI for CPIUnchecked {
+impl CPIMethod for CPIUnchecked {
     #[inline]
     fn raw_invoke_signed(
         self,

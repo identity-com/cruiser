@@ -18,8 +18,16 @@ debug_error = []
 debug_account_argument = []
 debug_instruction_list = []
 debug_account_list = []
+debug_on_chain_size = []
 easy_proc_test = []
-debug = ["debug_account", "debug_error", "debug_account_argument", "debug_instruction_list", "debug_account_list"]
+debug = [
+    "debug_account",
+    "debug_error",
+    "debug_account_argument",
+    "debug_instruction_list",
+    "debug_account_list",
+    "debug_on_chain_size",
+]
 
 [dependencies]
 proc-macro2 = "1.0.27"

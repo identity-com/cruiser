@@ -22,10 +22,12 @@ use solana_program::pubkey::Pubkey;
 //     }
 // }
 
-#[derive(AccountList, BorshSerialize, BorshDeserialize)]
+#[derive(AccountList, BorshSerialize, BorshDeserialize, Copy, Clone)]
 pub enum TestAccountList {
-    CoolAccount(CoolAccount),
-    I8(i8),
+    #[account(data = CoolAccount)]
+    CoolAccount,
+    #[account(data = i8)]
+    I8,
 }
 
 #[derive(AccountArgument)]
@@ -37,9 +39,9 @@ where
 {
     data_account: DataAccount<AI, TestAccountList, CoolAccount>,
     #[from(data = init_size as usize)]
-    #[validate(signer, writable, owner(0) = &get_pubkey())]
+    #[validate(signer(all), writable(all), owner(0) = &get_pubkey())]
     init_accounts: Vec<DataAccount<AI, TestAccountList, CoolAccount>>,
-    #[validate(signer, writable(3), owner((0..4, AllAny::All, ())) = &get_pubkey(), owner(7) = self.data_account.info().key())]
+    #[validate(signer(any), writable(3), owner((0..4, AllAny::All, ())) = &get_pubkey(), owner(7) = self.data_account.info().key())]
     other_accounts: [DataAccount<AI, TestAccountList, i8>; 8],
 }
 
@@ -53,7 +55,7 @@ where
     data_account: DataAccount<AI, TestAccountList, CoolAccount>,
     #[from(data = vec![(); init_size as usize])]
     init_accounts: Vec<DataAccount<AI, TestAccountList, CoolAccount>>,
-    #[validate(signer, writable(3), owner((0..4, AllAny::Any, ())) = &get_pubkey())]
+    #[validate(signer(any), writable(3), owner((0..4, AllAny::Any, ())) = &get_pubkey())]
     other_accounts: [DataAccount<AI, TestAccountList, i8>; 8],
 }
 

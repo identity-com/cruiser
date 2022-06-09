@@ -23,17 +23,23 @@ use crate::spl::token::TokenProgramAccount;
 // }
 
 /// A token account owned by the token program
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TokenAccount<AI> {
     data: spl_token::state::Account,
     /// The account associated
     pub account: TokenProgramAccount<AI>,
 }
-impl<AI> OnChainSize<()> for TokenAccount<AI> {
-    fn on_chain_max_size(_arg: ()) -> usize {
-        spl_token::state::Account::get_packed_len()
-    }
+
+impl const OnChainSize for spl_token::state::Account {
+    /// Pulled from packed source
+    const ON_CHAIN_SIZE: usize = 165;
 }
+
+impl<AI> OnChainSize for TokenAccount<AI> {
+    /// Pulled from packed source
+    const ON_CHAIN_SIZE: usize = spl_token::state::Account::ON_CHAIN_SIZE;
+}
+
 impl<AI> Deref for TokenAccount<AI> {
     type Target = spl_token::state::Account;
 
@@ -41,6 +47,7 @@ impl<AI> Deref for TokenAccount<AI> {
         &self.data
     }
 }
+
 impl<AI> AccountArgument for TokenAccount<AI>
 where
     AI: AccountInfo,
@@ -55,7 +62,8 @@ where
         self.account.add_keys(add)
     }
 }
-impl<AI> FromAccounts<()> for TokenAccount<AI>
+
+impl<AI> FromAccounts for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
@@ -73,7 +81,8 @@ where
         TokenProgramAccount::<AI>::accounts_usage_hint(arg)
     }
 }
-impl<AI> ValidateArgument<()> for TokenAccount<AI>
+
+impl<AI> ValidateArgument for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
@@ -82,14 +91,16 @@ where
         Ok(())
     }
 }
+
 /// Validates that the given key is the owner of the [`TokenAccount`]
-#[derive(Debug)]
-pub struct Owner<'a>(pub &'a Pubkey);
-impl<AI> ValidateArgument<Owner<'_>> for TokenAccount<AI>
+#[derive(Debug, Copy, Clone)]
+pub struct TokenAccountOwner<'a>(pub &'a Pubkey);
+
+impl<AI> ValidateArgument<TokenAccountOwner<'_>> for TokenAccount<AI>
 where
     AI: AccountInfo,
 {
-    fn validate(&mut self, program_id: &Pubkey, arg: Owner) -> CruiserResult<()> {
+    fn validate(&mut self, program_id: &Pubkey, arg: TokenAccountOwner) -> CruiserResult<()> {
         self.validate(program_id, ())?;
         if &self.data.owner == arg.0 {
             Ok(())
@@ -102,6 +113,64 @@ where
         }
     }
 }
+
+/// Validates that the given key is the mint of the [`TokenAccount`]
+#[derive(Debug, Copy, Clone)]
+pub struct TokenAccountMint<'a>(pub &'a Pubkey);
+
+impl<AI> ValidateArgument<TokenAccountMint<'_>> for TokenAccount<AI>
+where
+    AI: AccountInfo,
+{
+    fn validate(&mut self, program_id: &Pubkey, arg: TokenAccountMint) -> CruiserResult<()> {
+        self.validate(program_id, ())?;
+        if &self.data.mint == arg.0 {
+            Ok(())
+        } else {
+            Err(GenericError::InvalidAccount {
+                account: self.data.mint,
+                expected: *arg.0,
+            }
+            .into())
+        }
+    }
+}
+
+/// Validates that the account has a given owner and mint
+#[derive(Debug, Copy, Clone)]
+pub struct TokenAccountOwnerAndMint<'a> {
+    owner: &'a Pubkey,
+    mint: &'a Pubkey,
+}
+
+impl<AI> ValidateArgument<TokenAccountOwnerAndMint<'_>> for TokenAccount<AI>
+where
+    AI: AccountInfo,
+{
+    fn validate(
+        &mut self,
+        program_id: &Pubkey,
+        arg: TokenAccountOwnerAndMint,
+    ) -> CruiserResult<()> {
+        self.validate(program_id, ())?;
+        if &self.data.owner != arg.owner {
+            Err(GenericError::InvalidAccount {
+                account: self.data.owner,
+                expected: *arg.owner,
+            }
+            .into())
+        } else if &self.data.mint != arg.mint {
+            Err(GenericError::InvalidAccount {
+                account: self.data.mint,
+                expected: *arg.mint,
+            }
+            .into())
+        } else {
+            Ok(())
+        }
+    }
+}
+
 impl<AI, I> MultiIndexable<I> for TokenAccount<AI>
 where
     AI: AccountInfo,
@@ -119,6 +188,7 @@ where
         self.account.index_is_owner(owner, indexer)
     }
 }
+
 impl<AI, I> SingleIndexable<I> for TokenAccount<AI>
 where
     AI: AccountInfo,

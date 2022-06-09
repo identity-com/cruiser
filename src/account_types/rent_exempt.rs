@@ -11,7 +11,7 @@ use crate::account_argument::{
     AccountArgument, AccountInfoIterator, FromAccounts, MultiIndexable, SingleIndexable,
     ValidateArgument,
 };
-use crate::{AccountInfo, AccountInfoAccess, CruiserResult, GenericError};
+use crate::{AccountInfo, CruiserResult, GenericError};
 
 // verify_account_arg_impl! {
 //     mod rent_exempt_check<AI>{
@@ -21,11 +21,11 @@ use crate::{AccountInfo, AccountInfoAccess, CruiserResult, GenericError};
 //             ];
 //             validate: [
 //                 /// Uses [`Rent::get`] to determine the required rent.
-//                 () where T::AccountInfo: AccountInfo, T: ValidateArgument<()> + SingleIndexable<()>;
+//                 () where T::AccountInfo: AccountInfo, T: ValidateArgument + SingleIndexable;
 //                 /// Uses the passed rent to determine the required rent.
-//                 Rent where T::AccountInfo: AccountInfo, T: ValidateArgument<()> + SingleIndexable<()>;
+//                 Rent where T::AccountInfo: AccountInfo, T: ValidateArgument + SingleIndexable;
 //                 /// Uses [`Rent::get`] to determine the required rent.
-//                 <Arg> (Arg,) where T::AccountInfo: AccountInfo, T: ValidateArgument<Arg> + SingleIndexable<()>;
+//                 <Arg> (Arg,) where T::AccountInfo: AccountInfo, T: ValidateArgument<Arg> + SingleIndexable;
 //                 /// Uses [`Rent::get`] to determine the required rent.
 //                 <Arg, I> (Arg, I) where T::AccountInfo: AccountInfo, T: ValidateArgument<Arg> + SingleIndexable<I>;
 //                 /// Uses the passed rent to determine the required rent.
@@ -39,7 +39,7 @@ use crate::{AccountInfo, AccountInfoAccess, CruiserResult, GenericError};
 
 /// A single account wrapper that ensures the account is rent exempt. Used commonly with [`ZeroedAccount`](crate::account_types::zeroed_account::ZeroedAccount).
 ///
-/// - `A` the Account argument to wrap. Must implement [`SingleIndexable<()>`].
+/// - `A` the Account argument to wrap. Must implement [`SingleIndexable`].
 #[derive(Debug)]
 pub struct RentExempt<T>(pub T);
 impl<T> Deref for RentExempt<T> {
@@ -84,10 +84,10 @@ where
         T::accounts_usage_hint(arg)
     }
 }
-impl<T> ValidateArgument<()> for RentExempt<T>
+impl<T> ValidateArgument for RentExempt<T>
 where
     T::AccountInfo: AccountInfo,
-    T: ValidateArgument<()> + SingleIndexable<()>,
+    T: ValidateArgument + SingleIndexable,
 {
     fn validate(&mut self, program_id: &Pubkey, _arg: ()) -> CruiserResult<()> {
         self.validate(program_id, Rent::get()?)
@@ -96,7 +96,7 @@ where
 impl<T> ValidateArgument<Rent> for RentExempt<T>
 where
     T::AccountInfo: AccountInfo,
-    T: ValidateArgument<()> + SingleIndexable<()>,
+    T: ValidateArgument + SingleIndexable,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: Rent) -> CruiserResult<()> {
         self.validate(program_id, ((), (), arg))
@@ -105,7 +105,7 @@ where
 impl<T, Arg> ValidateArgument<(Arg,)> for RentExempt<T>
 where
     T::AccountInfo: AccountInfo,
-    T: ValidateArgument<Arg> + SingleIndexable<()>,
+    T: ValidateArgument<Arg> + SingleIndexable,
 {
     fn validate(&mut self, program_id: &Pubkey, arg: (Arg,)) -> CruiserResult<()> {
         self.validate(program_id, (arg.0, (), Rent::get()?))
